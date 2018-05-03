@@ -510,7 +510,7 @@ private:
     void computeMolecularSpeedRatio( )
     {
         scalarFlightConditions_[ molecular_speed_ratio_condition ] =
-                getCurrentMachNumber( ) * std::sqrt( 0.5 * atmosphereModel_->getSpecificHeatRatio(
+                getCurrentMachNumber( ) * std::sqrt( 0.5 * atmosphereModel_->getRatioOfSpecificHeats(
                     scalarFlightConditions_.at( altitude_flight_condition ),
                     scalarFlightConditions_.at( longitude_flight_condition ),
                     scalarFlightConditions_.at( latitude_flight_condition ), currentTime_ ) );
@@ -520,7 +520,7 @@ private:
     void computeNumberDensity( )
     {
         scalarFlightConditions_[ number_density_condition ] =
-                getCurrentDensity( ) * atmosphereModel_->getGasConstant(
+                getCurrentDensity( ) * atmosphereModel_->getSpecificGasConstant(
                     scalarFlightConditions_.at( altitude_flight_condition ),
                     scalarFlightConditions_.at( longitude_flight_condition ),
                     scalarFlightConditions_.at( latitude_flight_condition ), currentTime_ ) *

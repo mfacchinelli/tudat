@@ -78,6 +78,30 @@ public:
     */
     virtual double getSpeedOfSound( const double altitude, const double longitude = 0.0,
                                     const double latitude = 0.0, const double time = 0.0 ) = 0;
+
+    //! Get local specific gas constant.
+    /*!
+    * Returns the local specific gas constant of the atmosphere in J/(kg K).
+    * \param altitude Altitude.
+    * \param longitude Longitude.
+    * \param latitude Latitude.
+    * \param time Time.
+    * \return Specific gas constant.
+    */
+    virtual double getSpecificGasConstant( const double altitude, const double longitude = 0.0,
+                                           const double latitude = 0.0, const double time = 0.0 ) = 0;
+
+    //! Get local ratio of specific heats.
+    /*!
+    * Returns the local ratio of specific heats of the atmosphere.
+    * \param altitude Altitude.
+    * \param longitude Longitude.
+    * \param latitude Latitude.
+    * \param time Time.
+    * \return Ratio of specific heats.
+    */
+    virtual double getRatioOfSpecificHeats( const double altitude, const double longitude = 0.0,
+                                            const double latitude = 0.0, const double time = 0.0 ) = 0;
 };
 
 //! Typedef for shared-pointer to StandardAtmosphere object.
