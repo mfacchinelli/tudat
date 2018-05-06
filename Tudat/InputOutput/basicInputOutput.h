@@ -113,16 +113,6 @@ static inline std::string getSpaceWeatherDataPath( )
     return getTudatRootPath( ) + "External/SpaceWeatherData/";
 }
 
-//! Get SPARTA data files path.
-/*!
- * Returns path in which SPARTA data files are located.
- * \return Path containing SPARTA data files.
- */
-static inline std::string getSpartaDataPath( )
-{
-    return getTudatRootPath( ) + "External/SPARTA/";
-}
-
 //! Print floating-point number in formatted scientific notation.
 /*!
  * Prints floating-point number in formatted scientific notation. The user can specify the
@@ -216,11 +206,19 @@ void writeValueToStream( OutputStream& stream, const Eigen::Matrix< ScalarType,
     stream << std::endl;
 }
 
+//! Convert number to string with specified number of decimals.
+/*!
+ * Convert number to string with specified number of decimals.
+ * \tparam ValueType Type of value to be converted.
+ * \param valueToBeConverted Number of type ValueType to be converted to string.
+ * \param precision Number specifiying number of decimals to be used during conversion.
+ * \return String containing valueToBeConverted with the number of decimals specified in precision.
+ */
 template< typename ValueType = double >
-std::string printToStringWithPrecision( const ValueType valueToBePrinted, const int precision = 3 )
+std::string toStringWithPrecision( const ValueType valueToBeConverted, const int precision = 3 )
 {
     std::ostringstream outputString;
-    outputString << std::setprecision( precision ) << std::fixed << valueToBePrinted;
+    outputString << std::setprecision( precision ) << std::fixed << valueToBeConverted;
     return outputString.str( );
 }
 

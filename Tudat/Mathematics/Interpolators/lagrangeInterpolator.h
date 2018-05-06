@@ -26,7 +26,6 @@
 #include "Tudat/Mathematics/Interpolators/cubicSplineInterpolator.h"
 #include "Tudat/Mathematics/Interpolators/lookupScheme.h"
 
-
 namespace tudat
 {
 
@@ -83,8 +82,10 @@ public:
             const int numberOfStages,
             const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
             const LagrangeInterpolatorBoundaryHandling lagrangeBoundaryHandling = lagrange_cubic_spline_boundary_interpolation,
-            const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary_with_warning ):
-        OneDimensionalInterpolator< IndependentVariableType, DependentVariableType >( boundaryHandling ),
+            const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary,
+            const DependentVariableType defaultExtrapolationValue = IdentityElement< DependentVariableType >::getAdditionIdentity( ) ):
+        OneDimensionalInterpolator< IndependentVariableType, DependentVariableType >( boundaryHandling,
+                                                                                      defaultExtrapolationValue ),
         numberOfStages_( numberOfStages ), lagrangeBoundaryHandling_( lagrangeBoundaryHandling )
     {
         if( numberOfStages_ % 2 != 0 )
@@ -157,8 +158,10 @@ public:
             const int numberOfStages,
             const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
             const LagrangeInterpolatorBoundaryHandling lagrangeBoundaryHandling = lagrange_cubic_spline_boundary_interpolation,
-            const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary_with_warning ):
-        OneDimensionalInterpolator< IndependentVariableType, DependentVariableType >( boundaryHandling ),
+            const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary,
+            const DependentVariableType defaultExtrapolationValue = IdentityElement< DependentVariableType >::getAdditionIdentity( ) ):
+        OneDimensionalInterpolator< IndependentVariableType, DependentVariableType >( boundaryHandling,
+                                                                                      defaultExtrapolationValue ),
         numberOfStages_( numberOfStages ), lagrangeBoundaryHandling_( lagrangeBoundaryHandling )
     {
         if( numberOfStages_ % 2 != 0 )

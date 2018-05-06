@@ -60,9 +60,11 @@ set(INPUTOUTPUT_HEADERS
   "${SRCROOT}${INPUTOUTPUTDIR}/extractSolarActivityData.h"
   "${SRCROOT}${INPUTOUTPUTDIR}/solarActivityData.h"
   "${SRCROOT}${INPUTOUTPUTDIR}/multiDimensionalArrayReader.h"
+  "${SRCROOT}${INPUTOUTPUTDIR}/multiDimensionalArrayWriter.h"
   "${SRCROOT}${INPUTOUTPUTDIR}/aerodynamicCoefficientReader.h"
   "${SRCROOT}${INPUTOUTPUTDIR}/tabulatedAtmosphereReader.h"
   "${SRCROOT}${INPUTOUTPUTDIR}/spartaDataReader.h"
+  "${SRCROOT}${INPUTOUTPUTDIR}/spartaInputOutput.h"
 )
 
 # Add unit test files.

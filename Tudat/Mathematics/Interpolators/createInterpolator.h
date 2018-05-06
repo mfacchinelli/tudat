@@ -62,10 +62,11 @@ public:
     InterpolatorSettings( const OneDimensionalInterpolatorTypes interpolatorType,
                           const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
                           const bool useLongDoubleTimeStep = 0,
-                          const BoundaryInterpolationType boundaryInterpolationType = extrapolate_at_boundary_with_warning ):
+                          const BoundaryInterpolationType boundaryInterpolationType = extrapolate_at_boundary ):
         interpolatorType_( interpolatorType ), selectedLookupScheme_( selectedLookupScheme ),
         useLongDoubleTimeStep_( useLongDoubleTimeStep ),
-        boundaryInterpolationType_( boundaryInterpolationType ){ }
+        boundaryInterpolationType_( boundaryInterpolationType )
+    { }
 
     //! Virtual destructor
     virtual ~InterpolatorSettings( ){ }
@@ -96,16 +97,21 @@ public:
         useLongDoubleTimeStep_ = useLongDoubleTimeStep;
     }
 
-    //! Function to get a boolean denoting whether time step is to be a long double
+    //! Function to get a boolean denoting whether time step is to be a long double.
     /*!
-     * Function to get a boolean denoting whether time step is to be a long double
-     * \return Boolean denoting whether time step is to be a long double
+     * Function to get a boolean denoting whether time step is to be a long double.
+     * \return Boolean denoting whether time step is to be a long double.
      */
     bool getUseLongDoubleTimeStep( )
     {
         return useLongDoubleTimeStep_;
     }
 
+    //! Function to retrieve boundary handling method.
+    /*!
+     * Function to retrieve boundary handling method.
+     * \return Boundary handling method.
+     */
     BoundaryInterpolationType getBoundaryInterpolationType( )
     {
         return boundaryInterpolationType_;
@@ -119,11 +125,11 @@ protected:
     //! Selected type of lookup scheme for independent variables.
     AvailableLookupScheme selectedLookupScheme_;
 
-    //!  Boolean denoting whether time step is to be a long double.
+    //! Boolean denoting whether time step is to be a long double.
     bool useLongDoubleTimeStep_;
 
+    //! Boundary handling method.
     BoundaryInterpolationType boundaryInterpolationType_;
-
 
 };
 
@@ -146,7 +152,7 @@ public:
             const bool useLongDoubleTimeStep = 0,
             const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
             const LagrangeInterpolatorBoundaryHandling boundaryHandling = lagrange_cubic_spline_boundary_interpolation,
-            const BoundaryInterpolationType boundaryInterpolationType = extrapolate_at_boundary_with_warning ):
+            const BoundaryInterpolationType boundaryInterpolationType = extrapolate_at_boundary ):
         InterpolatorSettings( lagrange_interpolator, selectedLookupScheme, useLongDoubleTimeStep, boundaryInterpolationType ),
         interpolatorOrder_( interpolatorOrder ),
         boundaryHandling_( boundaryHandling )

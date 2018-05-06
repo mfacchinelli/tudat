@@ -110,11 +110,12 @@ boost::shared_ptr< aerodynamics::AtmosphereModel > createAtmosphereModel(
             // Create and initialize tabulated atmosphere model.
             atmosphereModel = boost::make_shared< TabulatedAtmosphere >(
                         tabulatedAtmosphereSettings->getAtmosphereFile( ),
-                        tabulatedAtmosphereSettings->getDependentVariables( ),
                         tabulatedAtmosphereSettings->getIndependentVariables( ),
+                        tabulatedAtmosphereSettings->getDependentVariables( ),
                         tabulatedAtmosphereSettings->getSpecificGasConstant( ),
                         tabulatedAtmosphereSettings->getRatioOfSpecificHeats( ),
-                        tabulatedAtmosphereSettings->getBoundaryHandling( ) );
+                        tabulatedAtmosphereSettings->getBoundaryHandling( ),
+                        tabulatedAtmosphereSettings->getDefaultExtrapolationValue( ) );
         }
         break;
     }

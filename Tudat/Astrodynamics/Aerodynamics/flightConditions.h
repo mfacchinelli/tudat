@@ -366,7 +366,6 @@ public:
         return controlSurfaceAerodynamicCoefficientIndependentVariables_;
     }
 
-
     //! Function to reset the current time of the flight conditions.
     /*!
      *  Function to reset the current time of the flight conditions. This function is typically sused to set the current time
