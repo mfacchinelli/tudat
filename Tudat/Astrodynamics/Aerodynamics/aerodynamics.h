@@ -50,7 +50,9 @@ enum AerodynamicCoefficientsIndependentVariables
     angle_of_sideslip_dependent = 2,
     altitude_dependent = 3,
     control_surface_deflection_dependent = 4,
-    undefined_independent_variable = 5
+    molecular_speed_ratio_dependent = 5,
+    number_density_dependent = 6,
+    undefined_independent_variable = 7
 };
 
 

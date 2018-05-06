@@ -53,19 +53,18 @@ enum AtmosphericConditionVariables
     number_density_index = 4
 };
 
-//! Returns default values of altitude for use in RarefiedFlowAnalysis.
+//! Returns default values of number density  for use in RarefiedFlowAnalysis.
 /*!
- *  Returns default values of altitude for use in RarefiedFlowAnalysis.
+ *  Returns default values of number density for use in RarefiedFlowAnalysis.
  */
-std::vector< double > getDefaultRarefiedFlowAltitudePoints(
-        const std::string& targetPlanet = "Earth" );
+std::vector< double > getDefaultRarefiedFlowNumberDensityPoints( );
 
 //! Returns default values of Mach number for use in RarefiedFlowAnalysis.
 /*!
  *  Returns default values of Mach number for use in RarefiedFlowAnalysis.
  */
-std::vector< double > getDefaultRarefiedFlowMachPoints(
-        const std::string& machRegime = "Full" );
+std::vector< double > getDefaultRarefiedFlowMolecularSpeedRatioPoints(
+        const std::string& molecularSpeedRatioRegime = "Full" );
 
 //! Returns default values of angle of attack for use in RarefiedFlowAnalysis.
 /*!
