@@ -355,8 +355,8 @@ protected:
 
 };
 
-}
+} // namespace propagators
 
-}
+} // namespace tudat
 
 #endif // TUDAT_ROTATIONAL_MOTION_STATE_DERIVATIVE_H
