@@ -66,7 +66,7 @@ int getAccelerationSize( const IntegratedStateType stateType )
     int accelerationSize = 0;
     switch( stateType )
     {
-    case transational_state:
+    case translational_state:
         accelerationSize = 3;
         break;
     case body_mass_state:

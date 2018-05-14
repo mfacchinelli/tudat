@@ -1172,7 +1172,7 @@ boost::shared_ptr< MultiArcPropagatorSettings< StateScalarType > > getExtendedMu
     // Check parameter type
     switch( singleArcSettings->getStateType( ) )
     {
-    case transational_state:
+    case translational_state:
     {
         // Check single-arc consistency
         boost::shared_ptr< TranslationalStatePropagatorSettings< StateScalarType > > singleArcTranslationalSettings =

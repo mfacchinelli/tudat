@@ -49,7 +49,7 @@ void checkValidityOfRequiredEnvironmentUpdates(
                 // Check if requested environment model exists.
                 switch( updateIterator->first )
                 {
-                case body_transational_state_update:
+                case body_translational_state_update:
                 {
                     if( bodyMap.at( updateIterator->second.at( i ) )->getEphemeris( ) == NULL )
                     {
@@ -299,7 +299,7 @@ createTranslationalEquationsOfMotionEnvironmentUpdaterSettings(
                 // Add translational state of both bodies to update list for current acceleration model.
                 if( translationalAccelerationModels.count( accelerationModelIterator->first ) == 0 )
                 {
-                    singleAccelerationUpdateNeeds[ body_transational_state_update ].push_back(
+                    singleAccelerationUpdateNeeds[ body_translational_state_update ].push_back(
                                 accelerationModelIterator->first );
                 }
 
@@ -319,7 +319,7 @@ createTranslationalEquationsOfMotionEnvironmentUpdaterSettings(
                     {
                         if( translationalAccelerationModels.count( thirdBodyAcceleration->getCentralBodyName( ) ) == 0 )
                         {
-                            singleAccelerationUpdateNeeds[ body_transational_state_update ].push_back(
+                            singleAccelerationUpdateNeeds[ body_translational_state_update ].push_back(
                                         thirdBodyAcceleration->getCentralBodyName( ) );
                         }
                     }
@@ -376,7 +376,7 @@ createTranslationalEquationsOfMotionEnvironmentUpdaterSettings(
                     if( thirdBodyAcceleration != NULL && translationalAccelerationModels.count(
                                 thirdBodyAcceleration->getCentralBodyName( ) ) == 0  )
                     {
-                        singleAccelerationUpdateNeeds[ body_transational_state_update ].push_back(
+                        singleAccelerationUpdateNeeds[ body_translational_state_update ].push_back(
                                     thirdBodyAcceleration->getCentralBodyName( ) );
                     }
                     else if( thirdBodyAcceleration == NULL )
@@ -406,7 +406,7 @@ createTranslationalEquationsOfMotionEnvironmentUpdaterSettings(
                     if( thirdBodyAcceleration != NULL && translationalAccelerationModels.count(
                                 thirdBodyAcceleration->getCentralBodyName( ) ) == 0  )
                     {
-                        singleAccelerationUpdateNeeds[ body_transational_state_update ].push_back(
+                        singleAccelerationUpdateNeeds[ body_translational_state_update ].push_back(
                                     thirdBodyAcceleration->getCentralBodyName( ) );
                         singleAccelerationUpdateNeeds[ body_rotational_state_update ].push_back(
                                     thirdBodyAcceleration->getCentralBodyName( ) );
@@ -444,7 +444,7 @@ createTranslationalEquationsOfMotionEnvironmentUpdaterSettings(
                         std::string primaryBody = accelerationCorrection->getPrimaryBodyName( );
                         if( translationalAccelerationModels.count(primaryBody ) == 0 )
                         {
-                            singleAccelerationUpdateNeeds[ body_transational_state_update ].push_back(
+                            singleAccelerationUpdateNeeds[ body_translational_state_update ].push_back(
                                         primaryBody );
                         }
                     }
