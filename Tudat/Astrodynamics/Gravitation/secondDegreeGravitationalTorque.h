@@ -11,6 +11,8 @@
 #ifndef TUDAT_SECONDDEGREEGRAVITATIONALTORQUE_H
 #define TUDAT_SECONDDEGREEGRAVITATIONALTORQUE_H
 
+#include <iostream>
+
 #include <boost/function.hpp>
 #include <boost/lambda/lambda.hpp>
 
@@ -23,6 +25,11 @@ namespace tudat
 
 namespace gravitation
 {
+
+Eigen::Vector3d calculateSecondDegreeGravitationalTorque(
+        const Eigen::Vector3d& relativePositionOfBodySubjectToTorque,
+        const double premultipler,
+        const Eigen::Vector3d& inertiaTensorTimesRelativePositionOfBody );
 
 //! Function to calculate the gravitational torque exerted by a point mass on a body with degree two gravity field
 /*!
@@ -100,16 +107,69 @@ public:
      */
     void updateMembers( const double currentTime )
     {
+        currentRotationToBodyFixedFrame_ = rotationToBodyFixedFrameFunction_( );
         currentRelativePositionOfBodySubjectToTorque_ = positionOfBodyExertingTorqueFunction_( ) - positionOfBodySubjectToTorqueFunction_( );
-        currentRotationToBodyFixedFrameFunction_ = rotationToBodyFixedFrameFunction_( );
+        currentRotationToBodyFixedFrameFunction_ = currentRotationToBodyFixedFrame_;
+        currentRelativeBodyFixedPositionOfBodySubjectToTorque_ =
+                currentRotationToBodyFixedFrameFunction_ * currentRelativePositionOfBodySubjectToTorque_;
 
         currentGravitationalParameterOfAttractingBody_ = gravitationalParameterOfAttractingBodyFunction_( );
         currentInertiaTensorOfRotatingBody_ = inertiaTensorOfRotatingBodyFunction_( );
 
+        currentInertiaTensorTimesRelativePositionOfBody_ = currentInertiaTensorOfRotatingBody_ *
+                currentRelativeBodyFixedPositionOfBodySubjectToTorque_;
+        currentTorqueMagnitudePremultiplier_ =
+                3.0 * currentGravitationalParameterOfAttractingBody_ /
+                std::pow(
+                    currentRelativePositionOfBodySubjectToTorque_.norm( ), 5.0 );
+
+//        currentTorque_ = currentRelativeBodyFixedPositionOfBodySubjectToTorque_.cross(
+//                    currentInertiaTensorOfRotatingBody_ * currentRelativeBodyFixedPositionOfBodySubjectToTorque_ );
         currentTorque_ = calculateSecondDegreeGravitationalTorque(
-                    currentRotationToBodyFixedFrameFunction_ * currentRelativePositionOfBodySubjectToTorque_,
-                    currentGravitationalParameterOfAttractingBody_,
-                    currentInertiaTensorOfRotatingBody_ );
+                    currentRelativeBodyFixedPositionOfBodySubjectToTorque_,
+                    currentTorqueMagnitudePremultiplier_,
+                    currentInertiaTensorTimesRelativePositionOfBody_ );
+
+//        std::cout<<std::endl<<"Pos: "<<currentRelativeBodyFixedPositionOfBodySubjectToTorque_.transpose( )<<" "<<"Mult: "<<
+//                   currentTorqueMagnitudePremultiplier_<<" "<<"cross "<<
+//                   currentRelativeBodyFixedPositionOfBodySubjectToTorque_.cross( currentInertiaTensorTimesRelativePositionOfBody_ )<<" "<<
+//                   "torque "<<currentTorque_.transpose( )<<std::endl;
+    }
+
+    Eigen::Quaterniond& getCurrentRotationToBodyFixedFrame( )
+    {
+        return currentRotationToBodyFixedFrame_;
+    }
+
+    Eigen::Vector3d& getCurrentRelativePositionOfBodySubjectToTorque( )
+    {
+        return currentRelativePositionOfBodySubjectToTorque_;
+    }
+
+
+    Eigen::Vector3d& getCurrentRelativeBodyFixedPositionOfBodySubjectToTorque( )
+    {
+        return currentRelativeBodyFixedPositionOfBodySubjectToTorque_;
+    }
+
+    Eigen::Matrix3d& getCurrentInertiaTensorOfRotatingBody( )
+    {
+        return currentInertiaTensorOfRotatingBody_;
+    }
+
+    double getCurrentTorqueMagnitudePremultiplier( )
+    {
+        return currentTorqueMagnitudePremultiplier_;
+    }
+
+    double getCurrentGravitationalParameterOfAttractingBody( )
+    {
+        return currentGravitationalParameterOfAttractingBody_;
+    }
+
+    Eigen::Vector3d& getCurrentInertiaTensorTimesRelativePositionOfBody( )
+    {
+        return currentInertiaTensorTimesRelativePositionOfBody_;
     }
 
 protected:
@@ -129,11 +189,16 @@ private:
     boost::function< Eigen::Vector3d( ) > positionOfBodyExertingTorqueFunction_;
 
     //! Function returning the rotation from inertial frame to frame fixed to body undergoing torque.
-    const boost::function< Eigen::Quaterniond( ) > rotationToBodyFixedFrameFunction_;
+    boost::function< Eigen::Quaterniond( ) > rotationToBodyFixedFrameFunction_;
+
+    Eigen::Quaterniond currentRotationToBodyFixedFrame_;
 
     //! Current [osition of body exerting torque, w.r.t. body undergoing torque in frame fixed to body undergoing torque, as set
     //! by updateMembers function.
     Eigen::Vector3d currentRelativePositionOfBodySubjectToTorque_;
+
+    Eigen::Vector3d currentRelativeBodyFixedPositionOfBodySubjectToTorque_;
+
 
     //! Current gravitational parameter of the body that is exerting the torque, as set by updateMembers function.
     double currentGravitationalParameterOfAttractingBody_;
@@ -144,6 +209,10 @@ private:
 
     //! Rotation from inertial frame to frame fixed to body undergoing torque, as set by updateMembers function.
     Eigen::Quaterniond currentRotationToBodyFixedFrameFunction_;
+
+    Eigen::Vector3d currentInertiaTensorTimesRelativePositionOfBody_;
+
+    double currentTorqueMagnitudePremultiplier_;
 
     //! Current gravitational torque, as set by updateMembers function.
     Eigen::Vector3d currentTorque_;

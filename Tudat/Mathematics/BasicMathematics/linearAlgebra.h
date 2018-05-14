@@ -35,6 +35,14 @@ namespace linear_algebra
  */
 Eigen::Vector4d convertQuaternionToVectorFormat( const Eigen::Quaterniond& quaternion );
 
+//! Function to get a quaternion from 'vector format', e.g. a Vector4d with entries (w,x,y,z) of the quaternion
+/*!
+ * Function to get a quaternion from 'vector format', e.g. a Vector4d with entries (w,x,y,z) of the quaternion
+ * \param quaternion Vector that is to be put into quaternion format.
+ * \return Quaternion format of input vector.
+ */
+Eigen::Quaterniond getQuaternionFromVectorFormat( const Eigen::Vector4d& vector );
+
 //! Function to compute the direction cosine matrix from a quaternion expressed as a Vector4d
 /*!
  * Function to compute the direction cosine matrix from a quaternion expressed as a Vector4d
@@ -189,6 +197,10 @@ bool doesMatrixHaveNanEntries( const Eigen::Matrix< StateScalarType, NumberOfRow
  */
 double getVectorEntryRootMeanSquare( const Eigen::VectorXd& inputVector );
 
+
+void computePartialDerivativeOfRotationMatrixWrtQuaternion(
+        const Eigen::Vector4d quaternionVector,
+        std::vector< Eigen::Matrix3d >& partialDerivatives );
 
 } // namespace linear_algebra
 

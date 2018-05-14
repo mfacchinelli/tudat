@@ -27,6 +27,7 @@ set(BASICASTRODYNAMICS_SOURCES
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/unifiedStateModelExponentialMapElementConversions.cpp"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/stateRepresentationConversions.cpp"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/torqueModelTypes.cpp"
+  "${SRCROOT}${BASICASTRODYNAMICSDIR}/torqueModel.cpp"
 )
 
 # Set the header files.

@@ -447,6 +447,7 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
     TimeType currentTime = integrator->getCurrentIndependentVariable( );
     TimeType initialTime = currentTime;
     StateType newState = integrator->getCurrentState( );
+    //std::cout<<"Initial state "<<std::endl<<newState<<std::endl<<std::endl;
 
     // Initialization of numerical solutions for variational equations
     solutionHistory.clear( );
@@ -490,6 +491,8 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
                 {
                     postProcessState( newState );
                 }
+
+                //std::cout<<"Current state "<<currentTime<<std::endl<<newState<<std::endl<<std::endl;
 
                 // Check if the termination condition was reached during evaluation of integration sub-steps.
                 // If evaluation of the termination condition during integration sub-steps is disabled,

@@ -21,6 +21,7 @@
 
 #include "Tudat/Astrodynamics/Ephemerides/simpleRotationalEphemeris.h"
 #include "Tudat/Astrodynamics/OrbitDetermination/EstimatableParameters/estimatableParameter.h"
+#include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
 
 namespace tudat
 {
@@ -306,6 +307,100 @@ private:
 
     //! Rotation model for which the partial derivative w.r.t. the rotation rate is to be taken.
     boost::shared_ptr< ephemerides::SimpleRotationalEphemeris > bodyRotationModel_;
+};
+
+class RotationMatrixPartialWrtQuaternion: public RotationMatrixPartial
+{
+public:
+
+    RotationMatrixPartialWrtQuaternion(
+            const boost::function< Eigen::Quaterniond( ) > currentRotationToInertialFrameFunction ):
+        RotationMatrixPartial( NULL ),
+        currentRotationToInertialFrameFunction_( currentRotationToInertialFrameFunction )
+    {
+        currentQuaternionPartials_.resize( 4 );
+    }
+
+    ~RotationMatrixPartialWrtQuaternion( ){ }
+
+
+    std::vector< Eigen::Matrix3d > calculatePartialOfRotationMatrixToBaseFrameWrParameter(
+            const double time )
+    {
+        linear_algebra::computePartialDerivativeOfRotationMatrixWrtQuaternion(
+        linear_algebra::convertQuaternionToVectorFormat( currentRotationToInertialFrameFunction_( ) ),
+                   currentQuaternionPartials_ );
+//        for( int i = 0; i < 4; i++ )
+//        {
+//            currentQuaternionPartials_[ i ].transposeInPlace( );
+//        }
+        return currentQuaternionPartials_;
+    }
+
+    std::vector< Eigen::Matrix3d > calculatePartialOfRotationMatrixDerivativeToBaseFrameWrParameter(
+            const double time )
+    {
+        throw std::runtime_error( "Error when calling RotationMatrixPartialWrtQuaternion::calculatePartialOfRotationMatrixDerivativeToBaseFrameWrParameter, function not yet implemented." );
+
+    }
+
+private:
+
+    boost::function< Eigen::Quaterniond( ) > currentRotationToInertialFrameFunction_;
+
+    std::vector< Eigen::Matrix3d > currentQuaternionPartials_;
+};
+
+class RotationMatrixPartialWrtRotationalState: public RotationMatrixPartial
+{
+public:
+
+    RotationMatrixPartialWrtRotationalState(
+            const boost::function< Eigen::Quaterniond( const double ) > currentRotationToInertialFrameFunction ):
+        RotationMatrixPartial( NULL ),
+        currentRotationToInertialFrameFunction_( currentRotationToInertialFrameFunction )
+    {
+        currentQuaternionPartials_.resize( 7 );
+    }
+
+    ~RotationMatrixPartialWrtRotationalState( ){ }
+
+
+    std::vector< Eigen::Matrix3d > calculatePartialOfRotationMatrixToBaseFrameWrParameter(
+            const double time )
+    {
+        linear_algebra::computePartialDerivativeOfRotationMatrixWrtQuaternion(
+        linear_algebra::convertQuaternionToVectorFormat( currentRotationToInertialFrameFunction_( time ) ),
+                   currentQuaternionPartials_ );
+
+//        std::cout<<"Current rotation when getting an. partial: "<<std::endl<<
+//                   currentRotationToInertialFrameFunction_( time ).toRotationMatrix( )<<std::endl;
+
+//        for( int i = 0; i < 2; i++ )
+//        {
+//            std::cout<<"Rot mat. partial "<<i<<std::endl<<currentQuaternionPartials_[ i ]<<std::endl;
+//        }
+//        std::cout<<std::endl;
+        for( int i = 0; i < 3; i++ )
+        {
+            //currentQuaternionPartials_[ i ].transposeInPlace( );
+            currentQuaternionPartials_[ i + 4 ] =  Eigen::Matrix3d::Zero( );
+        }
+        return currentQuaternionPartials_;
+    }
+
+    std::vector< Eigen::Matrix3d > calculatePartialOfRotationMatrixDerivativeToBaseFrameWrParameter(
+            const double time )
+    {
+        throw std::runtime_error( "Error when calling RotationMatrixPartialWrtQuaternion::calculatePartialOfRotationMatrixDerivativeToBaseFrameWrParameter, function not yet implemented." );
+
+    }
+
+private:
+
+    boost::function< Eigen::Quaterniond( const double ) > currentRotationToInertialFrameFunction_;
+
+    std::vector< Eigen::Matrix3d > currentQuaternionPartials_;
 };
 
 //! Typedef of list of RotationMatrixPartial objects, ordered by parameter.

@@ -126,17 +126,22 @@ public:
      *  \param integratedStateType Type of propagated state for which dependency is to be determined.
      *  \return True if dependency exists (non-zero partial), false otherwise.
      */
-    bool isStateDerivativeDependentOnIntegratedNonTranslationalState(
+    bool isStateDerivativeDependentOnIntegratedAdditionalStateTypes(
                 const std::pair< std::string, std::string >& stateReferencePoint,
                 const propagators::IntegratedStateType integratedStateType )
     {
+        bool doesDependencyExist = false;
         if( ( ( stateReferencePoint.first == acceleratingBody_ ||
               ( stateReferencePoint.first == acceleratedBody_  && accelerationUsesMutualAttraction_ ) )
               && integratedStateType == propagators::body_mass_state ) )
         {
             throw std::runtime_error( "Warning, dependency of central gravity on body masses not yet implemented" );
         }
-        return 0;
+        else if( stateReferencePoint.first == acceleratingBody_ && integratedStateType == propagators::rotational_state )
+        {
+            doesDependencyExist = true;
+        }
+        return doesDependencyExist;
     }
 
     //! Function for setting up and retrieving a function returning a partial w.r.t. a double parameter.
@@ -158,6 +163,20 @@ public:
      */
     std::pair< boost::function< void( Eigen::MatrixXd& ) >, int > getParameterPartialFunction(
             boost::shared_ptr< estimatable_parameters::EstimatableParameter< Eigen::VectorXd > > parameter );
+
+    void wrtNonTranslationalStateOfAdditionalBody(
+            Eigen::Block< Eigen::MatrixXd > partialMatrix,
+            const std::pair< std::string, std::string >& stateReferencePoint,
+            const propagators::IntegratedStateType integratedStateType,
+            const bool addContribution = true )
+    {
+        if( stateReferencePoint.first == acceleratingBody_ && integratedStateType == propagators::rotational_state )
+        {
+            Eigen::MatrixXd tempMatrix = Eigen::MatrixXd::Zero( 3, 7 );
+            wrtRotationModelParameter( tempMatrix, estimatable_parameters::initial_rotational_body_state, "" );
+            partialMatrix.block( 0, 0, 3, 7 ) = ( addContribution ? 1.0 : -1.0 ) * tempMatrix;
+        }
+    }
 
     //! Function to create a function returning the current partial w.r.t. a gravitational parameter.
     /*!
@@ -213,6 +232,16 @@ public:
         {
             throw std::runtime_error( "Error cannot compute partial of spherical harminic gravity w.r.t mu for zero value" );
         }
+    }
+
+    Eigen::Matrix3d getCurrentPartialWrtPosition( )
+    {
+        return currentPartialWrtPosition_;
+    }
+
+    Eigen::Matrix3d getCurrentBodyFixedPartialWrtPosition( )
+    {
+        return currentBodyFixedPartialWrtPosition_;
     }
 
 protected:

@@ -219,7 +219,7 @@ public:
         // If variational equations are to be integrated: evaluate and set.
         if( evaluateVariationalEquations_ )
         {
-            variationalEquations_->updatePartials( time );
+            variationalEquations_->updatePartials( time, currentStatesPerTypeInConventionalRepresentation_ );
 
             variationalEquations_->evaluateVariationalEquations< StateScalarType >(
                         time, state.block( 0, 0, totalConventionalStateSize_, variationalEquations_->getNumberOfParameterValues( ) ),
@@ -230,7 +230,11 @@ public:
         functionEvaluationCounter_++;
         cumulativeFunctionEvaluationCounter_[ time ] = functionEvaluationCounter_;
 
+//        std::cout<<"Var. State "<<std::endl<<( state.block( 0, 0, totalStateSize_, totalStateSize_ ) ).transpose( )<<std::endl;
+//        std::cout<<"State "<<( state.block( 0, totalStateSize_, totalStateSize_, 1 ) ).transpose( )<<std::endl;
+//        std::cout<<"State derivative "<<std::endl<<stateDerivative_<<std::endl<<std::endl;
         return stateDerivative_;
+
     }
 
     //! Function to calculate the system state derivative with double precision, regardless of template arguments

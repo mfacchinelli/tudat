@@ -105,6 +105,20 @@ public:
                     partialMatrix, !addContribution, startRow, startColumn );
     }
 
+    void wrtNonTranslationalStateOfAdditionalBody(
+            Eigen::Block< Eigen::MatrixXd > partialMatrix,
+            const std::pair< std::string, std::string >& stateReferencePoint,
+            const propagators::IntegratedStateType integratedStateType,
+            const bool addContribution )
+    {
+        accelerationPartialOfShExpansionOfBodyExertingAcceleration_->
+                        wrtNonTranslationalStateOfAdditionalBody(
+                            partialMatrix, stateReferencePoint, integratedStateType, true );
+        accelerationPartialOfShExpansionOfBodyUndergoingAcceleration_->
+                        wrtNonTranslationalStateOfAdditionalBody(
+                            partialMatrix, stateReferencePoint, integratedStateType, false );
+    }
+
     //! Function for determining if the acceleration is dependent on a non-translational integrated state.
     /*!
      *  Function for determining if the acceleration is dependent on a non-translational integrated state.
@@ -114,17 +128,21 @@ public:
      *  \param integratedStateType Type of propagated state for which dependency is to be determined.
      *  \return True if dependency exists (non-zero partial), false otherwise.
      */
-    bool isStateDerivativeDependentOnIntegratedNonTranslationalState(
+    bool isStateDerivativeDependentOnIntegratedAdditionalStateTypes(
                 const std::pair< std::string, std::string >& stateReferencePoint,
                 const propagators::IntegratedStateType integratedStateType )
     {
-        if( ( ( stateReferencePoint.first == acceleratingBody_ ||
-              ( stateReferencePoint.first == acceleratedBody_  && accelerationUsesMutualAttraction_ ) )
-              && integratedStateType == propagators::body_mass_state ) )
+        if( accelerationPartialOfShExpansionOfBodyExertingAcceleration_->
+                isStateDerivativeDependentOnIntegratedAdditionalStateTypes( stateReferencePoint, integratedStateType ) ||
+                accelerationPartialOfShExpansionOfBodyUndergoingAcceleration_->
+                isStateDerivativeDependentOnIntegratedAdditionalStateTypes( stateReferencePoint, integratedStateType ) )
         {
-            throw std::runtime_error( "Warning, dependency of central gravity on body masses not yet implemented" );
+            return true;
         }
-        return 0;
+        else
+        {
+            return false;
+        }
     }
 
     //! Function for setting up and retrieving a function returning a partial w.r.t. a double parameter.

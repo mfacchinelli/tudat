@@ -35,6 +35,19 @@ Eigen::Vector4d convertQuaternionToVectorFormat( const Eigen::Quaterniond& quate
     return vector;
 }
 
+//! Function to get a quaternion from 'vector format', e.g. a Vector4d with entries (w,x,y,z) of the quaternion
+Eigen::Quaterniond getQuaternionFromVectorFormat( const Eigen::Vector4d& vector )
+{
+    Eigen::Quaterniond quaternion;
+
+    quaternion.w( ) = vector( 0 );
+    quaternion.x( ) = vector( 1 );
+    quaternion.y( ) = vector( 2 );
+    quaternion.z( ) = vector( 3 );
+
+    return quaternion;
+}
+
 //! Compute direction cosine matrix from quaternion
 Eigen::Matrix3d computeDirectionCosineMatrixFromQuaternions(
         const Eigen::Vector4d& quaternionsAsVector, const bool returnInverseRotationMatrix )
@@ -157,6 +170,32 @@ double getVectorEntryRootMeanSquare( const Eigen::VectorXd& inputVector )
     vectorRms = std::sqrt( vectorRms / inputVector.rows( ) );
 
     return vectorRms;
+}
+
+void computePartialDerivativeOfRotationMatrixWrtQuaternion(
+        const Eigen::Vector4d quaternionVector,
+        std::vector< Eigen::Matrix3d >& partialDerivatives )
+{
+    partialDerivatives[ 0 ]<< quaternionVector( 0 ), -quaternionVector( 3 ), quaternionVector( 2 ),
+            quaternionVector( 3 ), quaternionVector( 0 ), -quaternionVector( 1 ),
+            -quaternionVector( 2 ), quaternionVector( 1 ), quaternionVector( 0 );
+     partialDerivatives[ 0 ] *= 2.0;
+
+    partialDerivatives[ 1 ]<< quaternionVector( 1 ), quaternionVector( 2 ), quaternionVector( 3 ),
+            quaternionVector( 2 ), -quaternionVector( 1 ), -quaternionVector( 0 ),
+            quaternionVector( 3 ), quaternionVector( 0 ), -quaternionVector( 1 );
+    partialDerivatives[ 1 ] *= 2.0;
+
+    partialDerivatives[ 2 ]<< -quaternionVector( 2 ), quaternionVector( 1 ), quaternionVector( 0 ),
+            quaternionVector( 1 ), quaternionVector( 2 ), quaternionVector( 3 ),
+            -quaternionVector( 0 ), quaternionVector( 3 ), -quaternionVector( 2 );
+    partialDerivatives[ 2 ] *= 2.0;
+
+    partialDerivatives[ 3 ]<< -quaternionVector( 3 ), -quaternionVector( 0 ), quaternionVector( 1 ),
+            quaternionVector( 0 ), -quaternionVector( 3 ), quaternionVector( 2 ),
+            quaternionVector( 1 ), quaternionVector( 2 ), quaternionVector( 3 );
+    partialDerivatives[ 3 ] *= 2.0;
+
 }
 
 

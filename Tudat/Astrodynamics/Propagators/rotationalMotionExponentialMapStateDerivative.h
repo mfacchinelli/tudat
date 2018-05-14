@@ -162,6 +162,7 @@ public:
                         internalSolution.block( i * 6, 0, 3, 1 ).template cast< double >( ) ).template cast< StateScalarType >( );
             currentLocalSolution.segment( i * 7 + 4, 3 ) = internalSolution.block( i * 6 + 3, 0, 3, 1 ); // rotational velocity is the same
         }
+        std::cout << currentLocalSolution.transpose( ) << std::endl;
         currentQuaternionLocalSolution_ = currentLocalSolution;
     }
 

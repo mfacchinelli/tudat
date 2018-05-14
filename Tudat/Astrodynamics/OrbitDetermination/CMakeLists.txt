@@ -8,17 +8,20 @@
  #    http://tudat.tudelft.nl/LICENSE.
 
 set(ACCELERATIONPARTIALSDIR "${ORBITDETERMINATIONDIR}/AccelerationPartials")
+set(TORQUEPARTIALSDIR "${ORBITDETERMINATIONDIR}/RotationalDynamicsPartials")
 set(ESTIMATABLEPARAMETERSDIR "${ORBITDETERMINATIONDIR}/EstimatableParameters")
 set(OBSERVATIONPARTIALSDIR "${ORBITDETERMINATIONDIR}/ObservationPartials")
 set(LIGHTTIMECORRECTIONPARTIALSDIR "${ORBITDETERMINATIONDIR}/LightTimeCorrectionPartials")
 
 # Add subdirectories.
 add_subdirectory("${SRCROOT}${ACCELERATIONPARTIALSDIR}")
+add_subdirectory("${SRCROOT}${TORQUEPARTIALSDIR}")
 add_subdirectory("${SRCROOT}${ESTIMATABLEPARAMETERSDIR}")
 add_subdirectory("${SRCROOT}${OBSERVATIONPARTIALSDIR}")
 
 # Get target properties for static libraries.
 get_target_property(ACCELERATIONPARTIALSSOURCES tudat_acceleration_partials SOURCES)
+get_target_property(TORQUEPARTIALSSOURCES tudat_torque_partials SOURCES)
 get_target_property(ESTIMATABLEPARAMETERSOURCES tudat_estimatable_parameters SOURCES)
 get_target_property(OBSERVATIONPARTIALSSOURCES tudat_observation_partials SOURCES)
 
@@ -75,6 +78,10 @@ if( COMPILE_HIGH_ACCURACY_ESTIMATION_TESTS )
     setup_custom_test_program(test_MultiArcStateEstimation "${SRCROOT}${ORBITDETERMINATIONDIR}")
     target_link_libraries(test_MultiArcStateEstimation ${TUDAT_ESTIMATION_LIBRARIES} ${Boost_LIBRARIES})
 
+    add_executable(test_HybridArcStateEstimation "${SRCROOT}${ORBITDETERMINATIONDIR}/UnitTests/unitTestHybridArcStateEstimation.cpp")
+    setup_custom_test_program(test_HybridArcStateEstimation "${SRCROOT}${ORBITDETERMINATIONDIR}")
+    target_link_libraries(test_HybridArcStateEstimation ${TUDAT_ESTIMATION_LIBRARIES} ${Boost_LIBRARIES})
+
     add_executable(test_ParameterInfluenceDetermination "${SRCROOT}${ORBITDETERMINATIONDIR}/UnitTests/unitTestParameterInfluenceDetermination.cpp")
     setup_custom_test_program(test_ParameterInfluenceDetermination "${SRCROOT}${ORBITDETERMINATIONDIR}")
     target_link_libraries(test_ParameterInfluenceDetermination ${TUDAT_ESTIMATION_LIBRARIES} ${Boost_LIBRARIES})
@@ -82,6 +89,10 @@ if( COMPILE_HIGH_ACCURACY_ESTIMATION_TESTS )
     add_executable(test_BiasEstimation "${SRCROOT}${ORBITDETERMINATIONDIR}/UnitTests/unitTestBiasEstimation.cpp")
     setup_custom_test_program(test_BiasEstimation "${SRCROOT}${ORBITDETERMINATIONDIR}")
     target_link_libraries(test_BiasEstimation ${TUDAT_ESTIMATION_LIBRARIES} ${Boost_LIBRARIES})
+
+    add_executable(test_RotationalStateEstimation "${SRCROOT}${ORBITDETERMINATIONDIR}/UnitTests/unitTestRotationalStateEstimation.cpp")
+    setup_custom_test_program(test_RotationalStateEstimation "${SRCROOT}${ORBITDETERMINATIONDIR}")
+    target_link_libraries(test_RotationalStateEstimation ${TUDAT_ESTIMATION_LIBRARIES} ${Boost_LIBRARIES})
 endif( )
 
 endif( )

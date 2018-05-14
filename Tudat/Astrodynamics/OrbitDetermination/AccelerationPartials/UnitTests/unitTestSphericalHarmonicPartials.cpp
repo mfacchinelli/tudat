@@ -310,6 +310,7 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicPartials )
     sphericalStatePerturbation( 0 ) *= 10.0;
     sphericalStatePerturbation( 1 ) *= 100.0;
     sphericalStatePerturbation( 2 ) *= 1000.0;
+    std::map< std::pair< int, int >, Eigen::Vector3d > dummyMap;
 
     for( unsigned parameter = 0; parameter < 3; parameter++ )
     {
@@ -324,7 +325,7 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicPartials )
                 coordinate_conversions::getSphericalToCartesianGradientMatrix( perturbedCartesianPosition ).inverse( ) *
                 computeGeodesyNormalizedGravitationalAccelerationSum(
                     perturbedCartesianPosition, gravitationalParameter, planetaryRadius, cosineCoefficients, sineCoefficients,
-                    sphericalHarmonicsCache );
+                    sphericalHarmonicsCache, dummyMap );
 
         perturbedSphericalPosition = nominalSphericalPosition;
         perturbedSphericalPosition( parameter ) -= sphericalStatePerturbation( parameter );
@@ -337,7 +338,7 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicPartials )
                 coordinate_conversions::getSphericalToCartesianGradientMatrix( perturbedCartesianPosition ).inverse( ) *
                 computeGeodesyNormalizedGravitationalAccelerationSum(
                     perturbedCartesianPosition, gravitationalParameter, planetaryRadius, cosineCoefficients, sineCoefficients,
-                    sphericalHarmonicsCache );
+                    sphericalHarmonicsCache, dummyMap );
 
         numericalTotalSphericalGradient.block( 0, parameter, 3, 1 ) =
                 ( upPerturbedTotalGradient - downPerturbedTotalGradient ) / ( 2.0 * sphericalStatePerturbation( parameter ) );
@@ -360,7 +361,7 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicPartials )
                 coordinate_conversions::getSphericalToCartesianGradientMatrix( perturbedCartesianPosition ).inverse( ) *
                 computeGeodesyNormalizedGravitationalAccelerationSum(
                     perturbedCartesianPosition, gravitationalParameter, planetaryRadius, cosineCoefficients, sineCoefficients,
-                    sphericalHarmonicsCache );
+                    sphericalHarmonicsCache, dummyMap );
 
         perturbedCartesianPosition = position;
         perturbedCartesianPosition( parameter ) -= cartesianStatePerturbation( parameter );
@@ -370,7 +371,7 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicPartials )
                 coordinate_conversions::getSphericalToCartesianGradientMatrix( perturbedCartesianPosition ).inverse( ) *
                 computeGeodesyNormalizedGravitationalAccelerationSum(
                     perturbedCartesianPosition, gravitationalParameter, planetaryRadius, cosineCoefficients, sineCoefficients,
-                    sphericalHarmonicsCache );
+                    sphericalHarmonicsCache, dummyMap );
 
         numericalTotalSphericalGradient.block( 0, parameter, 3, 1 ) =
                 ( upPerturbedTotalGradient - downPerturbedTotalGradient ) / ( 2.0 * cartesianStatePerturbation( parameter ) );
@@ -394,7 +395,7 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicPartials )
         upPerturbedTotalGradient =
                 computeGeodesyNormalizedGravitationalAccelerationSum(
                     perturbedCartesianPosition, gravitationalParameter, planetaryRadius, cosineCoefficients, sineCoefficients,
-                    sphericalHarmonicsCache );
+                    sphericalHarmonicsCache, dummyMap );
 
         perturbedCartesianPosition = position;
         perturbedCartesianPosition( parameter ) -= cartesianStatePerturbation( parameter );
@@ -402,7 +403,7 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicPartials )
         downPerturbedTotalGradient =
                 computeGeodesyNormalizedGravitationalAccelerationSum(
                     perturbedCartesianPosition, gravitationalParameter, planetaryRadius, cosineCoefficients, sineCoefficients,
-                    sphericalHarmonicsCache );
+                    sphericalHarmonicsCache, dummyMap );
 
         numericalTotalSphericalGradient.block( 0, parameter, 3, 1 ) =
                 ( upPerturbedTotalGradient - downPerturbedTotalGradient ) / ( 2.0 * cartesianStatePerturbation( parameter ) );
@@ -579,6 +580,8 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicAccelerationPartial )
 
 
     std::vector< boost::shared_ptr< EstimatableParameterSettings > > parameterNames;
+    parameterNames.push_back( boost::make_shared< InitialRotationalStateEstimatableParameterSettings< double > >(
+                                  "Earth", 0.0, "ECLIPJ2000" ) );
     parameterNames.push_back( boost::make_shared< EstimatableParameterSettings >( "Earth", gravitational_parameter) );
     parameterNames.push_back( boost::make_shared< EstimatableParameterSettings >( "Earth", constant_rotation_rate ) );
     parameterNames.push_back( boost::make_shared< EstimatableParameterSettings >( "Earth", rotation_pole_position ) );
@@ -675,7 +678,6 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicAccelerationPartial )
                     gravitationalAcceleration, std::make_pair( "Vehicle", vehicle ), std::make_pair( "Earth", earth ),
                     bodyMap, parameterSet ) );
 
-
     accelerationPartial->update( testTime );
 
     Eigen::MatrixXd partialWrtVehiclePosition = Eigen::Matrix3d::Zero( );
@@ -687,9 +689,9 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicAccelerationPartial )
     Eigen::MatrixXd partialWrtEarthVelocity = Eigen::Matrix3d::Zero( );
     accelerationPartial->wrtVelocityOfAcceleratingBody( partialWrtEarthVelocity.block( 0, 0, 3, 3 ), 1, 0, 0 );
 
-
-
-
+    Eigen::MatrixXd partialWrtEarthOrientation = Eigen::MatrixXd::Zero( 3, 7 );
+    accelerationPartial->wrtNonTranslationalStateOfAdditionalBody(
+            partialWrtEarthOrientation.block( 0, 0, 3, 7 ), std::make_pair( "Earth", "" ), propagators::rotational_state );
 
     // Calculate numerical partials.
     testPartialWrtVehiclePosition = calculateAccelerationWrtStatePartials(
@@ -702,7 +704,15 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicAccelerationPartial )
     testPartialWrtEarthVelocity = calculateAccelerationWrtStatePartials(
                 earthStateSetFunction, gravitationalAcceleration, earth->getState( ), velocityPerturbation, 3 );
 
+    Eigen::Vector4d orientationPerturbation;
+    orientationPerturbation << 1.0E-8, 1.0E-8, 1.0E-8, 1.0E-8;
 
+    boost::function< void( Eigen::Vector7d ) > earthRotationalStateSetFunction =
+            boost::bind( &Body::setCurrentRotationalStateToLocalFrame, earth, _1 );
+    std::vector< Eigen::Vector4d > appliedQuaternionPerturbation;
+    Eigen::MatrixXd accelerationDeviations = calculateAccelerationDeviationDueToOrientationChange(
+                earthRotationalStateSetFunction, gravitationalAcceleration, earth->getRotationalStateVector( ), orientationPerturbation,
+                appliedQuaternionPerturbation );
 
     // Calculate numerical partials.
     std::map< int, boost::shared_ptr< EstimatableParameter< double > > > doubleParameters =
@@ -721,7 +731,6 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicAccelerationPartial )
     Eigen::Vector3d testPartialWrtEarthRotationRate = calculateAccelerationWrtParameterPartials(
                 doubleParametersIterator->second, gravitationalAcceleration, 1.0E-12, &emptyFunction, testTime, boost::bind(
                     &Body::setCurrentRotationToLocalFrameFromEphemeris, earth, _1 ) );
-
 
 
     std::map< int, boost::shared_ptr< EstimatableParameter< Eigen::VectorXd > > > vectorParameters =
@@ -802,11 +811,22 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicAccelerationPartial )
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( testPartialWrtEarthPosition, partialWrtEarthPosition, 1.0E-6 );
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( testPartialWrtEarthVelocity, partialWrtEarthVelocity, 1.0E-6 );
 
+    //    // Compare numerical and analytical results.
+    for( int index = 1; index < 4; index++ )
+    {
+        Eigen::Vector3d numericalChangeInAcceleration = accelerationDeviations.block( 0, index - 1, 3, 1 );
+        Eigen::Vector3d analyticalChangeInAcceleration =
+                partialWrtEarthOrientation.block( 0, 0, 3, 1 ) * appliedQuaternionPerturbation[ index ]( 0 ) +
+                partialWrtEarthOrientation.block( 0, index, 3, 1 ) * appliedQuaternionPerturbation[ index ]( index );
+
+        TUDAT_CHECK_MATRIX_CLOSE_FRACTION( numericalChangeInAcceleration,
+                                           analyticalChangeInAcceleration, 1.0E-6 );
+    }
+
 
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( testPartialWrtEarthGravitationalParameter, partialWrtEarthGravitationalParameter, 1.0E-12 );
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( testPartialWrtEarthRotationRate, partialWrtEarthRotationRate, 1.0E-6 );
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( testPartialWrtPosition, partialWrtPolePosition, 1.0E-6 );
-
 
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( testPartialWrtCosineCoefficients, partialWrtCosineCoefficients, 1.0E-6 );
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( testPartialWrtSineCoefficients, partialWrtSineCoefficients, 1.0E-6 );
@@ -821,6 +841,8 @@ BOOST_AUTO_TEST_CASE( testSphericalHarmonicAccelerationPartial )
 
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( partialWrtDegreeThreeLoveNumber, testPartialWrtDegreeThreeLoveNumber, 1.0E-6 );
     TUDAT_CHECK_MATRIX_CLOSE_FRACTION( partialWrtComplexDegreeThreeLoveNumberAtSeparateOrder, testPartialWrtComplexDegreeThreeLoveNumberAtSeparateOrder, 1.0E-6 );
+
+
 }
 
 BOOST_AUTO_TEST_SUITE_END( )

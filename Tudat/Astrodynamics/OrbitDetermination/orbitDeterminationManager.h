@@ -22,6 +22,7 @@
 #include "Tudat/Astrodynamics/OrbitDetermination/EstimatableParameters/initialTranslationalState.h"
 #include "Tudat/SimulationSetup/PropagationSetup/variationalEquationsSolver.h"
 #include "Tudat/SimulationSetup/EstimationSetup/createObservationManager.h"
+#include "Tudat/SimulationSetup/PropagationSetup/createNumericalSimulator.h"
 
 namespace tudat
 {
@@ -509,13 +510,13 @@ public:
                     resetParameterEstimate( newParameterEstimate, podInput->getReintegrateVariationalEquations( ) );
                 }
 
-                if( podInput->getSaveStateHistoryForEachIteration( ) )
-                {
-                    dynamicsHistoryPerIteration.push_back(
-                                variationalEquationsSolver_->getDynamicsSimulatorBase( )->getEquationsOfMotionNumericalSolutionBase( ) );
-                    dependentVariableHistoryPerIteration.push_back(
-                                variationalEquationsSolver_->getDynamicsSimulatorBase( )->getDependentVariableNumericalSolutionBase( ) );
-                }
+//                if( podInput->getSaveStateHistoryForEachIteration( ) )
+//                {
+//                    dynamicsHistoryPerIteration.push_back(
+//                                variationalEquationsSolver_->getDynamicsSimulatorBase( )->getEquationsOfMotionNumericalSolutionBase( ) );
+//                    dependentVariableHistoryPerIteration.push_back(
+//                                variationalEquationsSolver_->getDynamicsSimulatorBase( )->getDependentVariableNumericalSolutionBase( ) );
+//                }
             }
             catch( std::runtime_error )
             {
@@ -554,11 +555,19 @@ public:
             std::pair< Eigen::VectorXd, Eigen::MatrixXd > leastSquaresOutput;
             try
             {
+                Eigen::MatrixXd constraintStateMultiplier;
+                Eigen::VectorXd constraintRightHandSide;
+                parametersToEstimate_->getConstraints( constraintStateMultiplier, constraintRightHandSide );
                 leastSquaresOutput =
                         linear_algebra::performLeastSquaresAdjustmentFromInformationMatrix(
                             residualsAndPartials.second.block( 0, 0, residualsAndPartials.second.rows( ), numberOfEstimatedParameters ),
                             residualsAndPartials.first, getConcatenatedWeightsVector( podInput->getWeightsMatrixDiagonals( ) ),
-                            normalizedInverseAprioriCovarianceMatrix );
+                            normalizedInverseAprioriCovarianceMatrix, 1, 1.0E8, constraintStateMultiplier, constraintRightHandSide );
+
+                if( constraintStateMultiplier.rows( ) > 0 )
+                {
+                    leastSquaresOutput.first.conservativeResize( parameterVectorSize );
+                }
             }
             catch( std::runtime_error )
             {
@@ -567,7 +576,6 @@ public:
                 break;
             }
 
-
             ParameterVectorType parameterAddition =
                     ( leastSquaresOutput.first.cwiseQuotient( transformationData.segment( 0, numberOfEstimatedParameters ) ) ).
                     template cast< ObservationScalarType >( );
@@ -575,6 +583,8 @@ public:
 
             // Update value of parameter vector
             newParameterEstimate = oldParameterEstimate + parameterAddition;
+            parametersToEstimate_->template resetParameterValues< ObservationScalarType >( newParameterEstimate );
+            newParameterEstimate = parametersToEstimate_->template getFullParameterValues< ObservationScalarType >( );
 
             if( podInput->getSaveResidualsAndParametersFromEachIteration( ) )
             {
@@ -644,7 +654,7 @@ public:
      */
     void resetParameterEstimate( const ParameterVectorType& newParameterEstimate, const bool reintegrateVariationalEquations = 1 )
     {
-        if( integrateAndEstimateOrbit_ )
+       if( integrateAndEstimateOrbit_ )
         {
             variationalEquationsSolver_->resetParameterEstimate( newParameterEstimate, reintegrateVariationalEquations );
         }
@@ -797,31 +807,12 @@ protected:
             integrateAndEstimateOrbit_ = false;
         }
 
-        if( boost::dynamic_pointer_cast< propagators::MultiArcPropagatorSettings< ObservationScalarType > >( propagatorSettings ) != NULL )
+        if( integrateAndEstimateOrbit_ )
         {
-            dynamicsIsMultiArc_ = true;
-
-            if( integrateAndEstimateOrbit_ )
-            {
-                std::vector< double > arcStartTimes = estimatable_parameters::getMultiArcStateEstimationArcStartTimes(
-                            parametersToEstimate_ );
-                variationalEquationsSolver_ =  boost::make_shared< propagators::MultiArcVariationalEquationsSolver
-                        < ObservationScalarType, TimeType > >(
-                            bodyMap, integratorSettings, propagatorSettings, parametersToEstimate_, arcStartTimes, 1,
-                            boost::shared_ptr< numerical_integrators::IntegratorSettings< double > >( ), 0, 1 );
-            }
-        }
-        else
-        {
-            dynamicsIsMultiArc_ = false;
-
-            if( integrateAndEstimateOrbit_ )
-            {
-                variationalEquationsSolver_ = boost::make_shared< propagators::SingleArcVariationalEquationsSolver
-                        < ObservationScalarType, TimeType > >(
-                            bodyMap, integratorSettings, propagatorSettings, parametersToEstimate_, 1,
-                            boost::shared_ptr< numerical_integrators::IntegratorSettings< double > >( ), 0, 1 );
-            }
+            variationalEquationsSolver_ =
+                    simulation_setup::createVariationalEquationsSolver(
+                        bodyMap, integratorSettings, propagatorSettings, parametersToEstimate_, 1,
+                        boost::shared_ptr< numerical_integrators::IntegratorSettings< double > >( ), 0, 1 );
         }
 
         if( integrateAndEstimateOrbit_ )
@@ -831,25 +822,10 @@ protected:
         }
         else if( propagatorSettings == NULL )
         {
-            if( !dynamicsIsMultiArc_ )
-            {
-                stateTransitionAndSensitivityMatrixInterface_ = boost::make_shared<
-                        propagators::SingleArcCombinedStateTransitionAndSensitivityMatrixInterface >(
-                            boost::shared_ptr< interpolators::OneDimensionalInterpolator< double, Eigen::MatrixXd > >( ),
-                            boost::shared_ptr< interpolators::OneDimensionalInterpolator< double, Eigen::MatrixXd > >( ),
-                            0, parametersToEstimate_->getParameterSetSize( ) );
-            }
-            else
-            {
-                stateTransitionAndSensitivityMatrixInterface_ = boost::make_shared<
-                        propagators::MultiArcCombinedStateTransitionAndSensitivityMatrixInterface >(
-                            std::vector< boost::shared_ptr< interpolators::OneDimensionalInterpolator< double, Eigen::MatrixXd > > >( ),
-                            std::vector< boost::shared_ptr< interpolators::OneDimensionalInterpolator< double, Eigen::MatrixXd > > >( ),
-                            std::vector< double >( ),
-                            0, parametersToEstimate_->getParameterSetSize( ) );
-            }
+            stateTransitionAndSensitivityMatrixInterface_ = createStateTransitionAndSensitivityMatrixInterface(
+                        propagatorSettings, 0, parametersToEstimate_->getParameterSetSize( ) );
         }
-        else if( propagatorSettings != NULL )
+        else
         {
             throw std::runtime_error( "Error, cannot parse propagator settings without estimating dynamics in OrbitDeterminationManager" );
         }
@@ -919,8 +895,6 @@ protected:
     //! Object used to interpolate the numerically integrated result of the state transition/sensitivity matrices.
     boost::shared_ptr< propagators::CombinedStateTransitionAndSensitivityMatrixInterface >
     stateTransitionAndSensitivityMatrixInterface_;
-
-    bool dynamicsIsMultiArc_;
 
 };
 

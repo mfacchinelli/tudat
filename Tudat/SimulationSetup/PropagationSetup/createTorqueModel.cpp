@@ -10,12 +10,27 @@
 
 #include "Tudat/SimulationSetup/EnvironmentSetup/createFlightConditions.h"
 #include "Tudat/SimulationSetup/PropagationSetup/createTorqueModel.h"
+#include "Tudat/SimulationSetup/PropagationSetup/accelerationSettings.h"
+#include "Tudat/SimulationSetup/PropagationSetup/createAccelerationModels.h"
 
 namespace tudat
 {
 
 namespace simulation_setup
 {
+
+//! Function to create an aerodynamic torque model.
+boost::shared_ptr< basic_astrodynamics::InertialTorqueModel > createInertialTorqueModel(
+        const boost::shared_ptr< simulation_setup::Body > bodyUndergoingTorque,
+        const std::string& nameOfBodyUndergoingTorque )
+{
+    boost::function< Eigen::Vector3d( ) > angularVelocityFunction =
+            boost::bind( &Body::getCurrentAngularVelocityVectorInLocalFrame, bodyUndergoingTorque );
+    boost::function< Eigen::Matrix3d( ) > inertiaTensorFunction =
+            boost::bind( &Body::getBodyInertiaTensor, bodyUndergoingTorque );
+    return boost::make_shared< basic_astrodynamics::InertialTorqueModel >(
+                angularVelocityFunction, inertiaTensorFunction );
+}
 
 //! Function to create an aerodynamic torque model.
 boost::shared_ptr< aerodynamics::AerodynamicTorque > createAerodynamicTorqueModel(
@@ -45,17 +60,22 @@ boost::shared_ptr< aerodynamics::AerodynamicTorque > createAerodynamicTorqueMode
     }
 
     // Retrieve flight conditions; create object if not yet extant.
-    boost::shared_ptr< aerodynamics::FlightConditions > bodyFlightConditions =
-            bodyUndergoingTorque->getFlightConditions( );
+    boost::shared_ptr< aerodynamics::AtmosphericFlightConditions > bodyFlightConditions =
+            boost::dynamic_pointer_cast< aerodynamics::AtmosphericFlightConditions >(
+                bodyUndergoingTorque->getFlightConditions( ) );
 
-    if( bodyFlightConditions == NULL )
+    if( bodyFlightConditions == NULL && bodyUndergoingTorque->getFlightConditions( ) == NULL )
     {
+        bodyFlightConditions = createAtmosphericFlightConditions( bodyUndergoingTorque,
+                                                       bodyExertingTorque,
+                                                       nameOfBodyUndergoingTorque,
+                                                       nameOfBodyExertingTorque ) ;
         bodyUndergoingTorque->setFlightConditions(
-                    createFlightConditions( bodyUndergoingTorque,
-                                            bodyExertingTorque,
-                                            nameOfBodyUndergoingTorque,
-                                            nameOfBodyExertingTorque ) );
-        bodyFlightConditions = bodyUndergoingTorque->getFlightConditions( );
+                    bodyFlightConditions );
+    }
+    else if( bodyFlightConditions == NULL && bodyUndergoingTorque->getFlightConditions( ) != NULL )
+    {
+        throw std::runtime_error( "Error when making aerodynamic torque, found flight conditions that are not atmospheric." );
     }
 
     // Retrieve frame in which aerodynamic coefficients are defined.
@@ -91,8 +111,8 @@ boost::shared_ptr< aerodynamics::AerodynamicTorque > createAerodynamicTorqueMode
     // Create torque model.
     return boost::make_shared< aerodynamics::AerodynamicTorque >(
                 coefficientInPropagationFrameFunction,
-                boost::bind( &aerodynamics::FlightConditions::getCurrentDensity, bodyFlightConditions ),
-                boost::bind( &aerodynamics::FlightConditions::getCurrentAirspeed, bodyFlightConditions ),
+                boost::bind( &aerodynamics::AtmosphericFlightConditions::getCurrentDensity, bodyFlightConditions ),
+                boost::bind( &aerodynamics::AtmosphericFlightConditions::getCurrentAirspeed, bodyFlightConditions ),
                 boost::bind( &aerodynamics::AerodynamicCoefficientInterface::getReferenceArea, aerodynamicCoefficients ),
                 boost::bind( &aerodynamics::AerodynamicCoefficientInterface::getReferenceLengths, aerodynamicCoefficients ),
                 aerodynamicCoefficients->getAreCoefficientsInNegativeAxisDirection( ) );
@@ -137,6 +157,39 @@ boost::shared_ptr< gravitation::SecondDegreeGravitationalTorqueModel > createSec
 
 }
 
+
+//! Function to create a spherical harmonic gravitational torque
+boost::shared_ptr< gravitation::SphericalHarmonicGravitationalTorqueModel > createSphericalHarmonicGravitationalTorqueModel(
+        const boost::shared_ptr< simulation_setup::Body > bodyUndergoingTorque,
+        const boost::shared_ptr< simulation_setup::Body > bodyExertingTorque,
+        const boost::shared_ptr< TorqueSettings > torqueSettings,
+        const std::string& nameOfBodyUndergoingTorque,
+        const std::string& nameOfBodyExertingTorque )
+{
+    boost::shared_ptr< SphericalHarmonicTorqueSettings > sphericalHarmonicTorqueSettings =
+            boost::dynamic_pointer_cast< SphericalHarmonicTorqueSettings >( torqueSettings );
+
+    if( sphericalHarmonicTorqueSettings == NULL )
+    {
+        throw std::runtime_error( "Error when creating spherical harmonic torque, input is inconsistent" );
+    }
+    boost::shared_ptr< AccelerationSettings > sphericalHarmonicAccelerationSettings =
+            boost::make_shared< SphericalHarmonicAccelerationSettings >(
+                sphericalHarmonicTorqueSettings->maximumDegree_,
+                sphericalHarmonicTorqueSettings->maximumOrder_ );
+    boost::shared_ptr< gravitation::SphericalHarmonicsGravitationalAccelerationModel > sphericalHarmonicAcceleration =
+            boost::dynamic_pointer_cast< gravitation::SphericalHarmonicsGravitationalAccelerationModel >(
+                 createSphericalHarmonicsGravityAcceleration(
+                    bodyExertingTorque, bodyUndergoingTorque, nameOfBodyExertingTorque, nameOfBodyUndergoingTorque,
+                    sphericalHarmonicAccelerationSettings, false, false ) );
+
+    return boost::make_shared< gravitation::SphericalHarmonicGravitationalTorqueModel >(
+                sphericalHarmonicAcceleration,
+                boost::bind( &Body::getCurrentRotationToLocalFrame, bodyUndergoingTorque ),
+                boost::bind( &Body::getBodyMass, bodyExertingTorque ) );
+}
+
+
 //! Function to create torque model object.
 boost::shared_ptr< basic_astrodynamics::TorqueModel > createTorqueModel(
         const boost::shared_ptr< simulation_setup::Body > bodyUndergoingTorque,
@@ -149,6 +202,12 @@ boost::shared_ptr< basic_astrodynamics::TorqueModel > createTorqueModel(
 
     switch( torqueSettings->torqueType_ )
     {
+    case basic_astrodynamics::inertial_torque:
+    {
+        torqueModel = createInertialTorqueModel(
+                    bodyUndergoingTorque, nameOfBodyUndergoingTorque );
+        break;
+    }
     case basic_astrodynamics::second_order_gravitational_torque:
     {
         torqueModel = createSecondDegreeGravitationalTorqueModel(
@@ -159,6 +218,12 @@ boost::shared_ptr< basic_astrodynamics::TorqueModel > createTorqueModel(
     {
         torqueModel = createAerodynamicTorqueModel(
                     bodyUndergoingTorque, bodyExertingTorque, nameOfBodyUndergoingTorque, nameOfBodyExertingTorque );
+        break;
+    }
+    case basic_astrodynamics::spherical_harmonic_gravitational_torque:
+    {
+        torqueModel = createSphericalHarmonicGravitationalTorqueModel(
+                    bodyUndergoingTorque, bodyExertingTorque, torqueSettings, nameOfBodyUndergoingTorque, nameOfBodyExertingTorque );
         break;
     }
     default:
@@ -174,8 +239,18 @@ boost::shared_ptr< basic_astrodynamics::TorqueModel > createTorqueModel(
 //! Function to create torque models from a map of bodies and torque model settings.
 basic_astrodynamics::TorqueModelMap createTorqueModelsMap(
         const NamedBodyMap& bodyMap,
-        const SelectedTorqueMap& selectedTorquePerBody )
+        SelectedTorqueMap selectedTorquePerBody,
+        const std::vector< std::string >& propagatedBodies )
 {
+    for( unsigned int i = 0; i < propagatedBodies.size( ); i++ )
+    {
+        if( selectedTorquePerBody.count( propagatedBodies.at( i ) ) == 0 )
+        {
+            selectedTorquePerBody[ propagatedBodies.at( i ) ] =
+                    std::map< std::string, std::vector< boost::shared_ptr< TorqueSettings > > >( );
+        }
+    }
+
     basic_astrodynamics::TorqueModelMap torqueModelMap;
 
     for( SelectedTorqueMap::const_iterator acceleratedBodyIterator = selectedTorquePerBody.begin( );
@@ -188,6 +263,12 @@ basic_astrodynamics::TorqueModelMap createTorqueModelsMap(
         }
         else
         {
+            torqueModelMap[ acceleratedBodyIterator->first ][ acceleratedBodyIterator->first ].push_back(
+                        createTorqueModel(
+                        bodyMap.at( acceleratedBodyIterator->first ), bodyMap.at( acceleratedBodyIterator->first ),
+                        boost::make_shared< TorqueSettings >( basic_astrodynamics::inertial_torque ),
+                        acceleratedBodyIterator->first, acceleratedBodyIterator->first ) );
+
             for( std::map< std::string, std::vector< boost::shared_ptr< TorqueSettings > > >::const_iterator
                  acceleratingBodyIterator = acceleratedBodyIterator->second.begin( );
                  acceleratingBodyIterator != acceleratedBodyIterator->second.end( ); acceleratingBodyIterator++ )
@@ -197,6 +278,7 @@ basic_astrodynamics::TorqueModelMap createTorqueModelsMap(
                     throw std::runtime_error(
                                 "Error, could not find body " + acceleratingBodyIterator->first + " when making torque model map." );
                 }
+
                 for( unsigned int i = 0; i < acceleratingBodyIterator->second.size( ); i++ )
                 {
                     torqueModelMap[ acceleratedBodyIterator->first ][ acceleratingBodyIterator->first ].push_back(
