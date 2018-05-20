@@ -771,7 +771,6 @@ protected:
         // Create and set interpolators for ephemerides
         resetIntegratedStates( equationsOfMotionNumericalSolution_, integratedStateProcessors_ );
 
-
         // Clear numerical solution if so required.
         if( clearNumericalSolutions_ )
         {
@@ -814,7 +813,7 @@ protected:
 
     //! Function that performs a single state derivative function evaluation with double precision.
     /*!
-     *  Function that performs a single state derivative function evaluation with double precision
+     *  Function that performs a single state derivative function evaluation with double precision.
      *  \sa stateDerivativeFunction_
      */
     boost::function< Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic >

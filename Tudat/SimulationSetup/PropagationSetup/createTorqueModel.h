@@ -100,7 +100,6 @@ boost::shared_ptr< basic_astrodynamics::TorqueModel > createTorqueModel(
         const std::string& nameOfBodyUndergoingTorque,
         const std::string& nameOfBodyExertingTorque );
 
-
 //! Function to create torque models from a map of bodies and torque model settings.
 /*!
  *  Function to create torque models from a map of bodies and torque model settings.
@@ -114,7 +113,6 @@ basic_astrodynamics::TorqueModelMap createTorqueModelsMap(
         const NamedBodyMap& bodyMap,
         SelectedTorqueMap selectedTorquePerBody,
         const std::vector< std::string >& propagatedBodies );
-
 
 }  // namespace simulation_setup
 
