@@ -11,6 +11,8 @@
 #ifndef TUDAT_SPARTA_INPUT_OUTPUT_H
 #define TUDAT_SPARTA_INPUT_OUTPUT_H
 
+#if USE_SPARTA
+
 #include <string>
 #include <vector>
 
@@ -85,5 +87,7 @@ static inline std::string getSpartaInternalGeometryFile( )
 } // namespace input_output
 
 } // namespace tudat
+
+#endif // USE_SPARTA
 
 #endif // TUDAT_SPARTA_INPUT_OUTPUT_H

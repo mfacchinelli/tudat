@@ -20,6 +20,8 @@
 #ifndef TUDAT_RAREFIED_FLOW_ANALYSIS_H
 #define TUDAT_RAREFIED_FLOW_ANALYSIS_H
 
+#if USE_SPARTA
+
 #include <map>
 #include <string>
 #include <vector>
@@ -137,7 +139,6 @@ public:
      *          is set. Furthermore, the number of cores has to be an integer larger or equal to one.
      */
     RarefiedFlowAnalysis(
-            const std::string& SPARTAExecutable,
             const std::vector< std::vector< double > >& dataPointsOfIndependentVariables,
             boost::shared_ptr< TabulatedAtmosphere > atmosphereModel,
             const std::string& simulationGases,
@@ -151,8 +152,9 @@ public:
             const double wallTemperature = 300.0,
             const double accommodationCoefficient = 1.0,
             const bool printProgressInCommandWindow = false,
-            const std::string MPIExecutable = "",
-            const unsigned int numberOfCores = 0 );
+            const std::string& SPARTAExecutable = "~/sparta/src/spa_mpi",
+            const std::string& MPIExecutable = "/usr/lib64/mpi/gcc/openmpi/bin/mpirun",
+            const unsigned int numberOfCores = 14 );
 
     //! Default destructor.
     /*!
@@ -173,6 +175,14 @@ public:
             const boost::array< int, 3 > independentVariables );
 
 private:
+
+    //! Check input values for SPARTA simulation.
+    /*!
+     *  Check input values for SPARTA simulation. This function checks that the input variables match the required
+     *  definitions and that the input files exist. In case the executable for SPARTA were not to exist, the program
+     *  automatically downloads and installs it.
+     */
+    void RarefiedFlowAnalysis::checkSpartaInputs( );
 
     //! Open and read geometry file for SPARTA simulation.
     /*!
@@ -350,5 +360,7 @@ typedef boost::shared_ptr< RarefiedFlowAnalysis > RarefiedFlowAnalysisPointer;
 } // namespace aerodynamics
 
 } // namespace tudat
+
+#endif // USE_SPARTA
 
 #endif // TUDAT_RAREFIED_FLOW_ANALYSIS_H

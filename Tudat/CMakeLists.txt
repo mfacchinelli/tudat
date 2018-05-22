@@ -262,6 +262,18 @@ else()
  endif( )
 endif()
 
+#
+# SPARTA
+#
+option(USE_SPARTA "Build SPARTA library." ON)
+if(NOT USE_SPARTA)
+ message(STATUS "SPARTA disabled!")
+ add_definitions(-DUSE_SPARTA=0)
+else()
+ add_definitions(-DUSE_SPARTA=1)
+ message(STATUS "SPARTA enabled!")
+endif()
+
 option(COMPILE_HIGH_ACCURACY_ESTIMATION_TESTS  "Compiling unit tests for state estimation. These may cause excessive (>3 GB)) RAM usage with gcc/mingw." ON)
 option(COMPILE_PROPAGATION_TESTS "Compiling unit tests involving long (> 30 s) propagations. Total unit test run time may be > 5-10 minutes." ON)
 

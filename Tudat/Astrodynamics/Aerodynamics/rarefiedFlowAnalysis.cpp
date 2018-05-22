@@ -15,6 +15,8 @@
  *
  */
 
+#if USE_SPARTA
+
 #include <boost/make_shared.hpp>
 #include <boost/assign/list_of.hpp>
 
@@ -176,7 +178,6 @@ Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor > sortMat
 
 //! Default constructor.
 RarefiedFlowAnalysis::RarefiedFlowAnalysis(
-        const std::string& SPARTAExecutable,
         const std::vector< std::vector< double > >& dataPointsOfIndependentVariables,
         boost::shared_ptr< TabulatedAtmosphere > atmosphereModel,
         const std::string& simulationGases,
@@ -190,26 +191,23 @@ RarefiedFlowAnalysis::RarefiedFlowAnalysis(
         const double wallTemperature,
         const double accommodationCoefficient,
         const bool printProgressInCommandWindow,
-        const std::string MPIExecutable,
+        const std::string& SPARTAExecutable,
+        const std::string& MPIExecutable,
         const unsigned int numberOfCores ) :
     AerodynamicCoefficientGenerator< 3, 6 >(
           dataPointsOfIndependentVariables, referenceLength, referenceArea, referenceLength,
           momentReferencePoint,
           boost::assign::list_of( altitude_dependent )( mach_number_dependent )( angle_of_attack_dependent ),
           true, true ),
-      SPARTAExecutable_( SPARTAExecutable ),simulationGases_( simulationGases ), referenceAxis_( referenceAxis ),
+      simulationGases_( simulationGases ), referenceAxis_( referenceAxis ),
       gridSpacing_( gridSpacing ), simulatedParticlesPerCell_( simulatedParticlesPerCell ),
       wallTemperature_( wallTemperature ), accommodationCoefficient_( accommodationCoefficient ),
-      printProgressInCommandWindow_( printProgressInCommandWindow ), MPIExecutable_( MPIExecutable ),
-      numberOfCores_( numberOfCores ), referenceDimension_( static_cast< unsigned int >( referenceAxis_ ) )
+      printProgressInCommandWindow_( printProgressInCommandWindow ), SPARTAExecutable_( SPARTAExecutable ),
+      MPIExecutable_( MPIExecutable ), numberOfCores_( numberOfCores ),
+      referenceDimension_( static_cast< unsigned int >( referenceAxis_ ) )
 {
     // Check inputs
-    if ( referenceDimension_ > 2 )
-    {
-        throw std::runtime_error( "Error in SPARTA rarefied flow analysis. Reference axis makes "
-                                  "no sense for a universe with 3 spacial dimensions (i.e., our universe). "
-                                  "Note that the first dimension is identified with 0." );
-    }
+    checkSpartaInputs( );
 
     // Analyze vehicle geometry
     analyzeGeometryFile( geometryFileUser );
@@ -245,6 +243,30 @@ RarefiedFlowAnalysis::RarefiedFlowAnalysis(
 
     // Create interpolator object
     createInterpolator( );
+}
+
+//! Check input values for SPARTA simulation.
+void RarefiedFlowAnalysis::checkSpartaInputs( )
+{
+    // Check that reference dimension makes sense
+    if ( referenceDimension_ > 2 )
+    {
+        throw std::runtime_error( "Error in SPARTA rarefied flow analysis. Reference axis makes "
+                                  "no sense for a universe with 3 spacial dimensions (i.e., our universe). "
+                                  "Note that the first dimension is identified with 0." );
+    }
+
+    // Check that SPARTA executable exists and create it otherwise
+    if ( !boost::filesystem::exists( SPARTAExecutable_ ) )
+    {
+        std::cerr << "SPARTA executable not found. "
+                     "Cloning and building SPARTA from scratch." << std::endl;
+        std::string cloneAndBuildSPARTACommandString =
+                "mkdir ~/sparta/; "
+                "cd ~/sparta/; git clone https://github.com/mfacchinelli/sparta.git; "
+                "cd ~/sparta/src/; nice make -j 30 mpi";
+        std::system( cloneAndBuildSPARTACommandString.c_str( ) );
+    }
 }
 
 //! Open and read geometry file for SPARTA simulation.
@@ -487,3 +509,5 @@ Eigen::Vector6d RarefiedFlowAnalysis::getAerodynamicCoefficientsDataPoint(
 } // namespace aerodynamics
 
 } // namespace tudat
+
+#endif // USE_SPARTA

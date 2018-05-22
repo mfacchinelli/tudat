@@ -11,6 +11,8 @@
 #ifndef TUDAT_SPARTA_DATA_READER_H
 #define TUDAT_SPARTA_DATA_READER_H
 
+#if USE_SPARTA
+
 #include <string>
 #include <vector>
 
@@ -224,5 +226,7 @@ std::string readSpartaInputFileTemplate( )
 } // namespace input_output
 
 } // namespace tudat
+
+#endif // USE_SPARTA
 
 #endif // TUDAT_SPARTA_DATA_READER_H
