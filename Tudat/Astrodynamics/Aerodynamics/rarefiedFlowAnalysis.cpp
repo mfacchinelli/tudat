@@ -67,7 +67,7 @@ std::vector< double > getDefaultRarefiedFlowAltitudePoints(
     else
     {
         throw std::runtime_error( "Error in altitude range selection for SPARTA simulation. "
-                                  "Planet not supported." );
+                                  "Planet not supported. Use a custom altitude range instead." );
     }
     return altitudePoints;
 }
@@ -263,8 +263,14 @@ void RarefiedFlowAnalysis::checkSpartaInputs( )
         std::string cloneAndBuildSPARTACommandString =
                 "mkdir ~/sparta/; "
                 "cd ~/sparta/; git clone https://github.com/mfacchinelli/sparta.git; "
-                "cd ~/sparta/src/; nice make -j 30 mpi";
+                "cd ~/sparta/src/; make -j 14 mpi";
         std::system( cloneAndBuildSPARTACommandString.c_str( ) );
+    }
+
+    // Create directory for output
+    if ( !boost::filesystem::exists( getSpartaOutputPath( ) ) )
+    {
+        boost::filesystem::create_directories( getSpartaOutputPath( ) );
     }
 }
 
@@ -428,10 +434,10 @@ void RarefiedFlowAnalysis::generateCoefficients( )
                 velocityVector( referenceDimension_ ) = ( ( referenceAxis_ >= 0 ) ? - 1.0 : 1.0 ) *
                         freeStreamVelocities_( h, m );
 
-                // Print to file
+                // Print to file (each line corresponds to a different line in the file)
                 FILE * fileIdentifier = std::fopen( getSpartaInputFile( ).c_str( ), "w" );
-                std::fprintf( fileIdentifier, inputTemplate_.c_str( ),
-                              simulationBoundaries_( 0 ), simulationBoundaries_( 1 ), simulationBoundaries_( 2 ),
+                std::fprintf( fileIdentifier, inputTemplate_.c_str( ), // user-defined variables below
+                              simulationBoundaries_( 0 ), simulationBoundaries_( 1 ), simulationBoundaries_( 2 ), // continues on next line
                               simulationBoundaries_( 3 ), simulationBoundaries_( 4 ), simulationBoundaries_( 5 ),
                               simulationGrid_( 0 ), simulationGrid_( 1 ), simulationGrid_( 2 ),
                               atmosphericConditions_[ number_density_index ].at( h ), ratioOfRealToSimulatedParticles_( h ),
@@ -445,7 +451,7 @@ void RarefiedFlowAnalysis::generateCoefficients( )
                 std::fclose( fileIdentifier );
 
                 // Run SPARTA
-//                systemStatus = std::system( runSPARTACommandString.c_str( ) );
+                systemStatus = std::system( runSPARTACommandString.c_str( ) );
                 if ( systemStatus != 0 )
                 {
                     throw std::runtime_error( "Error in SPARTA rarefied flow analysis. "

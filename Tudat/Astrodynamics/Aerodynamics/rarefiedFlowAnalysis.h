@@ -153,7 +153,7 @@ public:
             const double accommodationCoefficient = 1.0,
             const bool printProgressInCommandWindow = false,
             const std::string& SPARTAExecutable = "~/sparta/src/spa_mpi",
-            const std::string& MPIExecutable = "/usr/lib64/mpi/gcc/openmpi/bin/mpirun",
+            const std::string& MPIExecutable = "mpirun",
             const unsigned int numberOfCores = 14 );
 
     //! Default destructor.
