@@ -20,7 +20,7 @@
 #ifndef TUDAT_RAREFIED_FLOW_ANALYSIS_H
 #define TUDAT_RAREFIED_FLOW_ANALYSIS_H
 
-#if USE_SPARTA
+//#if USE_SPARTA
 
 #include <map>
 #include <string>
@@ -182,7 +182,7 @@ private:
      *  definitions and that the input files exist. In case the executable for SPARTA were not to exist, the program
      *  automatically downloads and installs it.
      */
-    void RarefiedFlowAnalysis::checkSpartaInputs( );
+    void checkSpartaInputs( );
 
     //! Open and read geometry file for SPARTA simulation.
     /*!
@@ -208,13 +208,6 @@ private:
      *  coefficients, as a function of altitude, Mach number and angle of attack.
      */
     void generateCoefficients( );
-
-    //! Path to SPARTA executable.
-    /*!
-     *  Path to SPARTA executable. Note that SPARTA is an external software and needs to be compiled before
-     *  it can be used in Tudat. See the instructions in the manual [2].
-     */
-    std::string SPARTAExecutable_;
 
     //! String of gases making up the atmosphere of the target planet.
     std::string simulationGases_;
@@ -250,6 +243,13 @@ private:
      *  details, and during the simulation it prints statistics on the progress. This value is set to false by default.
      */
     bool printProgressInCommandWindow_;
+
+    //! Path to SPARTA executable.
+    /*!
+     *  Path to SPARTA executable. Note that SPARTA is an external software and needs to be compiled before
+     *  it can be used in Tudat. See the instructions in the manual [2].
+     */
+    std::string SPARTAExecutable_;
 
     //! Path to open MPI executable.
     /*!
@@ -361,6 +361,6 @@ typedef boost::shared_ptr< RarefiedFlowAnalysis > RarefiedFlowAnalysisPointer;
 
 } // namespace tudat
 
-#endif // USE_SPARTA
+//#endif // USE_SPARTA
 
 #endif // TUDAT_RAREFIED_FLOW_ANALYSIS_H

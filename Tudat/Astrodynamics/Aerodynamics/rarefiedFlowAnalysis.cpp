@@ -12,10 +12,9 @@
  *        Parallel DSMC Kernel “SPARTA”,” in 8th GRACM International Congress on Computational Mechanics,
  *        Volos, Greece, July 2015.
  *      Dirkx, D. and Mooij, E., Conceptual Shape Optimization of Entry Vehicles. Springer, 2017.
- *
  */
 
-#if USE_SPARTA
+//#if USE_SPARTA
 
 #include <boost/make_shared.hpp>
 #include <boost/assign/list_of.hpp>
@@ -212,7 +211,7 @@ RarefiedFlowAnalysis::RarefiedFlowAnalysis(
     // Analyze vehicle geometry
     analyzeGeometryFile( geometryFileUser );
 
-    // Find atmospheric conditions based on altitude
+    // Retrieve atmospheric conditions based on altitude
     for ( unsigned int h = 0; h < dataPointsOfIndependentVariables_.at( 0 ).size( ); h++ )
     {
         atmosphericConditions_[ density_index ].push_back(
@@ -446,7 +445,7 @@ void RarefiedFlowAnalysis::generateCoefficients( )
                 std::fclose( fileIdentifier );
 
                 // Run SPARTA
-                systemStatus = std::system( runSPARTACommandString.c_str( ) );
+//                systemStatus = std::system( runSPARTACommandString.c_str( ) );
                 if ( systemStatus != 0 )
                 {
                     throw std::runtime_error( "Error in SPARTA rarefied flow analysis. "
@@ -510,4 +509,4 @@ Eigen::Vector6d RarefiedFlowAnalysis::getAerodynamicCoefficientsDataPoint(
 
 } // namespace tudat
 
-#endif // USE_SPARTA
+//#endif // USE_SPARTA
