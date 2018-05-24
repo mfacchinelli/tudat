@@ -12,13 +12,6 @@
 #ifndef TUDAT_ROTATIONAL_MOTION_MODIFIED_RODRIGUES_PARAMETERS_STATE_DERIVATIVE_H
 #define TUDAT_ROTATIONAL_MOTION_MODIFIED_RODRIGUES_PARAMETERS_STATE_DERIVATIVE_H
 
-#include <vector>
-#include <map>
-#include <string>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/function.hpp>
-
 #include "Tudat/Astrodynamics/Propagators/rotationalMotionStateDerivative.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/attitudeElementConversions.h"
 
@@ -160,8 +153,9 @@ public:
      * Function to process the state during propagation. For modified Rodrigues parameters (MRP), this function converts to/from
      * shadow modified Rodrigues parameters (SMRP), in case the magnitude of the (S)MRP vector is larger than 1.0.
      * \param unprocessedState State computed after propagation.
+     * \return Processed state (returned by reference).
      */
-    void postProcessState( Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 >& unprocessedState )
+    void postProcessState( Eigen::Block< Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > > unprocessedState )
     {
         // Loop over each body
         Eigen::Matrix< StateScalarType, 3, 1 > modifiedRodriguesParametersVector;
@@ -174,7 +168,8 @@ public:
             if ( modifiedRodriguesParametersMagnitude >= 1.0 )
             {
                 // Invert flag
-                unprocessedState( i * 7 + 3 ) = std::fabs( unprocessedState( i * 7 + 3 ) - 1.0 );
+                unprocessedState.segment( i * 7 + 3, 1 ) = ( unprocessedState.block( i * 7 + 3, 0, 1, 1 ) -
+                                                             Eigen::Matrix< StateScalarType, 1, 1 >::Ones( ) ).cwiseAbs( );
 
                 // Convert to MRP/SMRP
                 modifiedRodriguesParametersVector /= - modifiedRodriguesParametersMagnitude *

@@ -230,7 +230,6 @@ public:
 
     virtual std::vector< std::map< TimeType, double > > getCumulativeComputationTimeHistoryBase( ) = 0;
 
-
     //! Function to get the map of named bodies involved in simulation.
     /*!
      *  Function to get the map of named bodies involved in simulation.
@@ -299,7 +298,6 @@ public:
     using DynamicsSimulator< StateScalarType, TimeType >::clearNumericalSolutions_;
     using DynamicsSimulator< StateScalarType, TimeType >::setIntegratedResult_;
 
-
     //! Constructor of simulator.
     /*!
      *  Constructor of simulator, constructs integrator and object for calculating each time step of integration.
@@ -313,7 +311,7 @@ public:
      *  \param setIntegratedResult Boolean to determine whether to automatically use the integrated results to set
      *  ephemerides (default false).
      *  \param initialClockTime Initial clock time from which to determine cumulative computation time.
-     *  By default now(), i.e. the moment at which this function is called.
+     *  By default now( ), i.e. the moment at which this function is called.
      */
     SingleArcDynamicsSimulator(
             const simulation_setup::NamedBodyMap& bodyMap,
@@ -322,13 +320,15 @@ public:
             const bool areEquationsOfMotionToBeIntegrated = true,
             const bool clearNumericalSolutions = false,
             const bool setIntegratedResult = false,
+            const bool printNumberOfFunctionEvaluations = false,
             const std::chrono::steady_clock::time_point initialClockTime = std::chrono::steady_clock::now( ) ):
         DynamicsSimulator< StateScalarType, TimeType >(
             bodyMap, clearNumericalSolutions, setIntegratedResult ),
         integratorSettings_( integratorSettings ),
         propagatorSettings_(
             boost::dynamic_pointer_cast< SingleArcPropagatorSettings< StateScalarType > >( propagatorSettings ) ),
-        initialPropagationTime_( integratorSettings_->initialTime_ ), initialClockTime_( initialClockTime ),
+        initialPropagationTime_( integratorSettings_->initialTime_ ),
+        printNumberOfFunctionEvaluations_( printNumberOfFunctionEvaluations ), initialClockTime_( initialClockTime ),
         propagationTerminationReason_( boost::make_shared< PropagationTerminationDetails >( propagation_never_run ) )
     {
         if( propagatorSettings == NULL )
@@ -436,15 +436,24 @@ public:
                     statePostProcessingFunction_,
                     propagatorSettings_->getPrintInterval( ),
                     initialClockTime_ );
+
+        // Convert numerical solution to conventional state
         dynamicsStateDerivative_->convertNumericalStateSolutionsToOutputSolutions(
                     equationsOfMotionNumericalSolution_, equationsOfMotionNumericalSolutionRaw_ );
 
-        // Retrieve number of function evaluations (to print, remove comments on line 448)
+        // Process conventional state history
+        dynamicsStateDerivative_->processConventionalStateHistory( equationsOfMotionNumericalSolution_,
+                                                                   equationsOfMotionNumericalSolutionRaw_ );
+
+        // Retrieve number of function evaluations
         int numberOfFunctionEvaluations = dynamicsStateDerivative_->getNumberOfFunctionEvaluations( );
         cumulativeNumberOfFunctionEvaluations_ = dynamicsStateDerivative_->getCumulativeNumberOfFunctionEvaluations( );
 
         // Print number of total function evaluations
-//        std::cout << "Function Evaluations: " << numberOfFunctionEvaluations << std::endl;
+        if ( printNumberOfFunctionEvaluations_ )
+        {
+            std::cout << "Total Number of Function Evaluations: " << numberOfFunctionEvaluations << std::endl;
+        }
 
         if( this->setIntegratedResult_ )
         {
@@ -637,7 +646,6 @@ public:
         return integratedStateProcessors_;
     }
 
-
     //! Function to retrieve the event that triggered the termination of the last propagation
     /*!
      * Function to retrieve the event that triggered the termination of the last propagation
@@ -650,14 +658,13 @@ public:
 
     //! Get whether the integration was completed successfully.
     /*!
-     * @copybrief integrationCompletedSuccessfully
+     * Get whether the integration was completed successfully.
      * \return Whether the integration was completed successfully by reaching the termination condition.
      */
     virtual bool integrationCompletedSuccessfully( ) const
     {
         return ( propagationTerminationReason_->getPropagationTerminationReason( ) == termination_condition_reached );
     }
-
 
     //! Function to retrieve the dependent variables IDs
     /*!
@@ -668,7 +675,6 @@ public:
     {
         return dependentVariableIds_;
     }
-
 
     //! Function to retrieve initial time of propagation
     /*!
@@ -705,7 +711,6 @@ public:
 
 protected:
 
-
     //! This function updates the environment with the numerical solution of the propagation.
     /*!
      *  This function updates the environment with the numerical solution of the propagation. It sets
@@ -731,7 +736,6 @@ protected:
             bodyIterator->second->updateConstantEphemerisDependentMemberQuantities( );
         }
     }
-
 
     //! List of object (per dynamics type) that process the integrated numerical solution by updating the environment
     std::map< IntegratedStateType, std::vector< boost::shared_ptr<
@@ -817,7 +821,10 @@ protected:
     //! Initial time of propagation
     double initialPropagationTime_;
 
-    //!
+    //! Boolean specifiying whether number of evaluations has to be printed at the end of propagation.
+    bool printNumberOfFunctionEvaluations_;
+
+    //! Initial clock time
     std::chrono::steady_clock::time_point initialClockTime_;
 
     //! Event that triggered the termination of the propagation
@@ -1151,7 +1158,6 @@ public:
             arcStartTimes_[ i ] = equationsOfMotionNumericalSolution_[ i ].begin( )->first;
         }
 
-
         if( updateInitialStates )
         {
             multiArcPropagatorSettings_->resetInitialStatesList(
@@ -1219,7 +1225,6 @@ public:
     {
         return getCumulativeComputationTimeHistory( );
     }
-
 
     //! Function to reset the environment using an externally provided list of (numerically integrated) states
     /*!
@@ -1360,7 +1365,6 @@ protected:
 
     //! Propagator settings used by this objec
     boost::shared_ptr< MultiArcPropagatorSettings< StateScalarType > > multiArcPropagatorSettings_;
-
 
 };
 
