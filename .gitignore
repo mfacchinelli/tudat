@@ -2,11 +2,10 @@
 # Private
 #
 # Do not track SPARTA results and data
-/Tudat/External/SPARTA/results/
-/Tudat/External/SPARTA/coefficients/
-/Tudat/External/SPARTA/data.shape
-/Tudat/External/SPARTA/in.sparta
-/Tudat/External/SPARTA/log.sparta
+/Tudat/External/SpartaInterface/SimulationData/Results/
+/Tudat/External/SpartaInterface/SimulationData/data.shape
+/Tudat/External/SpartaInterface/SimulationData/in.sparta
+/Tudat/External/SpartaInterface/SimulationData/log.sparta
 
 #
 # CMake 
