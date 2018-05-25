@@ -305,6 +305,10 @@ if(USE_GSL)
  list(APPEND TUDAT_EXTERNAL_LIBRARIES gsl)
 endif()
 
+if(USE_SPARTA)
+ list(APPEND TUDAT_EXTERNAL_INTERFACE_LIBRARIES tudat_sparta_interface)
+endif()
+
 
 list(APPEND TUDAT_PROPAGATION_LIBRARIES tudat_simulation_setup tudat_ground_stations tudat_propagators
     tudat_aerodynamics tudat_system_models tudat_geometric_shapes tudat_relativity tudat_gravitation tudat_mission_segments

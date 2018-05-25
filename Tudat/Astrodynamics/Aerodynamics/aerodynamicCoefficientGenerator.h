@@ -30,8 +30,13 @@
 #include "Tudat/Mathematics/Interpolators/multiLinearInterpolator.h"
 #include "Tudat/Basics/basicTypedefs.h"
 
+#ifdef USE_SPARTA
+#include "Tudat/External/SpartaInterface/spartaInterface.h"
+#endif // USE_SPARTA
+
 namespace tudat
 {
+
 namespace aerodynamics
 {
 
@@ -169,12 +174,10 @@ public:
      *  Save aerodynamic coefficients to file.
      *  \param fileName Map of paths to files where aerodynamics coefficients are to be saved.
      */
-    void saveAerodynamicCoefficientsTables( const std::map< int, std::string >& fileNamesMap,
-                                            const std::string& outputDirectory )
+    void saveAerodynamicCoefficientsTables( const std::map< int, std::string >& fileNamesMap )
     {
         input_output::MultiArrayFileWriter< NumberOfIndependentVariables,
                 NumberOfCoefficients >::writeMultiArrayAndIndependentVariablesToFiles( fileNamesMap,
-                                                                                       outputDirectory,
                                                                                        dataPointsOfIndependentVariables_,
                                                                                        aerodynamicCoefficients_ );
     }
@@ -186,12 +189,10 @@ public:
      *  \param coefficientIndices Indices of coefficients to be saved. Default value is all of them.
      */
     void saveAerodynamicCoefficientsTables( const std::string& fileName,
-                                            const std::string& outputDirectory,
                                             const std::vector< int > coefficientIndices = { 0, 1, 2, 3, 4, 5 } )
     {
         input_output::MultiArrayFileWriter< NumberOfIndependentVariables,
                 NumberOfCoefficients >::writeMultiArrayAndIndependentVariablesToFiles( fileName,
-                                                                                       outputDirectory,
                                                                                        coefficientIndices,
                                                                                        dataPointsOfIndependentVariables_,
                                                                                        aerodynamicCoefficients_ );
@@ -225,6 +226,11 @@ public:
         currentForceCoefficients_ = currentCoefficients.segment( 0, 3 );
         currentMomentCoefficients_ = currentCoefficients.segment( 3, 3 );
     }
+
+    //! Share protected variables with SPARTA interface
+#ifdef USE_SPARTA
+    friend class sparta_interface::SpartaInterface;
+#endif // USE_SPARTA
 
 protected:
 
@@ -269,9 +275,11 @@ protected:
     //! contained in aerodynamicCoefficients_.
     boost::shared_ptr< interpolators::Interpolator< double, Eigen::Vector6d > >
             coefficientInterpolator_;
+
 };
 
 } // namespace aerodynamics
+
 } // namespace tudat
 
 #endif // TUDAT_AERODYNAMIC_COEFFICIENT_GENERATOR_H

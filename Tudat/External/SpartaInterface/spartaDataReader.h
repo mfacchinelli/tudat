@@ -21,7 +21,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
-#include "Tudat/InputOutput/spartaInputOutput.h"
+#include "Tudat/External/SpartaInterface/spartaInputOutput.h"
 
 namespace tudat
 {

@@ -7,18 +7,17 @@
 #    a copy of the license with this file. If not, please or visit:
 #    http://tudat.tudelft.nl/LICENSE.
 
-#Set the source files.
+# Set the source files.
 set(SOFAINTERFACE_SOURCES
   "${SRCROOT}${EXTERNALDIR}/SofaInterface/sofaTimeConversions.h"
   "${SRCROOT}${EXTERNALDIR}/SofaInterface/fundamentalArguments.h"
   "${SRCROOT}${EXTERNALDIR}/SofaInterface/earthOrientation.h"
-
 )
 
 # Set the header files.
 set(SOFAINTERFACE_HEADERS
-"${SRCROOT}${EXTERNALDIR}/SofaInterface/sofaTimeConversions.cpp"
-"${SRCROOT}${EXTERNALDIR}/SofaInterface/fundamentalArguments.cpp"
+  "${SRCROOT}${EXTERNALDIR}/SofaInterface/sofaTimeConversions.cpp"
+  "${SRCROOT}${EXTERNALDIR}/SofaInterface/fundamentalArguments.cpp"
   "${SRCROOT}${EXTERNALDIR}/SofaInterface/earthOrientation.cpp"
 )
 

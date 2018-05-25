@@ -8,7 +8,7 @@
  #    http://tudat.tudelft.nl/LICENSE.
  #
 
-#Set the source files.
+# Set the source files.
 set(SPICEINTERFACE_SOURCES
   "${SRCROOT}${EXTERNALDIR}/SpiceInterface/spiceEphemeris.cpp"
   "${SRCROOT}${EXTERNALDIR}/SpiceInterface/spiceRotationalEphemeris.cpp"

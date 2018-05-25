@@ -19,7 +19,6 @@ if(USE_SOFA)
 
     # Get target properties for static libraries.
     get_target_property(SOFAINTERFACESOURCES tudat_sofa_interface SOURCES)
-
 endif( )
 
 
@@ -32,5 +31,16 @@ if(USE_CSPICE)
 
     # Get target properties for static libraries.
     get_target_property(SPICEINTERFACESOURCES tudat_spice_interface SOURCES)
+endif( )
 
+
+if(USE_SPARTA)
+    # Set SPICE interface directory.
+    set(SPARTAINTERFACEDIR "${EXTERNALDIR}/SpartaInterface")
+
+    # Add subdirectories.
+    add_subdirectory("${SRCROOT}${SPARTAINTERFACEDIR}")
+
+    # Get target properties for static libraries.
+    get_target_property(SPARTAINTERFACESOURCES tudat_sparta_interface SOURCES)
 endif( )

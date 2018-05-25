@@ -7,20 +7,10 @@
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
  *
- *    References
- *      Klothakis, A. and Nikolos, I., “Modeling of Rarefied Hypersonic Flows Using the Massively
- *        Parallel DSMC Kernel “SPARTA”,” in 8th GRACM International Congress on Computational Mechanics,
- *        Volos, Greece, July 2015.
- *      Plimpton, S. and Gallis, M., SPARTA Users Manual, Sandia National Laboratories, United States
- *        Department of Energy, July 2017.
- *      Liechty, D., “Aeroheating Analysis for the Mars Reconnaissance Orbiter with Comparison to Flight Data,”
- *        Journal of Spacecraft and Rockets, vol. 44, no. 6, pp. 1226–1231, 2007.
  */
 
-#ifndef TUDAT_RAREFIED_FLOW_ANALYSIS_H
-#define TUDAT_RAREFIED_FLOW_ANALYSIS_H
-
-//#if USE_SPARTA
+#ifndef TUDAT_SPARTA_INTERFACE_H
+#define TUDAT_SPARTA_INTERFACE_H
 
 #include <map>
 #include <string>
@@ -28,20 +18,20 @@
 
 #include <boost/array.hpp>
 #include <boost/multi_array.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <Eigen/Core>
 
-#include "Tudat/Astrodynamics/Aerodynamics/aerodynamicCoefficientGenerator.h"
-#include "Tudat/Astrodynamics/Aerodynamics/tabulatedAtmosphere.h"
-#include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
-
-#include "Tudat/Basics/basicTypedefs.h"
+#include "Tudat/External/SpartaInterface/rarefiedFlowAnalysis.h"
+#include "Tudat/External/SpartaInterface/spartaDataReader.h"
+#include "Tudat/External/SpartaInterface/spartaInputOutput.h"
 
 namespace tudat
 {
 
-namespace aerodynamics
+namespace sparta_interface
 {
 
 //! Enumaration of key values for map of atmospheric conditions.
@@ -53,27 +43,6 @@ enum AtmosphericConditionVariables
     speed_of_sound_index = 3,
     number_density_index = 4
 };
-
-//! Returns default values of altitude for use in RarefiedFlowAnalysis.
-/*!
- *  Returns default values of altitude for use in RarefiedFlowAnalysis.
- */
-std::vector< double > getDefaultRarefiedFlowAltitudePoints(
-        const std::string& targetPlanet = "Earth" );
-
-//! Returns default values of Mach number for use in RarefiedFlowAnalysis.
-/*!
- *  Returns default values of Mach number for use in RarefiedFlowAnalysis.
- */
-std::vector< double > getDefaultRarefiedFlowMachPoints(
-        const std::string& machRegime = "Full" );
-
-//! Returns default values of angle of attack for use in RarefiedFlowAnalysis.
-/*!
- *  Returns default values of angle of attack for use in RarefiedFlowAnalysis.
- */
-std::vector< double > getDefaultRarefiedFlowAngleOfAttackPoints(
-        const std::string& angleOfAttackRegime = "Reduced" );
 
 //! Function to sort the rows of a matrix, based on the specified column and specified order.
 /*!
@@ -89,100 +58,30 @@ Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor > sortMat
         const Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor >& matrixToBeSorted,
         const int referenceColumn, const bool descendingOrder = false );
 
-//! Class for aerodynamic analysis in rarefied flow using the SPARTA DSMC method.
+//!
 /*!
- *  Class for aerodynamic analysis in rarefied flow using the SPARTA DSMC (Direct Simulation
- *  Monte Carlo) method. This method uses a Monte Carlo simulation, to determine the pressure and
- *  shear forces acting on each element of the vehicle. These values are output by default every 200
- *  time steps, and are used to compute the average pressure and friction coefficients on each surface
- *  element, which are then translated to aerodynamic coefficients for the whole surface. One can
- *  find a description of the SPARTA software in references [1,2], where the second reference is the
- *  official user manual. The user should also pay careful attention to the requirements for the geometry
- *  of the vehicle to be analyzed.
+ *
  */
-class RarefiedFlowAnalysis: public AerodynamicCoefficientGenerator< 3, 6 >
+class SpartaInterface
 {
 public:
 
-    //! Default constructor.
+    //! Constructor.
     /*!
-     *  Default constructor for SPARTA rarefied flow simulation.
-     *  \param SPARTAExecutable Path to executable for SPARTA simulation.
-     *  \param dataPointsOfIndependentVariables Vector of vectors, with each subvector containing
-     *          the data points of each of the independent variables for the coefficient generation.
-     *          The physical meaning of each of the three independent variables is: 0 = altitude,
-     *          1 = Mach number, 1 = angle of attack. Each of the subvectors must be sorted in ascending order.
-     *  \param simulationGases String of gases making up the atmosphere of the planet, to be used for
-     *          the simulation.
-     *  \param atmosphereModel Pointer to the atmosphere model of the planet. Should provide information on
-     *          density, pressure, temperature, gas constant and specific heat ratio.
-     *  \param geometryFileUser Path to the file describing the geometry of the vehicle, where
-     *          the surface elements are discretized as triangles.
-     *  \param referenceArea Reference area used to non-dimensionalize aerodynamic forces
-     *          and moments.
-     *  \param referenceLength Reference length used to non-dimensionalize aerodynamic moments.
-     *  \param referenceAxis Index of main axis of the vehicle (i.e., axis opposite in direction to
-     *          incoming flow, when angles of attack and sideslip are zero).
-     *  \param momentReferencePoint Reference point wrt which aerodynamic moments are calculated.
-     *  \param gridSpacing Grid size for simulation environment, used to define the size of each cell, and
-     *          the number of cells in the environment.
-     *  \param simulatedParticlesPerCell Number of simulated particles per cell.
-     *  \param wallTemperature Temperature of the surface of the vehicle (default value is 300 K [3]).
-     *  \param accommodationCoefficient Accommodation coefficient of the surface of the vehicle. This
-     *          value indicates the degree of diffusivity during molecular-surface collisions (default value
-     *          is 1.0, i.e., diffuse reflection).
-     *  \param printProgressInCommandWindow Boolean to toggle appearance of SPARTA output in command
-     *          window (default is false).
-     *  \param MPIExecutable Path to executable for multi-processor computing software (default is none).
-     *  \param numberOfCores Number of cores to be allocated for multi-processor computing of
-     *          SPARTA simulation (default is 0). Note that this value can only be used if the path to MPI
-     *          is set. Furthermore, the number of cores has to be an integer larger or equal to one.
+     *  Constructor.
      */
-    RarefiedFlowAnalysis(
-            const std::vector< std::vector< double > >& dataPointsOfIndependentVariables,
-            boost::shared_ptr< TabulatedAtmosphere > atmosphereModel,
-            const std::string& simulationGases,
-            const std::string& geometryFileUser,
-            const double referenceArea,
-            const double referenceLength,
-            const int referenceAxis,
-            const Eigen::Vector3d& momentReferencePoint,
-            const double gridSpacing,
-            const double simulatedParticlesPerCell,
-            const double wallTemperature = 300.0,
-            const double accommodationCoefficient = 1.0,
-            const bool printProgressInCommandWindow = false,
-            const std::string& SPARTAExecutable = "~/sparta/src/spa_mpi",
-            const std::string& MPIExecutable = "mpirun",
-            const unsigned int numberOfCores = 14 );
+    SpartaInterface( const std::string& SPARTAExecutable = "~/sparta/src/spa_mpi",
+                     const std::string& MPIExecutable = "mpirun" ) :
+        SPARTAExecutable_( SPARTAExecutable ), MPIExecutable_( MPIExecutable )
+    {
+        // Check executables
+        checkExecutableValidity( );
 
-    //! Default destructor.
-    /*!
-     *  Default destructor.
-     */
-    ~RarefiedFlowAnalysis( ) { }
+        // Read SPARTA input template
+        inputTemplate_ = input_output::readSpartaInputFileTemplate( );
+    }
 
-    //! Get aerodynamic coefficients.
-    /*!
-     *  Returns aerodynamic coefficients.
-     *  The physical meaning of each of the three independent variables is: 0 = altitude,
-     *  1 = Mach number, 1 = angle of attack.
-     *  \param independentVariables Array of values of independent variable
-     *          indices in dataPointsOfIndependentVariables_.
-     *  \return vector of coefficients at specified independent variable indices.
-     */
-    Eigen::Vector6d getAerodynamicCoefficientsDataPoint(
-            const boost::array< int, 3 > independentVariables );
-
-private:
-
-    //! Check input values for SPARTA simulation.
-    /*!
-     *  Check input values for SPARTA simulation. This function checks that the input variables match the required
-     *  definitions and that the input files exist. In case the executable for SPARTA were not to exist, the program
-     *  automatically downloads and installs it.
-     */
-    void checkSpartaInputs( );
+protected:
 
     //! Open and read geometry file for SPARTA simulation.
     /*!
@@ -190,8 +89,10 @@ private:
      *  vehicle and surface elements dimensions and properties.
      *  \param geometryFileUser Path to the file describing the geometry of the vehicle, where
      *          the surface elements are discretized as triangles.
+     *  \param momentReferencePoint Reference point wrt which aerodynamic moments are calculated.
      */
-    void analyzeGeometryFile( const std::string& geometryFileUser );
+    void analyzeGeometryFile( const std::string& geometryFileUser, const double referenceArea,
+                              const Eigen::Vector3d& momentReferencePoint );
 
     //! Retrieve simulation conditions based on input and geometry.
     /*!
@@ -201,13 +102,19 @@ private:
      */
     void getSimulationConditions( );
 
-    //! Generate aerodynamic database.
+    //! Run SPARTA simulation.
     /*!
-     *  Generates aerodynamic database, by running the SPARTA simulation via command line (standard
-     *  library function std::system), and reads output of simulation to extract values of aerodynamic
-     *  coefficients, as a function of altitude, Mach number and angle of attack.
+     *  Run SPARTA simulation with conditions and input files specified by the user.
      */
-    void generateCoefficients( );
+    void runSpartaSimulation( const unsigned int h, const unsigned int m, const unsigned int a );
+
+    //! Process SPARTA output.
+    /*!
+     *  Process SPARTA output by computing force and moment coefficients based on the pressure and shear force
+     *  distribution over the vehicle.
+     */
+    Eigen::Vector6d processSpartaOutput( const double referenceArea, const double referenceLength,
+                                         const unsigned int h, const unsigned int m );
 
     //! String of gases making up the atmosphere of the target planet.
     std::string simulationGases_;
@@ -352,15 +259,72 @@ private:
      *  the values input by the user and determined in previous parts of the code.
      */
     std::string inputTemplate_;
+
+private:
+
+    //! Function to check whether the input executables are indeed present in the system.
+    /*!
+     *  Function to check whether the input executables are indeed present in the system. If the SPARTA
+     *  executable cannot be found, it will be created by downloading, installing and building the
+     *  SPARTA source code. If the MPI executable cannot be found, the simulation will be run with only
+     *  one core.
+     */
+    void checkExecutableValidity( )
+    {
+        // Check that SPARTA executable exists and create it otherwise
+        if ( !boost::filesystem::exists( boost::filesystem::system_complete( SPARTAExecutable_ ) ) )
+        {
+            std::cerr << "SPARTA executable not found. "
+                         "Cloning and building SPARTA from scratch." << std::endl;
+            std::string cloneAndBuildSPARTACommandString =
+                    "mkdir ~/sparta/; "
+                    "cd ~/sparta/; git clone https://github.com/mfacchinelli/sparta.git; "
+                    "cd ~/sparta/src/; make -j 14 mpi";
+//            std::system( cloneAndBuildSPARTACommandString.c_str( ) );
+        }
+
+        // Check try running a dummy MPI example
+        std::string testMPICommandString = "info " + MPIExecutable_;
+        int systemStatus = std::system( testMPICommandString.c_str( ) );
+        if ( systemStatus != 0 )
+        {
+            std::cerr <<  "Error in SPARTA interface. MPI executable not found. "
+                          "Simulation will be run with one core only.";
+            MPIExecutable_ = "";
+        }
+
+        // Create directory for output
+        if ( !boost::filesystem::exists( input_output::getSpartaOutputPath( ) ) )
+        {
+            boost::filesystem::create_directories( input_output::getSpartaOutputPath( ) );
+        }
+    }
+
+    //! Integer output by system command, specifying whether command was successfully executed.
+    int systemStatus_;
+
+    //! Velocity vector of air flow during simulation.
+    Eigen::Vector3d velocityVector_;
+
+    //! Path to files output by SPARTA simulation.
+    std::string temporaryOutputFile_ = input_output::getSpartaOutputPath( ) + "/coeff";
+
+    //! Extensions of files output by SPARTA simulation.
+    std::vector< std::string > outputFileExtensions_ = { ".400", ".600", ".800", ".1000" };
+
+    //! Matrix where output of SPARTA simulation is stored.
+    Eigen::Matrix< double, Eigen::Dynamic, 7, Eigen::RowMajor > outputMatrix_;
+
+    //! Matrix where mean pressure force vectors for each surface element are stored.
+    Eigen::Matrix< double, 3, Eigen::Dynamic > meanPressureValues_;
+
+    //! Matrix where mean shear force vectors for each surface element are stored.
+    Eigen::Matrix< double, 3, Eigen::Dynamic > meanShearValues_;
+
 };
 
-//! Typedef for shared-pointer to RarefiedFlowAnalysis object.
-typedef boost::shared_ptr< RarefiedFlowAnalysis > RarefiedFlowAnalysisPointer;
-
-} // namespace aerodynamics
+} // namespace sparta_interface
 
 } // namespace tudat
 
-//#endif // USE_SPARTA
-
-#endif // TUDAT_RAREFIED_FLOW_ANALYSIS_H
+#endif // TUDAT_SPARTA_INTERFACE_H

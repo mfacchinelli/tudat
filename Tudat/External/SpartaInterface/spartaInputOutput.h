@@ -11,8 +11,6 @@
 #ifndef TUDAT_SPARTA_INPUT_OUTPUT_H
 #define TUDAT_SPARTA_INPUT_OUTPUT_H
 
-//#if USE_SPARTA
-
 #include <string>
 #include <vector>
 
@@ -24,6 +22,16 @@ namespace tudat
 namespace input_output
 {
 
+//! Get SPARTA interface files path.
+/*!
+ * Returns path in which the SPARTA interface files are located.
+ * \return Path containing SPARTA interface files.
+ */
+static inline std::string getSpartaInterfacePath( )
+{
+    return getTudatRootPath( ) + "External/SpartaInterface/";
+}
+
 //! Get SPARTA data files path.
 /*!
  * Returns path in which SPARTA data files are located.
@@ -31,7 +39,7 @@ namespace input_output
  */
 static inline std::string getSpartaDataPath( )
 {
-    return getTudatRootPath( ) + "External/SPARTA/";
+    return getSpartaInterfacePath( ) + "SimulationData/";
 }
 
 //! Get SPARTA output directory name.
@@ -41,7 +49,7 @@ static inline std::string getSpartaDataPath( )
  */
 static inline std::string getSpartaOutputDirectory( )
 {
-    return "results";
+    return "Results";
 }
 
 //! Get SPARTA output directory path.
@@ -87,7 +95,5 @@ static inline std::string getSpartaInternalGeometryFile( )
 } // namespace input_output
 
 } // namespace tudat
-
-//#endif // USE_SPARTA
 
 #endif // TUDAT_SPARTA_INPUT_OUTPUT_H
