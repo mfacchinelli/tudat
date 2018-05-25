@@ -1,0 +1,24 @@
+seed 12345
+dimension 3
+global gridcut 0.1 comm/sort yes
+boundary o o o
+create_box -5.2 5.2 -9.0 9.0 -4.2 7.2
+create_grid 42 72 46
+balance_grid rcb cell
+global nrho 2.541E+18 fnum 7.9E+15 # number density and real-to-simulated-particles ratio
+species atmosphere.species CO2 # gas names
+mixture atm CO2 vstream -3502.9 0.0 0.0 # gas names and velocity
+mixture atm CO2 temp 132.1 # gas names
+read_surf data.shape rotate 0.0 0 -1 0
+group vehicle surf type 1
+surf_collide 1 diffuse 300.0 1.000
+surf_modify all collide 1
+collide vss atm atmosphere.vss
+fix in emit/face atm xhi
+timestep 0.0002997500
+compute 1 surf vehicle atm px py pz shx shy shz
+fix 1 ave/surf vehicle 10 20 200 c_1[*]
+dump 1 surf vehicle 200 results/coeff.* id f_1[*]
+stats 100
+stats_style step cpu np nattempt ncoll nscoll nscheck
+run 1000
