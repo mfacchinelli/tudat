@@ -99,7 +99,7 @@ boost::shared_ptr< EarthOrientationAnglesCalculator > createStandardEarthOrienta
 //        const double intervalStart, const double intervalEnd, const double timeStep,
 //        const basic_astrodynamics::TimeScales timeScale,
 //        const boost::shared_ptr< EarthOrientationAnglesCalculator > earthOrientationCalculator,
-//        const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings )
+//        const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings )
 //{
 //    // Interpolate Earth orientation angles
 //    std::map< double, Eigen::Matrix< double, 6,1 > > orientationMap;

@@ -37,7 +37,7 @@ boost::shared_ptr< gravitation::GravityFieldVariationsSet > createGravityFieldMo
     std::vector< boost::shared_ptr< GravityFieldVariations > > variationObjects;
     std::vector< BodyDeformationTypes > variationTypes;
     std::vector< std::string > variationIdentifiers;
-    std::map< int, boost::shared_ptr< interpolators::InterpolatorSettings > > createInterpolators;
+    std::map< int, boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > > createInterpolators;
     std::map< int, double > initialTimes;
     std::map< int, double > finalTimes;
     std::map< int, double > timeSteps;

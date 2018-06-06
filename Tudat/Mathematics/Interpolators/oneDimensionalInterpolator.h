@@ -48,10 +48,14 @@ public:
     //! Constructor.
     /*!
      * Constructor.
+     * \param boundaryHandling Boundary handling method in case independent variable is outside the
+     *      specified range.
+     * \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
+     *      use_default_value_with_warning as methods for boundaryHandling.
      */
     OneDimensionalInterpolator(
             const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary,
-            const DependentVariableType defaultExtrapolationValue = IdentityElement< DependentVariableType >::getAdditionIdentity( ) ):
+            const DependentVariableType& defaultExtrapolationValue = IdentityElement< DependentVariableType >::getAdditionIdentity( ) ):
         boundaryHandling_( boundaryHandling ), defaultExtrapolationValue_( defaultExtrapolationValue )
     { }
 
@@ -66,7 +70,7 @@ public:
      * This function performs the interpolation. It calls the function that takes a single
      * independent variable value, which is to be implemented in derived classes.
      * \param independentVariableValues Vector of values of independent variables at which
-     *          the value of the dependent variable is to be determined.
+     *      the value of the dependent variable is to be determined.
      * \return Interpolated value of dependent variable.
      */
     virtual DependentVariableType
@@ -87,7 +91,7 @@ public:
     /*!
      * This function performs the interpolation
      * \param independentVariableValue Independent variable value at which the value of the
-     *          dependent variable is to be determined.
+     *      dependent variable is to be determined.
      * \return Interpolated value of dependent variable.
      */
     virtual DependentVariableType
@@ -263,7 +267,7 @@ protected:
      * the independent variable grid where the interpolation is to be performed. It takes the type
      * of lookup scheme as an enum and constructs the look-up scheme from the independentValues_
      * that have been set previously.
-     *  \param selectedScheme Type of look-up scheme that is to be used
+     * \param selectedScheme Type of look-up scheme that is to be used
      */
     void makeLookupScheme( const AvailableLookupScheme selectedScheme )
     {

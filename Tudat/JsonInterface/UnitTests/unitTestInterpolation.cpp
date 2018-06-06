@@ -54,13 +54,13 @@ BOOST_AUTO_TEST_CASE( test_json_interpolation_interpolator )
     using namespace interpolators;
     using namespace json_interface;
 
-    // Create InterpolatorSettings from JSON file
-    const boost::shared_ptr< InterpolatorSettings > fromFileSettings =
-            parseJSONFile< boost::shared_ptr< InterpolatorSettings > >( INPUT( "interpolator" ) );
+    // Create OneDimensionalInterpolatorSettings from JSON file
+    const boost::shared_ptr< OneDimensionalInterpolatorSettings > fromFileSettings =
+            parseJSONFile< boost::shared_ptr< OneDimensionalInterpolatorSettings > >( INPUT( "interpolator" ) );
 
-    // Create InterpolatorSettings manually
-    const boost::shared_ptr< InterpolatorSettings > manualSettings =
-            boost::make_shared< InterpolatorSettings >( piecewise_constant_interpolator, binarySearch, true );
+    // Create OneDimensionalInterpolatorSettings manually
+    const boost::shared_ptr< OneDimensionalInterpolatorSettings > manualSettings =
+            boost::make_shared< OneDimensionalInterpolatorSettings >( piecewise_constant_interpolator, binarySearch, true );
 
     // Compare
     BOOST_CHECK_EQUAL_JSON( fromFileSettings, manualSettings );
@@ -72,12 +72,12 @@ BOOST_AUTO_TEST_CASE( test_json_interpolation_lagrangeInterpolator )
     using namespace interpolators;
     using namespace json_interface;
 
-    // Create InterpolatorSettings from JSON file
-    const boost::shared_ptr< InterpolatorSettings > fromFileSettings =
-            parseJSONFile< boost::shared_ptr< InterpolatorSettings > >( INPUT( "lagrangeInterpolator" ) );
+    // Create OneDimensionalInterpolatorSettings from JSON file
+    const boost::shared_ptr< OneDimensionalInterpolatorSettings > fromFileSettings =
+            parseJSONFile< boost::shared_ptr< OneDimensionalInterpolatorSettings > >( INPUT( "lagrangeInterpolator" ) );
 
-    // Create InterpolatorSettings manually
-    const boost::shared_ptr< InterpolatorSettings > manualSettings =
+    // Create OneDimensionalInterpolatorSettings manually
+    const boost::shared_ptr< OneDimensionalInterpolatorSettings > manualSettings =
             boost::make_shared< LagrangeInterpolatorSettings >( 8 );
 
     // Compare
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE( test_json_interpolation_modelInterpolation )
     // Create ModelInterpolationSettings manually
     const boost::shared_ptr< ModelInterpolationSettings > manualSettings =
             boost::make_shared< ModelInterpolationSettings >(
-                -5.0, 5.0, 0.5, boost::make_shared< InterpolatorSettings >( linear_interpolator ) );
+                -5.0, 5.0, 0.5, boost::make_shared< OneDimensionalInterpolatorSettings >( linear_interpolator ) );
 
     // Compare
     BOOST_CHECK_EQUAL_JSON( fromFileSettings, manualSettings );

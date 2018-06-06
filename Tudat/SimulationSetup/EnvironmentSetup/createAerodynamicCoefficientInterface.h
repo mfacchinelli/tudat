@@ -569,7 +569,7 @@ public:
             const double lateralReferenceLength,
             const Eigen::Vector3d& momentReferencePoint,
             const aerodynamics::AerodynamicCoefficientsIndependentVariables independentVariableName,
-            const boost::shared_ptr< interpolators::InterpolatorSettings > interpolationSettings,
+            const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolationSettings,
             const bool areCoefficientsInAerodynamicFrame = true,
             const bool areCoefficientsInNegativeAxisDirection = true ):
         TabulatedAerodynamicCoefficientSettingsBase(
@@ -638,7 +638,7 @@ public:
             lateralReferenceLength, momentReferencePoint,
             independentVariableName, areCoefficientsInAerodynamicFrame,
             areCoefficientsInNegativeAxisDirection ),
-        interpolationSettings_( boost::make_shared< interpolators::InterpolatorSettings >(
+        interpolationSettings_( boost::make_shared< interpolators::OneDimensionalInterpolatorSettings >(
                                     interpolators::linear_interpolator )     )
     {
         if( forceCoefficients.size( ) != independentVariables.size( ) )
@@ -683,7 +683,7 @@ public:
             const std::vector< Eigen::Vector3d > forceCoefficients,
             const double referenceArea,
             const aerodynamics::AerodynamicCoefficientsIndependentVariables independentVariableName,
-            const boost::shared_ptr< interpolators::InterpolatorSettings > interpolationSettings,
+            const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolationSettings,
             const bool areCoefficientsInAerodynamicFrame = true,
             const bool areCoefficientsInNegativeAxisDirection = true ):
         TabulatedAerodynamicCoefficientSettingsBase(
@@ -736,7 +736,7 @@ public:
             TUDAT_NAN, Eigen::Vector3d::Constant( TUDAT_NAN ),
             independentVariableNames, areCoefficientsInAerodynamicFrame,
             areCoefficientsInNegativeAxisDirection ),
-        interpolationSettings_( boost::make_shared< interpolators::InterpolatorSettings >(
+        interpolationSettings_( boost::make_shared< interpolators::OneDimensionalInterpolatorSettings >(
                                     interpolators::linear_interpolator ) )
     {
         if( forceCoefficients.shape( )[ 0 ] != independentVariables.size( ) )
@@ -780,7 +780,7 @@ public:
      * Function to return settings to be used for creating the one-dimensional interpoaltor of data.
      * \return Settings to be used for creating the one-dimensional interpoaltor of data.
      */
-    boost::shared_ptr< interpolators::InterpolatorSettings > getInterpolationSettings( )
+    boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > getInterpolationSettings( )
     {
         return interpolationSettings_;
     }
@@ -795,7 +795,7 @@ private:
     std::map< double, Eigen::Vector3d > momentCoefficients_;
 
     //! Settings to be used for creating the one-dimensional interpolator of data.
-    boost::shared_ptr< interpolators::InterpolatorSettings > interpolationSettings_;
+    boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolationSettings_;
 };
 
 //! Function to create aerodynamic coefficient settings from coefficients stored in data files

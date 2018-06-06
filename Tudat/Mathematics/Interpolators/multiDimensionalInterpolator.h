@@ -38,11 +38,9 @@ namespace interpolators
  * \tparam IndependentVariableType Type of dependent variable
  * \tparam NumberOfDimensions Number of independent variables.
  */
-template< typename IndependentVariableType, typename DependentVariableType, int NumberOfDimensions >
-class MultiDimensionalInterpolator :
-        public Interpolator< IndependentVariableType, DependentVariableType >
+template< typename IndependentVariableType, typename DependentVariableType, unsigned int NumberOfDimensions >
+class MultiDimensionalInterpolator : public Interpolator< IndependentVariableType, DependentVariableType >
 {
-
 public:
 
     //! Constructor.
@@ -52,7 +50,7 @@ public:
     MultiDimensionalInterpolator(
             const std::vector< BoundaryInterpolationType > boundaryHandling =
             std::vector< BoundaryInterpolationType >( NumberOfDimensions, extrapolate_at_boundary ),
-            const DependentVariableType defaultExtrapolationValue =
+            const DependentVariableType& defaultExtrapolationValue =
             IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) :
         boundaryHandling_( boundaryHandling ), defaultExtrapolationValue_( defaultExtrapolationValue )
     { }
@@ -238,7 +236,7 @@ protected:
         {
         case binarySearch:
         {
-            for ( int i = 0; i < NumberOfDimensions; i++ )
+            for ( unsigned int i = 0; i < NumberOfDimensions; i++ )
             {
                 // Create binary search look up scheme.
                 lookUpSchemes_[ i ] = boost::shared_ptr< LookUpScheme< IndependentVariableType > >
@@ -249,7 +247,7 @@ protected:
         }
         case huntingAlgorithm:
         {
-            for ( int i = 0; i < NumberOfDimensions; i++ )
+            for ( unsigned int i = 0; i < NumberOfDimensions; i++ )
             {
                 // Create hunting scheme, which uses an intial guess from previous look-ups.
                 lookUpSchemes_[ i ] = boost::shared_ptr< LookUpScheme< IndependentVariableType > >

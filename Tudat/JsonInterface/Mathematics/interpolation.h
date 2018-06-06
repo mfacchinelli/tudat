@@ -21,10 +21,10 @@ namespace tudat
 namespace interpolators
 {
 
-// OneDimensionalInterpolatorTypes
+// InterpolatorTypes
 
-//! Map of `OneDimensionalInterpolatorTypes` string representations.
-static std::map< OneDimensionalInterpolatorTypes, std::string > oneDimensionalInterpolatorTypes =
+//! Map of `InterpolatorTypes` string representations.
+static std::map< InterpolatorTypes, std::string > oneDimensionalInterpolatorTypes =
 {
     { linear_interpolator, "linear" },
     { cubic_spline_interpolator, "cubicSpline" },
@@ -33,17 +33,17 @@ static std::map< OneDimensionalInterpolatorTypes, std::string > oneDimensionalIn
     { piecewise_constant_interpolator, "piecewiseConstant" }
 };
 
-//! `OneDimensionalInterpolatorTypes` not supported by `json_interface`.
-static std::vector< OneDimensionalInterpolatorTypes > unsupportedOneDimensionalInterpolatorTypes = { };
+//! `InterpolatorTypes` not supported by `json_interface`.
+static std::vector< InterpolatorTypes > unsupportedOneDimensionalInterpolatorTypes = { };
 
-//! Convert `OneDimensionalInterpolatorTypes` to `json`.
-inline void to_json( nlohmann::json& jsonObject, const OneDimensionalInterpolatorTypes& oneDimensionalInterpolatorType )
+//! Convert `InterpolatorTypes` to `json`.
+inline void to_json( nlohmann::json& jsonObject, const InterpolatorTypes& oneDimensionalInterpolatorType )
 {
     jsonObject = json_interface::stringFromEnum( oneDimensionalInterpolatorType, oneDimensionalInterpolatorTypes );
 }
 
-//! Convert `json` to `OneDimensionalInterpolatorTypes`.
-inline void from_json( const nlohmann::json& jsonObject, OneDimensionalInterpolatorTypes& oneDimensionalInterpolatorType )
+//! Convert `json` to `InterpolatorTypes`.
+inline void from_json( const nlohmann::json& jsonObject, InterpolatorTypes& oneDimensionalInterpolatorType )
 {
     oneDimensionalInterpolatorType =
             json_interface::enumFromString( jsonObject, oneDimensionalInterpolatorTypes );
@@ -183,13 +183,13 @@ void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< DataMapSett
 }
 
 
-// InterpolatorSettings
+// OneDimensionalInterpolatorSettings
 
-//! Create a `json` object from a shared pointer to a `InterpolatorSettings` object.
-void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< InterpolatorSettings >& interpolatorSettings );
+//! Create a `json` object from a shared pointer to a `OneDimensionalInterpolatorSettings` object.
+void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< OneDimensionalInterpolatorSettings >& interpolatorSettings );
 
-//! Create a shared pointer to a `InterpolatorSettings` object from a `json` object.
-void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< InterpolatorSettings >& interpolatorSettings );
+//! Create a shared pointer to a `OneDimensionalInterpolatorSettings` object from a `json` object.
+void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< OneDimensionalInterpolatorSettings >& interpolatorSettings );
 
 
 // DataInterpolationSettings
@@ -220,7 +220,7 @@ void from_json( const nlohmann::json& jsonObject,
 
     dataInterpolationSettings = boost::make_shared< DataInterpolationSettings< I, D > >(
                 getValue< boost::shared_ptr< DataMapSettings< I, D > > >( jsonObject, K::data ),
-                getValue< boost::shared_ptr< InterpolatorSettings > >( jsonObject, K::interpolator ) );
+                getValue< boost::shared_ptr< OneDimensionalInterpolatorSettings > >( jsonObject, K::interpolator ) );
 }
 
 } // namespace interpolators

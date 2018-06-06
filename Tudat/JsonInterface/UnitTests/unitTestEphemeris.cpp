@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE( test_json_ephemeris_interpolatedSpice )
     const double timeStep = 10.0;
     const std::string frameOrigin = "Foo";
     const std::string frameOrientation = "FOO";
-    const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
+    const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings =
             boost::make_shared< interpolators::LagrangeInterpolatorSettings >( 4 );
     boost::shared_ptr< EphemerisSettings > manualSettings =
             boost::make_shared< InterpolatedSpiceEphemerisSettings >( initialTime,

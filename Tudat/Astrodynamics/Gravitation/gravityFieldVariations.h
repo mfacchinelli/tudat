@@ -298,8 +298,8 @@ createInterpolatedSphericalHarmonicCorrectionFunctions(
         const double initialTime,
         const double finalTime,
         const double timeStep,
-        const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
-        boost::make_shared< interpolators::InterpolatorSettings >(
+        const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings =
+        boost::make_shared< interpolators::OneDimensionalInterpolatorSettings >(
             interpolators::linear_interpolator, interpolators::huntingAlgorithm ) );
 
 //! Container class containing all gravity field variations for a single Body
@@ -340,9 +340,9 @@ public:
             const std::vector< boost::shared_ptr< GravityFieldVariations > > variationObjects,
             const std::vector< BodyDeformationTypes > variationType,
             const std::vector< std::string > variationIdentifier,
-            const std::map< int, boost::shared_ptr< interpolators::InterpolatorSettings > >
+            const std::map< int, boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > >
             createInterpolator =
-            std::map< int, boost::shared_ptr< interpolators::InterpolatorSettings > >( ),
+            std::map< int, boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > >( ),
             const std::map< int, double > initialTimes = std::map< int, double >( ),
             const std::map< int, double > finalTimes = std::map< int, double >( ),
             const std::map< int, double > timeSteps = std::map< int, double >( ) );
@@ -431,7 +431,7 @@ private:
      *  List of booleans denoting whether to interpolate a given entry of variationObjects or not,
      *  must be of same size as variationObjects.
      */
-    std::map< int, boost::shared_ptr< interpolators::InterpolatorSettings > > createInterpolator_;
+    std::map< int, boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > > createInterpolator_;
 
     //! Initial times for interpolation,
     /*!

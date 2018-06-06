@@ -48,7 +48,7 @@ namespace interpolators
  * \tparam DependentVariableType Type for dependent variable.
  * \tparam NumberOfDimensions Number of independent variables.
  */
-template< typename IndependentVariableType, typename DependentVariableType, int NumberOfDimensions >
+template< typename IndependentVariableType, typename DependentVariableType, unsigned int NumberOfDimensions >
 class MultiLinearInterpolator: public MultiDimensionalInterpolator< IndependentVariableType,
         DependentVariableType, NumberOfDimensions >
 {
@@ -66,26 +66,26 @@ public:
 
     //! Default constructor taking independent and dependent variable data.
     /*!
-     * Default constructor taking independent and dependent variable data.
-     * \param independentValues Vector of vectors containing data points of independent variables,
-     *          each must be sorted in ascending order.
-     * \param dependentData Multi-dimensional array of dependent data at each point of
-     *          hyper-rectangular grid formed by independent variable points.
-     * \param selectedLookupScheme Identifier of lookupscheme from enum. This algorithm is used
-     *          to find the nearest lower data point in the independent variables when requesting
-     *          interpolation.
-     * \param boundaryHandling Vector of boundary handling methods, in case independent variable is outside the
-     *          specified range.
-     * \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
-     *          use_default_value_with_warning as methods for boundaryHandling.
+     *  Default constructor taking independent and dependent variable data.
+     *  \param independentValues Vector of vectors containing data points of independent variables,
+     *      each must be sorted in ascending order.
+     *  \param dependentData Multi-dimensional array of dependent data at each point of
+     *      hyper-rectangular grid formed by independent variable points.
+     *  \param selectedLookupScheme Identifier of lookupscheme from enum. This algorithm is used
+     *      to find the nearest lower data point in the independent variables when requesting
+     *      interpolation.
+     *  \param boundaryHandling Vector of boundary handling methods, in case independent variable is outside the
+     *      specified range.
+     *  \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
+     *      use_default_value_with_warning as methods for boundaryHandling.
      */
-    MultiLinearInterpolator( const std::vector< std::vector< IndependentVariableType > > independentValues,
-                             const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >
+    MultiLinearInterpolator( const std::vector< std::vector< IndependentVariableType > >& independentValues,
+                             const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >&
                              dependentData,
                              const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
-                             const std::vector< BoundaryInterpolationType > boundaryHandling =
+                             const std::vector< BoundaryInterpolationType >& boundaryHandling =
             std::vector< BoundaryInterpolationType >( NumberOfDimensions, extrapolate_at_boundary ),
-                             const DependentVariableType defaultExtrapolationValue =
+                             const DependentVariableType& defaultExtrapolationValue =
             IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) :
         MultiDimensionalInterpolator< IndependentVariableType, DependentVariableType, NumberOfDimensions >(
             boundaryHandling, defaultExtrapolationValue )
@@ -106,7 +106,7 @@ public:
         }
 
         // Check consistency of input data of dependent and independent data.
-        for ( int i = 0; i < NumberOfDimensions; i++ )
+        for ( unsigned int i = 0; i < NumberOfDimensions; i++ )
         {
             if ( independentValues[ i ].size( ) != dependentData.shape( )[ i ] )
             {
@@ -122,26 +122,26 @@ public:
 
     //! Constructor taking independent and dependent variable data.
     /*!
-     * Constructor taking independent and dependent variable data. This constructor only requires one boundary
-     * handling method, and assumes it for each dimension.
-     * \param independentValues Vector of vectors containing data points of independent variables,
-     *          each must be sorted in ascending order.
-     * \param dependentData Multi-dimensional array of dependent data at each point of
-     *          hyper-rectangular grid formed by independent variable points.
-     * \param selectedLookupScheme Identifier of lookupscheme from enum. This algorithm is used
-     *          to find the nearest lower data point in the independent variables when requesting
-     *          interpolation.
-     * \param boundaryHandling Boundary handling method, in case independent variable is outside the
-     *          specified range.
-     * \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
-     *          use_default_value_with_warning as methods for boundaryHandling.
+     *  Constructor taking independent and dependent variable data. This constructor only requires one boundary
+     *  handling method, and assumes it for each dimension.
+     *  \param independentValues Vector of vectors containing data points of independent variables,
+     *      each must be sorted in ascending order.
+     *  \param dependentData Multi-dimensional array of dependent data at each point of
+     *      hyper-rectangular grid formed by independent variable points.
+     *  \param selectedLookupScheme Identifier of lookupscheme from enum. This algorithm is used
+     *      to find the nearest lower data point in the independent variables when requesting
+     *      interpolation.
+     *  \param boundaryHandling Boundary handling method, in case independent variable is outside the
+     *      specified range.
+     *  \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
+     *      use_default_value_with_warning as methods for boundaryHandling.
      */
-    MultiLinearInterpolator( const std::vector< std::vector< IndependentVariableType > > independentValues,
-                             const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >
+    MultiLinearInterpolator( const std::vector< std::vector< IndependentVariableType > >& independentValues,
+                             const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >&
                              dependentData,
                              const AvailableLookupScheme selectedLookupScheme,
                              const BoundaryInterpolationType boundaryHandling,
-                             const DependentVariableType defaultExtrapolationValue =
+                             const DependentVariableType& defaultExtrapolationValue =
             IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) :
         MultiLinearInterpolator( independentValues, dependentData, selectedLookupScheme,
                                  std::vector< BoundaryInterpolationType >( NumberOfDimensions, boundaryHandling ),
@@ -157,11 +157,10 @@ public:
     /*!
      *  This function performs the multilinear interpolation.
      *  \param independentValuesToInterpolate Vector of values of independent variables at which
-     *  the value of the dependent variable is to be determined.
+     *      the value of the dependent variable is to be determined.
      *  \return Interpolated value of dependent variable in all dimensions.
      */
-    DependentVariableType interpolate(
-            const std::vector< IndependentVariableType >& independentValuesToInterpolate )
+    DependentVariableType interpolate( const std::vector< IndependentVariableType >& independentValuesToInterpolate )
     {
         // Check whether size of independent variable vector is correct
         if ( independentValuesToInterpolate.size( ) != NumberOfDimensions )
@@ -196,8 +195,8 @@ public:
         }
 
         // Initialize function evaluation indices to -1 for debugging purposes.
-        boost::array< int, NumberOfDimensions > interpolationIndices;
-        for ( int i = 0; i < NumberOfDimensions; i++ )
+        boost::array< unsigned int, NumberOfDimensions > interpolationIndices;
+        for ( unsigned int i = 0; i < NumberOfDimensions; i++ )
         {
             interpolationIndices[ i ] = -1;
         }
@@ -233,7 +232,7 @@ private:
     DependentVariableType performRecursiveInterpolationStep(
             const unsigned int currentVariable,
             const std::vector< IndependentVariableType >& independentValuesToInterpolate,
-            boost::array< int, NumberOfDimensions > currentArrayIndices,
+            boost::array< unsigned int, NumberOfDimensions > currentArrayIndices,
             const std::vector< int >& nearestLowerIndices )
     {
         IndependentVariableType upperFraction, lowerFraction;

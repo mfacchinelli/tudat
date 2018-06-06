@@ -51,12 +51,12 @@ public:
             const double initialTime = 0.0,
             const double finalTime = 0.0,
             const double timeStep = 0.0,
-            const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
+            const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings =
             boost::make_shared< interpolators::LagrangeInterpolatorSettings >( 6 ) ):
         interpolatorSettings_( interpolatorSettings ), initialTime_( initialTime ),
         finalTime_( finalTime ), timeStep_( timeStep ){ }
 
-    boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings_;
+    boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings_;
 
     //! Start time for interpolator.
     double initialTime_;
@@ -217,7 +217,7 @@ public:
             const std::map< double, Eigen::MatrixXd > cosineCoefficientCorrections,
             const std::map< double, Eigen::MatrixXd > sineCoefficientCorrections,
             const int minimumDegree, const int minimumOrder,
-            const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings ):
+            const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings ):
         GravityFieldVariationSettings(
             gravitation::tabulated_variation, boost::make_shared< ModelInterpolationSettings >(
                 TUDAT_NAN, TUDAT_NAN, TUDAT_NAN, interpolatorSettings ) ),

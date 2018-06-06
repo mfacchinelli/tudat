@@ -112,8 +112,8 @@ BOOST_AUTO_TEST_CASE( test_json_simulationThrustAccelerationFromFile_main )
             boost::make_shared< FromFileDataMapSettings< Eigen::Vector3d > >( "thrustValues.txt" );
 
     // Define interpolator settings.
-    boost::shared_ptr< InterpolatorSettings >
-            thrustInterpolatorSettings = boost::make_shared< InterpolatorSettings >( linear_interpolator );
+    boost::shared_ptr< OneDimensionalInterpolatorSettings >
+            thrustInterpolatorSettings = boost::make_shared< OneDimensionalInterpolatorSettings >( linear_interpolator );
 
     // Create data interpolation settings
     boost::shared_ptr< DataInterpolationSettings< double, Eigen::Vector3d > > thrustDataInterpolatorSettings =
