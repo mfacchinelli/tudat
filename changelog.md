@@ -9,12 +9,13 @@
 - **Interpolators**
 	- added option to choose interpolator behavior at boundary (see issue [#378](https://github.com/Tudat/tudat/issues/378)); supported modes: error, extrapolate (with optional warning), use boundary value (with optional warning), use default value (with optional warning)
 	- added interface class `MultiDimensionalInterpolator` to make multi-dimensional interpolation more modular
+	- added more input options in interpolation settings
 - **Filters**
 	- added base class for filters
 	- added base class for Kalman filters
 	- added linear, extended and unscented Kalman filters (see issue [#390](https://github.com/Tudat/tudat/issues/390))
 - **Numerical Integrators**
-	- modified constructor for RK integrators with variable step size to input all possible options
+	- added more input options in constructor for RK integrators with variable step size
 	- added another constructor to input vector of relative and absolute tolerances
 - **Orbital Element Conversions**
 	- added conversions for position and velocity state variables: Cartesian<->USM7, Cartesian<->USM6, Keplerian<->USM6, Cartesian<->USMEM, Keplerian<->USMEM
@@ -26,6 +27,7 @@
 	- added function to output cumulative number of function evaluations (see issue [#375](https://github.com/Tudat/tudat/issues/375))
 	- added function to output raw numerical solution
 	- added function to post-process the propagated state during propagation (right after integration step) (also see issue [#364](https://github.com/Tudat/tudat/issues/364))
+	- added interpolation settings as input to aerodynamic coefficient settings
 - **SPARTA**
 	- added interface for running SPARTA simulations and analyzing its results (see issue [#380](https://github.com/Tudat/tudat/issues/380))
 - **Utilities**

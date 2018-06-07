@@ -97,8 +97,6 @@ BOOST_AUTO_TEST_CASE( test_json_gravityFieldVariation_tabulated )
     BOOST_CHECK_EQUAL_JSON( fromFileSettings, manualSettings );
 }
 
-
-
 BOOST_AUTO_TEST_SUITE_END( )
 
 } // namespace unit_tests

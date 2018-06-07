@@ -79,7 +79,7 @@ void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< AerodynamicCo
                         getMapValues< std::map >( tabulated1AerodynamicSettings->getMomentCoefficients( ) );
             }
 
-            jsonObject[ K::interpolator ] = tabulated1AerodynamicSettings->getInterpolationSettings( );
+            jsonObject[ K::interpolator ] = tabulated1AerodynamicSettings->getInterpolatorSettings( );
         }
         else  // N-dimensional
         {

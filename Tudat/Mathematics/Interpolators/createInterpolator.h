@@ -69,6 +69,8 @@ public:
         interpolatorType_( interpolatorType ), selectedLookupScheme_( selectedLookupScheme ),
         useLongDoubleTimeStep_( false ), boundaryHandlingVector_( boundaryHandling )
     {
+        std::cout << "using these interpolator settings" << std::endl;
+
         // Toggle use of vector for boundary handling
         isBoundaryHandlingDefinedAsVector_ = true;
 
@@ -166,8 +168,15 @@ public:
         return boundaryHandlingVector_;
     }
 
-    //! Boolean denoting whether boundary handling is defined as vector.
-    bool isBoundaryHandlingDefinedAsVector_;
+    //! Function to retrieve boolean denoting whether boundary handling is defined as vector.
+    /*!
+     * Function to retrieve boolean denoting whether boundary handling is defined as vector.
+     * \return Boolean denoting whether boundary handling is defined as vector.
+     */
+    bool getIsBoundaryHandlingDefinedAsVector( )
+    {
+        return isBoundaryHandlingDefinedAsVector_;
+    }
 
 protected:
 
@@ -185,6 +194,9 @@ protected:
 
     //! Vector of boundary handling method.
     std::vector< BoundaryInterpolationType > boundaryHandlingVector_;
+
+    //! Boolean denoting whether boundary handling is defined as vector.
+    bool isBoundaryHandlingDefinedAsVector_;
 
 };
 
@@ -226,6 +238,11 @@ public:
         return interpolatorOrder_;
     }
 
+    //! Function to retrieve Lagrange boundary handling method.
+    /*!
+     * Function to retrieve Lagrange boundary handling method.
+     * \return Lagrange boundary handling method.
+     */
     LagrangeInterpolatorBoundaryHandling getLagrangeBoundaryHandling( )
     {
         return lagrangeBoundaryHandling_;
@@ -236,10 +253,10 @@ protected:
     //! Order of the Lagrange interpolator that is to be created.
     int interpolatorOrder_;
 
+    //! Lagrange boundary handling method.
     LagrangeInterpolatorBoundaryHandling lagrangeBoundaryHandling_;
 
 };
-
 
 //! Class defening the settings to be used to create a map of data (used for interpolation).
 /*!
@@ -599,7 +616,7 @@ createMultiDimensionalInterpolator(
     switch ( interpolatorSettings->getInterpolatorType( ) )
     {
     case multi_linear_interpolator:
-        if ( interpolatorSettings->isBoundaryHandlingDefinedAsVector_ )
+        if ( interpolatorSettings->getIsBoundaryHandlingDefinedAsVector( ) )
         {
             createdInterpolator = boost::make_shared< MultiLinearInterpolator
                     < IndependentVariableType, DependentVariableType, NumberOfDimensions > >(

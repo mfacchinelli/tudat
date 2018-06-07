@@ -48,7 +48,7 @@ public:
      * Constructor.
      */
     MultiDimensionalInterpolator(
-            const std::vector< BoundaryInterpolationType > boundaryHandling =
+            const std::vector< BoundaryInterpolationType >& boundaryHandling =
             std::vector< BoundaryInterpolationType >( NumberOfDimensions, extrapolate_at_boundary ),
             const DependentVariableType& defaultExtrapolationValue =
             IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) :

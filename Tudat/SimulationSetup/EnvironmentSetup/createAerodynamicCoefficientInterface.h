@@ -173,7 +173,7 @@ public:
 
 private:
 
-    //!  Type of atmosphere model that is to be created.
+    //! Type of atmosphere model that is to be created.
     AerodynamicCoefficientTypes aerodynamicCoefficientTypes_;
 
     //! Aerodynamic reference length.

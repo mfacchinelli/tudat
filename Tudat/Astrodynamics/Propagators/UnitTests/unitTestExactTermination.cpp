@@ -67,7 +67,6 @@ BOOST_AUTO_TEST_CASE( testEnckePopagatorForSphericalHarmonicCentralBodies )
                 using namespace orbital_element_conversions;
                 using namespace basic_mathematics;
                 using namespace gravitation;
-                using namespace numerical_integrators;
 
                 // Load Spice kernels.
                 spice_interface::loadStandardSpiceKernels( );
@@ -115,7 +114,7 @@ BOOST_AUTO_TEST_CASE( testEnckePopagatorForSphericalHarmonicCentralBodies )
                 bodyMap[ "Vehicle" ]->setConstantBodyMass( 400.0 );
                 bodyMap[ "Vehicle" ]->setEphemeris( boost::make_shared< ephemerides::TabulatedCartesianEphemeris< > >(
                                                         boost::shared_ptr< interpolators::OneDimensionalInterpolator
-                                                        < double, Eigen::Vector6d  > >( ), "Earth", "ECLIPJ2000" ) );
+                                                        < double, Eigen::Vector6d > >( ), "Earth", "ECLIPJ2000" ) );
 
 
                 // Finalize body creation.
@@ -138,7 +137,7 @@ BOOST_AUTO_TEST_CASE( testEnckePopagatorForSphericalHarmonicCentralBodies )
                                                                     basic_astrodynamics::central_gravity ) );
                 }
 
-                accelerationMap[  "Vehicle" ] = accelerationsOfVehicle;
+                accelerationMap[ "Vehicle" ] = accelerationsOfVehicle;
                 bodiesToPropagate.push_back( "Vehicle" );
                 centralBodies.push_back( "Earth" );
                 basic_astrodynamics::AccelerationMap accelerationModelMap = createAccelerationModelsMap(
