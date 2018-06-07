@@ -48,7 +48,6 @@ enum InterpolatorTypes
  *  Base class for providing settings for creating an interpolator using the createInterpolator
  *  function. This base class is not-functional, i.e. a derived class needs to be used.
  */
-template< unsigned int NumberOfDimensions >
 class InterpolatorSettings
 {  
 public:
@@ -57,28 +56,26 @@ public:
     /*!
      *  Default constructor. Constructor taking a vector of boundary handling methods. The vector length needs
      *  to be equal to the number of dimensions.
+     *  \param interpolatorType Selected type of interpolator.
      *  \param selectedLookupScheme Selected type of lookup scheme for independent variables.
+     *  \param useLongDoubleTimeStep Boolean denoting whether time step is to be a long double,
+     *      time step is a double if false.
      *  \param boundaryHandling Vector of boundary handling methods, in case independent variable is outside the
      *      specified range.
      */
     InterpolatorSettings( const InterpolatorTypes interpolatorType,
-                          const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
-                          const std::vector< BoundaryInterpolationType >& boundaryHandling =
-            std::vector< BoundaryInterpolationType >( NumberOfDimensions, extrapolate_at_boundary ) ) :
+                          const AvailableLookupScheme selectedLookupScheme,
+                          const std::vector< BoundaryInterpolationType >& boundaryHandling ) :
         interpolatorType_( interpolatorType ), selectedLookupScheme_( selectedLookupScheme ),
-        boundaryHandling_( boundaryHandling )
+        useLongDoubleTimeStep_( false ), boundaryHandlingVector_( boundaryHandling )
     {
-        // Check if dimensions are consistent
-        if ( NumberOfDimensions != boundaryHandling.size( ) )
-        {
-            throw std::runtime_error( "Error while creating interpolator settings. Inconsistent dimensions in "
-                                      "boundary handling vector." );
-        }
+        // Toggle use of vector for boundary handling
+        isBoundaryHandlingDefinedAsVector_ = true;
 
         // Check that if interpolator type matches with number of dimensions
         std::vector< bool > isMethodOneDimensional = std::vector< bool >( 6, true );
         isMethodOneDimensional.at( static_cast< unsigned int >( multi_linear_interpolator ) ) = false;
-        if ( NumberOfDimensions > 1 && isMethodOneDimensional.at( static_cast< unsigned int >( interpolatorType_ ) ) )
+        if ( boundaryHandling.size( ) > 1 && isMethodOneDimensional.at( static_cast< unsigned int >( interpolatorType_ ) ) )
         {
             throw std::runtime_error( "Error while creating interpolator settings. Number of dimensions is greater "
                                       "than 1, but a one-dimensional interpolator has been selected." );
@@ -88,16 +85,23 @@ public:
     //! Constructor.
     /*!
      *  Constructor.
+     *  \param interpolatorType Selected type of interpolator.
      *  \param selectedLookupScheme Selected type of lookup scheme for independent variables.
+     *  \param useLongDoubleTimeStep Boolean denoting whether time step is to be a long double,
+     *      time step is a double if false.
      *  \param boundaryHandling Boundary handling method, in case independent variable is outside the
      *      specified range.
      */
     InterpolatorSettings( const InterpolatorTypes interpolatorType,
                           const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
+                          const bool useLongDoubleTimeStep = false,
                           const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary ) :
-        InterpolatorSettings( interpolatorType, selectedLookupScheme,
-                              std::vector< BoundaryInterpolationType >( NumberOfDimensions, boundaryHandling ) )
-    { }
+        interpolatorType_( interpolatorType ), selectedLookupScheme_( selectedLookupScheme ),
+        useLongDoubleTimeStep_( useLongDoubleTimeStep ), boundaryHandlingVector_( boundaryHandling )
+    {
+        // Boundary handling is a single value
+        isBoundaryHandlingDefinedAsVector_ = false;
+    }
 
     //! Virtual destructor.
     virtual ~InterpolatorSettings( ) { }
@@ -122,64 +126,6 @@ public:
         return selectedLookupScheme_;
     }
 
-    //! Function to retrieve boundary handling method.
-    /*!
-     * Function to retrieve boundary handling method.
-     * \return Boundary handling method.
-     */
-    std::vector< BoundaryInterpolationType > getBoundaryInterpolationType( )
-    {
-        return boundaryHandling_;
-    }
-
-protected:
-
-    //! Selected type of interpolator.
-    InterpolatorTypes interpolatorType_;
-
-    //! Selected type of lookup scheme for independent variables.
-    AvailableLookupScheme selectedLookupScheme_;
-
-    //! Boundary handling method.
-    std::vector< BoundaryInterpolationType > boundaryHandling_;
-
-};
-
-//! Base class for providing settings for creating a one-dimensional interpolator.
-/*!
- *  Base class for providing settings for creating an interpolator using the createInterpolator
- *  function. This base class is functional, i.e. may be used directly for interpolator types
- *  requiring no additional information. For interpolators that do require more information,
- *  a derived class is provided.
- */
-class OneDimensionalInterpolatorSettings : public InterpolatorSettings< 1 >
-{
-public:
-
-    //! Constructor.
-    /*!
-     *  Constructor.
-     * \param interpolatorType Selected type of interpolator.
-     * \param selectedLookupScheme Selected type of lookup scheme for independent variables.
-     * \param useLongDoubleTimeStep Boolean denoting whether time step is to be a long double,
-     *      time step is a double if false.
-     * \param boundaryHandling Boundary handling method in case independent variable is outside the
-     *      specified range.
-     * \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
-     *      use_default_value_with_warning as methods for boundaryHandling.
-     */
-    OneDimensionalInterpolatorSettings(
-            const InterpolatorTypes interpolatorType,
-            const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
-            const bool useLongDoubleTimeStep = false,
-            const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary ) :
-        InterpolatorSettings< 1 >( interpolatorType, selectedLookupScheme, boundaryHandling ),
-        useLongDoubleTimeStep_( useLongDoubleTimeStep )
-    { }
-
-    //! Virtual destructor
-    virtual ~OneDimensionalInterpolatorSettings( ){ }
-
     //! Function to reset the use of long double type for time step.
     /*!
      * Function to reset the use of long double type for time step.
@@ -200,15 +146,50 @@ public:
         return useLongDoubleTimeStep_;
     }
 
+    //! Function to retrieve boundary handling method.
+    /*!
+     * Function to retrieve boundary handling method.
+     * \return Boundary handling method.
+     */
+    BoundaryInterpolationType getBoundaryHandling( )
+    {
+        return boundaryHandling_;
+    }
+
+    //! Function to retrieve boundary handling method.
+    /*!
+     * Function to retrieve boundary handling method.
+     * \return Boundary handling method.
+     */
+    std::vector< BoundaryInterpolationType > getBoundaryHandlingVector( )
+    {
+        return boundaryHandlingVector_;
+    }
+
+    //! Boolean denoting whether boundary handling is defined as vector.
+    bool isBoundaryHandlingDefinedAsVector_;
+
 protected:
+
+    //! Selected type of interpolator.
+    InterpolatorTypes interpolatorType_;
+
+    //! Selected type of lookup scheme for independent variables.
+    AvailableLookupScheme selectedLookupScheme_;
 
     //! Boolean denoting whether time step is to be a long double.
     bool useLongDoubleTimeStep_;
 
+    //! Boundary handling method.
+    BoundaryInterpolationType boundaryHandling_;
+
+    //! Vector of boundary handling method.
+    std::vector< BoundaryInterpolationType > boundaryHandlingVector_;
+
 };
 
 //! Class for providing settings to creating a Lagrange interpolator.
-class LagrangeInterpolatorSettings : public OneDimensionalInterpolatorSettings
+class LagrangeInterpolatorSettings : public InterpolatorSettings
 {
 public:
 
@@ -227,7 +208,7 @@ public:
             const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
             const LagrangeInterpolatorBoundaryHandling lagrangeBoundaryHandling = lagrange_cubic_spline_boundary_interpolation,
             const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary ) :
-        OneDimensionalInterpolatorSettings( lagrange_interpolator, selectedLookupScheme, useLongDoubleTimeStep, boundaryHandling ),
+        InterpolatorSettings( lagrange_interpolator, selectedLookupScheme, useLongDoubleTimeStep, boundaryHandling ),
         interpolatorOrder_( interpolatorOrder ),
         lagrangeBoundaryHandling_( lagrangeBoundaryHandling )
     { }
@@ -245,11 +226,10 @@ public:
         return interpolatorOrder_;
     }
 
-    LagrangeInterpolatorBoundaryHandling getBoundaryHandling( )
+    LagrangeInterpolatorBoundaryHandling getLagrangeBoundaryHandling( )
     {
         return lagrangeBoundaryHandling_;
     }
-
 
 protected:
 
@@ -444,7 +424,7 @@ public:
      */
     DataInterpolationSettings(
             const boost::shared_ptr< DataMapSettings< IndependentType, DependentType > >& dataSettings,
-            const boost::shared_ptr< OneDimensionalInterpolatorSettings >& interpolatorSettings ) :
+            const boost::shared_ptr< InterpolatorSettings >& interpolatorSettings ) :
         dataSettings_( dataSettings ), interpolatorSettings_( interpolatorSettings ) { }
 
     //! Virtual destructor
@@ -454,7 +434,7 @@ public:
     boost::shared_ptr< DataMapSettings< IndependentType, DependentType > > dataSettings_;
 
     //! Object containing the settings to create the interpolator to be used.
-    boost::shared_ptr< OneDimensionalInterpolatorSettings > interpolatorSettings_;
+    boost::shared_ptr< InterpolatorSettings > interpolatorSettings_;
 
 };
 
@@ -474,7 +454,7 @@ template< typename IndependentVariableType, typename DependentVariableType >
 boost::shared_ptr< OneDimensionalInterpolator< IndependentVariableType, DependentVariableType > >
 createOneDimensionalInterpolator(
         const std::map< IndependentVariableType, DependentVariableType > dataToInterpolate,
-        const boost::shared_ptr< OneDimensionalInterpolatorSettings > interpolatorSettings,
+        const boost::shared_ptr< InterpolatorSettings > interpolatorSettings,
         const std::vector< DependentVariableType > firstDerivativeOfDependentVariables =
         std::vector< DependentVariableType >( ) )
 {
@@ -488,7 +468,7 @@ createOneDimensionalInterpolator(
         createdInterpolator = boost::make_shared< LinearInterpolator
                 < IndependentVariableType, DependentVariableType > >(
                     dataToInterpolate, interpolatorSettings->getSelectedLookupScheme( ),
-                    interpolatorSettings->getBoundaryInterpolationType( ).at( 0 ) );
+                    interpolatorSettings->getBoundaryHandling( ) );
         break;
     case cubic_spline_interpolator:
     {
@@ -497,14 +477,14 @@ createOneDimensionalInterpolator(
             createdInterpolator = boost::make_shared< CubicSplineInterpolator
                     < IndependentVariableType, DependentVariableType > >(
                         dataToInterpolate, interpolatorSettings->getSelectedLookupScheme( ),
-                        interpolatorSettings->getBoundaryInterpolationType( ).at( 0 ) );
+                        interpolatorSettings->getBoundaryHandling( ) );
         }
         else
         {
             createdInterpolator = boost::make_shared< CubicSplineInterpolator
                     < IndependentVariableType, DependentVariableType, long double > >(
                         dataToInterpolate, interpolatorSettings->getSelectedLookupScheme( ),
-                        interpolatorSettings->getBoundaryInterpolationType( ).at( 0 ) );
+                        interpolatorSettings->getBoundaryHandling( ) );
         }
         break;
     }
@@ -522,8 +502,8 @@ createOneDimensionalInterpolator(
                         < IndependentVariableType, DependentVariableType, double > >(
                             dataToInterpolate, lagrangeInterpolatorSettings->getInterpolatorOrder( ),
                             interpolatorSettings->getSelectedLookupScheme( ),
-                            lagrangeInterpolatorSettings->getBoundaryHandling( ),
-                            interpolatorSettings->getBoundaryInterpolationType( ).at( 0 ) );
+                            lagrangeInterpolatorSettings->getLagrangeBoundaryHandling( ),
+                            interpolatorSettings->getBoundaryHandling( ) );
             }
             else
             {
@@ -531,8 +511,8 @@ createOneDimensionalInterpolator(
                         < IndependentVariableType, DependentVariableType, long double > >(
                             dataToInterpolate, lagrangeInterpolatorSettings->getInterpolatorOrder( ),
                             interpolatorSettings->getSelectedLookupScheme( ),
-                            lagrangeInterpolatorSettings->getBoundaryHandling( ),
-                            interpolatorSettings->getBoundaryInterpolationType( ).at( 0 ) );
+                            lagrangeInterpolatorSettings->getLagrangeBoundaryHandling( ),
+                            interpolatorSettings->getBoundaryHandling( ) );
             }
         }
         else
@@ -553,14 +533,14 @@ createOneDimensionalInterpolator(
                 < IndependentVariableType, DependentVariableType > >(
                     dataToInterpolate, firstDerivativeOfDependentVariables,
                     interpolatorSettings->getSelectedLookupScheme( ),
-                    interpolatorSettings->getBoundaryInterpolationType( ).at( 0 ) );
+                    interpolatorSettings->getBoundaryHandling( ) );
         break;
     }
     case piecewise_constant_interpolator:
         createdInterpolator = boost::make_shared< PiecewiseConstantInterpolator
                 < IndependentVariableType, DependentVariableType > >(
                     dataToInterpolate, interpolatorSettings->getSelectedLookupScheme( ),
-                    interpolatorSettings->getBoundaryInterpolationType( ).at( 0 ) );
+                    interpolatorSettings->getBoundaryHandling( ) );
         break;
     default:
         throw std::runtime_error( "Error when making interpolator, function cannot be used to create interplator of type " +
@@ -610,7 +590,7 @@ boost::shared_ptr< MultiDimensionalInterpolator< IndependentVariableType, Depend
 createMultiDimensionalInterpolator(
         const std::vector< std::vector< IndependentVariableType > >& independentValues,
         const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >& dependentData,
-        const boost::shared_ptr< InterpolatorSettings< NumberOfDimensions > > interpolatorSettings )
+        const boost::shared_ptr< InterpolatorSettings > interpolatorSettings )
 {
     boost::shared_ptr< MultiDimensionalInterpolator< IndependentVariableType, DependentVariableType, NumberOfDimensions > >
             createdInterpolator;
@@ -619,10 +599,20 @@ createMultiDimensionalInterpolator(
     switch ( interpolatorSettings->getInterpolatorType( ) )
     {
     case multi_linear_interpolator:
-        createdInterpolator = boost::make_shared< MultiLinearInterpolator
-                < IndependentVariableType, DependentVariableType, NumberOfDimensions > >(
-                    independentValues, dependentData, interpolatorSettings->getSelectedLookupScheme( ),
-                    interpolatorSettings->getBoundaryInterpolationType( ) );
+        if ( interpolatorSettings->isBoundaryHandlingDefinedAsVector_ )
+        {
+            createdInterpolator = boost::make_shared< MultiLinearInterpolator
+                    < IndependentVariableType, DependentVariableType, NumberOfDimensions > >(
+                        independentValues, dependentData, interpolatorSettings->getSelectedLookupScheme( ),
+                        interpolatorSettings->getBoundaryHandlingVector( ) );
+        }
+        else
+        {
+            createdInterpolator = boost::make_shared< MultiLinearInterpolator
+                    < IndependentVariableType, DependentVariableType, NumberOfDimensions > >(
+                        independentValues, dependentData, interpolatorSettings->getSelectedLookupScheme( ),
+                        interpolatorSettings->getBoundaryHandling( ) );
+        }
         break;
     default:
         throw std::runtime_error( "Error when making interpolator, function cannot be used to create interplator of type " +

@@ -183,13 +183,13 @@ void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< DataMapSett
 }
 
 
-// OneDimensionalInterpolatorSettings
+// InterpolatorSettings
 
-//! Create a `json` object from a shared pointer to a `OneDimensionalInterpolatorSettings` object.
-void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< OneDimensionalInterpolatorSettings >& interpolatorSettings );
+//! Create a `json` object from a shared pointer to a `InterpolatorSettings` object.
+void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< InterpolatorSettings >& interpolatorSettings );
 
-//! Create a shared pointer to a `OneDimensionalInterpolatorSettings` object from a `json` object.
-void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< OneDimensionalInterpolatorSettings >& interpolatorSettings );
+//! Create a shared pointer to a `InterpolatorSettings` object from a `json` object.
+void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< InterpolatorSettings >& interpolatorSettings );
 
 
 // DataInterpolationSettings
@@ -220,7 +220,7 @@ void from_json( const nlohmann::json& jsonObject,
 
     dataInterpolationSettings = boost::make_shared< DataInterpolationSettings< I, D > >(
                 getValue< boost::shared_ptr< DataMapSettings< I, D > > >( jsonObject, K::data ),
-                getValue< boost::shared_ptr< OneDimensionalInterpolatorSettings > >( jsonObject, K::interpolator ) );
+                getValue< boost::shared_ptr< InterpolatorSettings > >( jsonObject, K::interpolator ) );
 }
 
 } // namespace interpolators

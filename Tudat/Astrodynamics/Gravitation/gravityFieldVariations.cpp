@@ -120,7 +120,7 @@ createInterpolatedSphericalHarmonicCorrectionFunctions(
         const double initialTime,
         const double finalTime,
         const double timeStep,
-        const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings )
+        const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings )
 {
     // Declare map of combined cosine and since corrections, to be filled and passed to interpolator
     std::map< double, Eigen::MatrixXd > cosineSineCorrectionsMap;
@@ -175,7 +175,7 @@ GravityFieldVariationsSet::GravityFieldVariationsSet(
         const std::vector< boost::shared_ptr< GravityFieldVariations > > variationObjects,
         const std::vector< BodyDeformationTypes > variationType,
         const std::vector< std::string > variationIdentifier,
-        const std::map< int, boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > >
+        const std::map< int, boost::shared_ptr< interpolators::InterpolatorSettings > >
         createInterpolator,
         const std::map< int, double > initialTimes,
         const std::map< int, double > finalTimes,
@@ -196,7 +196,7 @@ GravityFieldVariationsSet::GravityFieldVariationsSet(
     }
 
     // Check if interpolation information is provided where required.
-    for( std::map< int, boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > >::iterator
+    for( std::map< int, boost::shared_ptr< interpolators::InterpolatorSettings > >::iterator
          interpolatorSettingsIterator =
          createInterpolator_.begin( ); interpolatorSettingsIterator != createInterpolator_.end( );
          interpolatorSettingsIterator++ )

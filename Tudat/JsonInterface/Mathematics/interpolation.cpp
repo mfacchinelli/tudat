@@ -17,10 +17,10 @@ namespace tudat
 namespace interpolators
 {
 
-// OneDimensionalInterpolatorSettings
+// InterpolatorSettings
 
-//! Create a `json` object from a shared pointer to a `OneDimensionalInterpolatorSettings` object.
-void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< OneDimensionalInterpolatorSettings >& interpolatorSettings )
+//! Create a `json` object from a shared pointer to a `InterpolatorSettings` object.
+void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< InterpolatorSettings >& interpolatorSettings )
 {
     if ( ! interpolatorSettings )
     {
@@ -47,7 +47,7 @@ void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< OneDimensiona
                 boost::dynamic_pointer_cast< LagrangeInterpolatorSettings >( interpolatorSettings );
         assertNonNullPointer( lagrangeInterpolatorSettings );
         jsonObject[ K::order ] = lagrangeInterpolatorSettings->getInterpolatorOrder( );
-        jsonObject[ K::boundaryHandling ] = lagrangeInterpolatorSettings->getBoundaryHandling( );
+        jsonObject[ K::boundaryHandling ] = lagrangeInterpolatorSettings->getLagrangeBoundaryHandling( );
         return;
     }
     default:
@@ -56,8 +56,8 @@ void to_json( nlohmann::json& jsonObject, const boost::shared_ptr< OneDimensiona
     }
 }
 
-//! Create a shared pointer to a `OneDimensionalInterpolatorSettings` object from a `json` object.
-void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< OneDimensionalInterpolatorSettings >& interpolatorSettings )
+//! Create a shared pointer to a `InterpolatorSettings` object from a `json` object.
+void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< InterpolatorSettings >& interpolatorSettings )
 {
     using namespace json_interface;
     using K = Keys::Interpolation::Interpolator;
@@ -72,8 +72,8 @@ void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< OneDimensio
     case hermite_spline_interpolator:
     case piecewise_constant_interpolator:
     {
-        OneDimensionalInterpolatorSettings defaults( linear_interpolator );
-        interpolatorSettings = boost::make_shared< OneDimensionalInterpolatorSettings >(
+        InterpolatorSettings defaults( linear_interpolator );
+        interpolatorSettings = boost::make_shared< InterpolatorSettings >(
                     interpolatorType,
                     getValue( jsonObject, K::lookupScheme, defaults.getSelectedLookupScheme( ) ),
                     getValue( jsonObject, K::useLongDoubleTimeStep, defaults.getUseLongDoubleTimeStep( ) ) );
@@ -86,7 +86,7 @@ void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< OneDimensio
                     getValue< double >( jsonObject, K::order ),
                     getValue( jsonObject, K::useLongDoubleTimeStep, defaults.getUseLongDoubleTimeStep( ) ),
                     getValue( jsonObject, K::lookupScheme, defaults.getSelectedLookupScheme( ) ),
-                    getValue( jsonObject, K::boundaryHandling, defaults.getBoundaryHandling( ) ) );
+                    getValue( jsonObject, K::boundaryHandling, defaults.getLagrangeBoundaryHandling( ) ) );
         return;
     }
     default:

@@ -159,18 +159,18 @@ createUnivariateTabulatedCoefficientAerodynamicCoefficientInterface(
         if ( tabulatedCoefficientSettings->getInterpolatorSettings( ) == NULL )
         {
             forceInterpolator = createOneDimensionalInterpolator( tabulatedCoefficientSettings->getForceCoefficients( ),
-                        boost::shared_ptr< OneDimensionalInterpolatorSettings >( linear_interpolator ) );
+                                                                  boost::make_shared< InterpolatorSettings >( linear_interpolator ) );
             momentInterpolator = createOneDimensionalInterpolator( tabulatedCoefficientSettings->getForceCoefficients( ),
-                        boost::shared_ptr< OneDimensionalInterpolatorSettings >( linear_interpolator ) );
+                                                                   boost::make_shared< InterpolatorSettings >( linear_interpolator ) );
         }
         else
         {
             forceInterpolator = createOneDimensionalInterpolator( tabulatedCoefficientSettings->getForceCoefficients( ),
-                        boost::dynamic_pointer_cast< OneDimensionalInterpolatorSettings >(
-                            tabulatedCoefficientSettings->getInterpolatorSettings( ) ) );
+                                                                  boost::dynamic_pointer_cast< InterpolatorSettings >(
+                                                                      tabulatedCoefficientSettings->getInterpolatorSettings( ) ) );
             momentInterpolator = createOneDimensionalInterpolator( tabulatedCoefficientSettings->getForceCoefficients( ),
-                        boost::dynamic_pointer_cast< OneDimensionalInterpolatorSettings >(
-                            tabulatedCoefficientSettings->getInterpolatorSettings( ) ) );
+                                                                   boost::dynamic_pointer_cast< InterpolatorSettings >(
+                                                                       tabulatedCoefficientSettings->getInterpolatorSettings( ) ) );
         }
 
         // Create aerodynamic coefficient interface.

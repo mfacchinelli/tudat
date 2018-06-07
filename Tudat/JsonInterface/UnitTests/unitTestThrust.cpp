@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE( test_json_thrust_interpolated )
             boost::make_shared< DataInterpolationSettings< double, Eigen::Vector3d > >(
                 boost::make_shared< HermiteDataSettings< double, Eigen::Vector3d > >(
                     mapDependentVariables, vectorDependentVariablesDerivatives ),
-                boost::make_shared< OneDimensionalInterpolatorSettings >( hermite_spline_interpolator ) );
+                boost::make_shared< InterpolatorSettings >( hermite_spline_interpolator ) );
     const double specificImpulse = 3000.0;
     const ThrustFrames thrustFrame = inertial_thurst_frame;
     const std::string centralBody = "Moon";

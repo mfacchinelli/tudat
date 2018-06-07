@@ -319,7 +319,7 @@ createInterpolatorsForItrsToGcrsAngles(
         const basic_astrodynamics::TimeScales timeScale = basic_astrodynamics::tdb_scale,
         const boost::shared_ptr< EarthOrientationAnglesCalculator > earthOrientationCalculator =
         createStandardEarthOrientationCalculator( ),
-        const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings =
+        const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
         boost::make_shared< interpolators::LagrangeInterpolatorSettings >( 6 ) )
 {
     // Define interpolators

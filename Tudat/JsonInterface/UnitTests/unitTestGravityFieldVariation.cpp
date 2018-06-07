@@ -84,8 +84,8 @@ BOOST_AUTO_TEST_CASE( test_json_gravityFieldVariation_tabulated )
     };
     const int minimumDegree = 4;
     const int minimumOrder = 2;
-    const boost::shared_ptr< OneDimensionalInterpolatorSettings > interpolatorSettings =
-            boost::make_shared< OneDimensionalInterpolatorSettings >( cubic_spline_interpolator );
+    const boost::shared_ptr< InterpolatorSettings > interpolatorSettings =
+            boost::make_shared< InterpolatorSettings >( cubic_spline_interpolator );
     const boost::shared_ptr< GravityFieldVariationSettings > manualSettings =
             boost::make_shared< TabulatedGravityFieldVariationSettings >( cosineCoefficientCorrections,
                                                                           sineCoefficientCorrections,

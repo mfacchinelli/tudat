@@ -256,7 +256,7 @@ public:
                                         double timeStep,
                                         std::string frameOrigin = "SSB",
                                         std::string frameOrientation = "ECLIPJ2000",
-                                        boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings =
+                                        boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
             boost::make_shared< interpolators::LagrangeInterpolatorSettings >( 6 ) ):
         DirectSpiceEphemerisSettings( frameOrigin, frameOrientation, 0, 0, 0,
                                       interpolated_spice ),
@@ -290,7 +290,7 @@ public:
      *  \return Settings to be used for the state interpolation.
      */
 
-    boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > getInterpolatorSettings( )
+    boost::shared_ptr< interpolators::InterpolatorSettings > getInterpolatorSettings( )
     {
         return interpolatorSettings_;
     }
@@ -317,7 +317,7 @@ private:
     double timeStep_;
 
     //! Settings to be used for the state interpolation.
-    boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings_;
+    boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings_;
 
     bool useLongDoubleStates_;
 };
@@ -652,7 +652,7 @@ boost::shared_ptr< ephemerides::Ephemeris > createTabulatedEphemerisFromSpice(
         const TimeType timeStep,
         const std::string& observerName,
         const std::string& referenceFrameName,
-        boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorSettings =
+        boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
         boost::make_shared< interpolators::LagrangeInterpolatorSettings >( 8 ) )
 {
     using namespace interpolators;

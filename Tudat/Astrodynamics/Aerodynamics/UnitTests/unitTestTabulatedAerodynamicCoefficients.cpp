@@ -110,13 +110,13 @@ BOOST_AUTO_TEST_CASE( testTabulatedDragCoefficient )
     }
 
     // Create interpolator
-    boost::shared_ptr< OneDimensionalInterpolatorSettings > interpolatorSettings =
-            boost::make_shared< OneDimensionalInterpolatorSettings >( InterpolatorTypes::linear_interpolator );
+    boost::shared_ptr< InterpolatorSettings > interpolatorSettings =
+            boost::make_shared< InterpolatorSettings >( InterpolatorTypes::linear_interpolator );
 
     // Tabulated aerodynamic settings
     aerodynamicCoefficientSettings = boost::make_shared< TabulatedAerodynamicCoefficientSettings< 1 > >(
                 altitudes, aerodynamicCoefficients, referenceArea,
-                aerodynamics::altitude_dependent, interpolatorSettings, 1, 1 );
+                aerodynamics::altitude_dependent, 1, 1, interpolatorSettings );
 
     // Aerodynamics interface
     bodyMap[ "Vehicle" ]->setAerodynamicCoefficientInterface(

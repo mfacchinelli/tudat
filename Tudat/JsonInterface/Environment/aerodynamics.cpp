@@ -278,9 +278,9 @@ void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< Aerodynamic
                             getValue< double >( jsonObject, K::lateralReferenceLength ),
                             getValue< Eigen::Vector3d >( jsonObject, K::momentReferencePoint ),
                             independentVariableNames.front( ),
-                            getValue< boost::shared_ptr< OneDimensionalInterpolatorSettings > >( jsonObject, K::interpolator ),
                             areCoefficientsInAerodynamicFrame,
-                            areCoefficientsInNegativeAxisDirection );
+                            areCoefficientsInNegativeAxisDirection,
+                            getValue< boost::shared_ptr< InterpolatorSettings > >( jsonObject, K::interpolator ) );
             }
             else
             {
@@ -289,9 +289,9 @@ void from_json( const nlohmann::json& jsonObject, boost::shared_ptr< Aerodynamic
                             forceCoefficients,
                             referenceArea,
                             independentVariableNames.front( ),
-                            getValue< boost::shared_ptr< OneDimensionalInterpolatorSettings > >( jsonObject, K::interpolator ),
                             areCoefficientsInAerodynamicFrame,
-                            areCoefficientsInNegativeAxisDirection );
+                            areCoefficientsInNegativeAxisDirection,
+                            getValue< boost::shared_ptr< InterpolatorSettings > >( jsonObject, K::interpolator ) );
             }
         }
         return;

@@ -55,8 +55,8 @@ public:
             const std::map< double, Eigen::MatrixXd >& cosineCoefficientCorrections,
             const std::map< double, Eigen::MatrixXd >& sineCoefficientCorrections,
             const int minimumDegree, const int minimumOrder,
-            const boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorType =
-            boost::make_shared< interpolators::OneDimensionalInterpolatorSettings >(
+            const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorType =
+            boost::make_shared< interpolators::InterpolatorSettings >(
                 interpolators::linear_interpolator, interpolators::huntingAlgorithm ) );
 
     //! Function to (re)set the tabulated spherical harmonic coefficients.
@@ -109,7 +109,7 @@ public:
      *  between tabulated times.
      * \return Type of interpolator to use for calculating coefficients
      */
-    boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > getInterpolatorSettings( )
+    boost::shared_ptr< interpolators::InterpolatorSettings > getInterpolatorSettings( )
     {
         return interpolatorType_;
     }
@@ -117,7 +117,7 @@ public:
 private:
 
     //! Type of interpolator to use for calculating coefficients at any time.
-    boost::shared_ptr< interpolators::OneDimensionalInterpolatorSettings > interpolatorType_;
+    boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorType_;
 
     //! Map of cosine coefficient variations, with associated times as map key.
     std::map< double, Eigen::MatrixXd > cosineCoefficientCorrections_;

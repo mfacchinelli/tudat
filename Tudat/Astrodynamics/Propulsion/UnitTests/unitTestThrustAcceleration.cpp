@@ -1047,7 +1047,7 @@ BOOST_AUTO_TEST_CASE( testInterpolatedThrustVector )
     boost::shared_ptr< DataInterpolationSettings< double, Eigen::Vector3d > > thrustDataInterpolation =
             boost::make_shared< DataInterpolationSettings< double, Eigen::Vector3d > >(
                 boost::make_shared< DataMapSettings< double, Eigen::Vector3d > >( randomThrustMap ),
-                boost::make_shared< OneDimensionalInterpolatorSettings >( linear_interpolator ) );
+                boost::make_shared< InterpolatorSettings >( linear_interpolator ) );
 
     for( unsigned int testCase = 0; testCase < 2; testCase++ )
     {

@@ -129,8 +129,8 @@ BOOST_AUTO_TEST_CASE( test_json_aerodynamics_tabulated1 )
     const double lateralReferenceLength = 4.0;
     const Eigen::Vector3d momentReferencePoint = ( Eigen::Vector3d( ) << 0.7, 0.8, 0.9 ).finished( );
     const AerodynamicCoefficientsIndependentVariables independentVariableName = angle_of_sideslip_dependent;
-    const boost::shared_ptr< OneDimensionalInterpolatorSettings > interpolatorSettings =
-            boost::make_shared< OneDimensionalInterpolatorSettings >( cubic_spline_interpolator );
+    const boost::shared_ptr< InterpolatorSettings > interpolatorSettings =
+            boost::make_shared< InterpolatorSettings >( cubic_spline_interpolator );
     const bool areCoefficientsInAerodynamicFrame = false;
     const bool areCoefficientsInNegativeAxisDirection = false;
     const boost::shared_ptr< AerodynamicCoefficientSettings > manualSettings =
@@ -142,9 +142,9 @@ BOOST_AUTO_TEST_CASE( test_json_aerodynamics_tabulated1 )
                                                                                 lateralReferenceLength,
                                                                                 momentReferencePoint,
                                                                                 independentVariableName,
-                                                                                interpolatorSettings,
                                                                                 areCoefficientsInAerodynamicFrame,
-                                                                                areCoefficientsInNegativeAxisDirection );
+                                                                                areCoefficientsInNegativeAxisDirection,
+                                                                                interpolatorSettings );
 
     // Compare
     BOOST_CHECK_EQUAL_JSON( fromFileSettings, manualSettings );
