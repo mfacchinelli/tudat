@@ -171,6 +171,7 @@ public:
      */
     void modifyCurrentState( const StateType& newState, const IndependentVariableType newTime = 0 )
     {
+        this->currentState_ = newState;
         if ( newTime == 0 )
         {
             this->lastIndependentVariable_ = currentIndependentVariable_;

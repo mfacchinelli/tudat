@@ -189,7 +189,6 @@ protected:
             const IndependentVariableType& targetIndependentVariableValue )
     {
         useValue = false;
-        std::cout << "Handling method: " << boundaryHandling_ << std::endl; // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< REMOVE!
         if ( boundaryHandling_ != extrapolate_at_boundary )
         {
             int isAtBoundary = checkInterpolationBoundary( targetIndependentVariableValue );
