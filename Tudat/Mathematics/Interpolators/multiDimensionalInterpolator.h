@@ -33,10 +33,10 @@ namespace interpolators
 
 //! Base class for interpolator with multiple independent variables.
 /*!
- * Base class for the interpolators in multiple independent variables included in Tudat.
- * \tparam IndependentVariableType Type of independent variable(s)
- * \tparam IndependentVariableType Type of dependent variable
- * \tparam NumberOfDimensions Number of independent variables.
+ *  Base class for the interpolators in multiple independent variables included in Tudat.
+ *  \tparam IndependentVariableType Type of independent variable(s)
+ *  \tparam IndependentVariableType Type of dependent variable
+ *  \tparam NumberOfDimensions Number of independent variables.
  */
 template< typename IndependentVariableType, typename DependentVariableType, unsigned int NumberOfDimensions >
 class MultiDimensionalInterpolator : public Interpolator< IndependentVariableType, DependentVariableType >
@@ -45,7 +45,11 @@ public:
 
     //! Constructor.
     /*!
-     * Constructor.
+     *  Constructor.
+     *  \param boundaryHandling Vector of boundary handling methods, in case independent variable is outside the
+     *      specified range.
+     *  \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
+     *      use_default_value_with_warning as methods for boundaryHandling.
      */
     MultiDimensionalInterpolator(
             const std::vector< BoundaryInterpolationType >& boundaryHandling =
@@ -57,17 +61,17 @@ public:
 
     //! Destructor.
     /*!
-     * Destructor.
+     *  Destructor.
      */
     virtual ~MultiDimensionalInterpolator( ) { }
 
     //! Function to perform interpolation.
     /*!
-     * This function performs the interpolation. It calls the function that takes a vector of
-     * independent variable values, which is to be implemented in derived classes.
-     * \param independentVariableValues Vector of values of independent variables at which
+     *  This function performs the interpolation. It calls the function that takes a vector of
+     *  independent variable values, which is to be implemented in derived classes.
+     *  \param independentVariableValues Vector of values of independent variables at which
      *          the value of the dependent variable is to be determined.
-     * \return Interpolated value of dependent variable.
+     *  \return Interpolated value of dependent variable.
      */
     virtual DependentVariableType
     interpolate( const std::vector< IndependentVariableType >& independentVariableValues ) = 0;
@@ -222,10 +226,10 @@ protected:
 
     //! Make the lookup scheme that is to be used.
     /*!
-     * This function creates the look up scheme that is to be used in determining the interval of
-     * the independent variable grid where the interpolation is to be performed. It takes the type
-     * of lookup scheme as an enum and constructs the lookup scheme from the independentValues_
-     * that have been set previously.
+     *  This function creates the look up scheme that is to be used in determining the interval of
+     *  the independent variable grid where the interpolation is to be performed. It takes the type
+     *  of lookup scheme as an enum and constructs the lookup scheme from the independentValues_
+     *  that have been set previously.
      *  \param selectedScheme Type of look-up scheme that is to be used
      */
     void makeLookupSchemes( const AvailableLookupScheme selectedScheme )
@@ -263,34 +267,34 @@ protected:
 
     //! Vector with pointers to look-up scheme.
     /*!
-     * Pointers to the look-up schemes that is used to determine in which interval the requested
-     * independent variable value falls.
+     *  Pointers to the look-up schemes that is used to determine in which interval the requested
+     *  independent variable value falls.
      */
     std::vector< boost::shared_ptr< LookUpScheme< IndependentVariableType > > > lookUpSchemes_;
 
     //! Vector of vectors containing independent variables.
     /*!
-     * Vector of vectors containing independent variables. The size of the outer vector is equal
-     * to the number of dimensions of the interpolator.
+     *  Vector of vectors containing independent variables. The size of the outer vector is equal
+     *  to the number of dimensions of the interpolator.
      */
     std::vector< std::vector< IndependentVariableType > > independentValues_;
 
     //! Multi-dimensional array of dependent data.
     /*!
-     * Multi-dimensional array of dependent data at each point of hyper-rectangular grid formed by
-     * independent variable points.
+     *  Multi-dimensional array of dependent data at each point of hyper-rectangular grid formed by
+     *  independent variable points.
      */
     boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) > dependentData_;
 
     //! Behavior of interpolator when independent variable is outside range.
     /*!
-     * Behavior of interpolator when independent variable is outside range.
+     *  Behavior of interpolator when independent variable is outside range.
      */
     std::vector< BoundaryInterpolationType > boundaryHandling_;
 
     //! Default value to be used for extrapolation.
     /*!
-     * Default value to be used for extrapolation.
+     *  Default value to be used for extrapolation.
      */
     DependentVariableType defaultExtrapolationValue_;
 
