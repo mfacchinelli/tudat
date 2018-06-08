@@ -149,9 +149,9 @@ public:
     {
         // Check whether boundary handling needs to be applied, if independent variable is beyond its defined range.
         DependentVariableType interpolatedValue;
-        bool useBoundaryValue = false;
-        this->checkBoundaryCase( interpolatedValue, useBoundaryValue, independentVariableValue );
-        if( useBoundaryValue )
+        bool useValue = false;
+        this->checkBoundaryCase( interpolatedValue, useValue, independentVariableValue );
+        if( useValue )
         {
             return interpolatedValue;
         }

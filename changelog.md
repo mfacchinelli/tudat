@@ -9,7 +9,7 @@
 - **Interpolators**
 	- added option to choose interpolator behavior at boundary (see issue [#378](https://github.com/Tudat/tudat/issues/378)); supported modes: error, extrapolate (with optional warning), use boundary value (with optional warning), use default value (with optional warning)
 	- added interface class `MultiDimensionalInterpolator` to make multi-dimensional interpolation more modular
-	- added more input options in interpolation settings
+	- added more input options in interpolation settings (see issue [#397](https://github.com/Tudat/tudat/issues/397))
 - **Filters**
 	- added base class for filters
 	- added base class for Kalman filters

@@ -77,7 +77,7 @@ public:
                          const double specificGasConstant = physical_constants::SPECIFIC_GAS_CONSTANT_AIR,
                          const double ratioOfSpecificHeats = 1.4,
                          const std::vector< interpolators::BoundaryInterpolationType >& boundaryHandling = { },
-                         const std::vector< double >& defaultExtrapolationValue = { } ) :
+                         const std::vector< std::vector< std::pair< double, double > > >& defaultExtrapolationValue = { } ) :
         atmosphereTableFile_( atmosphereTableFile ), independentVariables_( independentVariablesNames ),
         dependentVariables_( dependentVariablesNames ), specificGasConstant_( specificGasConstant ),
         ratioOfSpecificHeats_( ratioOfSpecificHeats ), boundaryHandling_( boundaryHandling ),
@@ -85,6 +85,30 @@ public:
     {
         initialize( atmosphereTableFile_ );
     }
+
+    //! Constructor with default gas constant and specific heat ratio.
+    /*!
+     *  Constructor with default gas constant and specific heat ratio.
+     *  \param atmosphereTableFile Map of files containing information on the atmosphere. The order of both
+     *  independent and dependent parameters needs to be specified in the independentVariablesNames and
+     *  dependentVariablesNames vectors, respectively. Note that specific gas constant and specific heat ratio
+     *  will be given the default constant values for Earth, unless they are included in the file map.
+     *  \param independentVariablesNames List of independent parameters describing the atmosphere.
+     *  \param dependentVariablesNames List of dependent parameters output by the atmosphere.
+     *  \param specificGasConstant The constant specific gas constant of the atmosphere.
+     *  \param ratioOfSpecificHeats The constant ratio of specific heats of the atmosphere.
+     *  \param boundaryHandling Method for interpolation behavior when independent variable is out of range.
+     *  \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
+     *  use_default_value_with_warning as methods for boundaryHandling.
+     */
+    TabulatedAtmosphere( const std::map< int, std::string >& atmosphereTableFile,
+                         const std::vector< AtmosphereIndependentVariables >& independentVariablesNames,
+                         const std::vector< AtmosphereDependentVariables >& dependentVariablesNames,
+                         const std::vector< interpolators::BoundaryInterpolationType >& boundaryHandling,
+                         const std::vector< std::vector< std::pair< double, double > > >& defaultExtrapolationValue ) :
+        TabulatedAtmosphere( atmosphereTableFile, independentVariablesNames, dependentVariablesNames,
+                             physical_constants::SPECIFIC_GAS_CONSTANT_AIR, 1.4, boundaryHandling, defaultExtrapolationValue )
+    { }
 
     //! Constructor compatible with old version.
     /*!
@@ -123,8 +147,33 @@ public:
                          const std::vector< AtmosphereDependentVariables >& dependentVariablesNames,
                          const std::vector< interpolators::BoundaryInterpolationType >& boundaryHandling,
                          const std::vector< double >& defaultExtrapolationValue ) :
-        TabulatedAtmosphere( atmosphereTableFile, independentVariablesNames, dependentVariablesNames,
-                             physical_constants::SPECIFIC_GAS_CONSTANT_AIR, 1.4, boundaryHandling, defaultExtrapolationValue ){ }
+        atmosphereTableFile_( atmosphereTableFile ), independentVariables_( independentVariablesNames ),
+        dependentVariables_( dependentVariablesNames ), specificGasConstant_( physical_constants::SPECIFIC_GAS_CONSTANT_AIR ),
+        ratioOfSpecificHeats_( 1.4 ), boundaryHandling_( boundaryHandling )
+    {
+        // Assign default values
+        defaultExtrapolationValue_.resize( dependentVariablesNames.size( ) );
+        for ( unsigned int i = 0; i < dependentVariablesNames.size( ); i++ )
+        {
+            for ( unsigned int j = 0; j < independentVariablesNames.size( ); j++ )
+            {
+                if ( boundaryHandling_.at( j ) == interpolators::use_default_value ||
+                     boundaryHandling_.at( j ) == interpolators::use_default_value_with_warning )
+                {
+                    defaultExtrapolationValue_.at( i ).push_back( std::make_pair( defaultExtrapolationValue.at( i ),
+                                                                                  defaultExtrapolationValue.at( i ) ) );
+                }
+                else
+                {
+                    defaultExtrapolationValue_.at( i ).push_back( std::make_pair( IdentityElement< double >::getAdditionIdentity( ),
+                                                                                  IdentityElement< double >::getAdditionIdentity( ) ) );
+                }
+            }
+        }
+
+        // Initialize atmosphere
+        initialize( atmosphereTableFile_ );
+    }
 
     //! Destructor
     ~TabulatedAtmosphere( ){ }
@@ -525,11 +574,15 @@ private:
      */
     std::vector< interpolators::BoundaryInterpolationType > boundaryHandling_;
 
-    //! Default value to be used for extrapolation.
+    //! Default values to be used for extrapolation.
     /*!
-     *  Default value to be used for extrapolation.
+     *  Default values to be used for extrapolation. The structure of the vector is as follows:
+     *      - outer vector: one element for each dependent variable (density, pressure, temperature, ect.)
+     *      - inner vector: one element for each independent variable (latitude, longitude and altitude)
+     *      - pair: first element in case independent variable is below its lower definition limit, second element
+     *          in case it is above the upper definition limit
      */
-    std::vector< double > defaultExtrapolationValue_;
+    std::vector< std::vector< std::pair< double, double > > > defaultExtrapolationValue_;
 };
 
 //! Typedef for shared-pointer to TabulatedAtmosphere object.

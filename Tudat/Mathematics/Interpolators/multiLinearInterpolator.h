@@ -61,8 +61,6 @@ public:
     independentValues_;
     using MultiDimensionalInterpolator< IndependentVariableType, DependentVariableType, NumberOfDimensions >::
     lookUpSchemes_;
-    using MultiDimensionalInterpolator< IndependentVariableType, DependentVariableType, NumberOfDimensions >::
-    defaultExtrapolationValue_;
 
     //! Default constructor taking independent and dependent variable data.
     /*!
@@ -76,17 +74,19 @@ public:
      *      interpolation.
      *  \param boundaryHandling Vector of boundary handling methods, in case independent variable is outside the
      *      specified range.
-     *  \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
-     *      use_default_value_with_warning as methods for boundaryHandling.
+     *  \param defaultExtrapolationValue Vector of pairs of default values to be used for extrapolation, in case
+     *      of use_default_value or use_default_value_with_warning as methods for boundaryHandling.
      */
-    MultiLinearInterpolator( const std::vector< std::vector< IndependentVariableType > >& independentValues,
-                             const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >&
-                             dependentData,
-                             const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
-                             const std::vector< BoundaryInterpolationType >& boundaryHandling =
+    MultiLinearInterpolator(
+            const std::vector< std::vector< IndependentVariableType > >& independentValues,
+            const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >& dependentData,
+            const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
+            const std::vector< BoundaryInterpolationType >& boundaryHandling =
             std::vector< BoundaryInterpolationType >( NumberOfDimensions, extrapolate_at_boundary ),
-                             const DependentVariableType& defaultExtrapolationValue =
-            IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) :
+            const std::vector< std::pair< DependentVariableType, DependentVariableType > >& defaultExtrapolationValue =
+            std::vector< std::pair< DependentVariableType, DependentVariableType > >(
+                NumberOfDimensions, std::make_pair( IdentityElement< DependentVariableType >::getAdditionIdentity( ),
+                                                    IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) ) ) :
         MultiDimensionalInterpolator< IndependentVariableType, DependentVariableType, NumberOfDimensions >(
             boundaryHandling, defaultExtrapolationValue )
     {
@@ -133,19 +133,20 @@ public:
      *      interpolation.
      *  \param boundaryHandling Boundary handling method, in case independent variable is outside the
      *      specified range.
-     *  \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
-     *      use_default_value_with_warning as methods for boundaryHandling.
+     *  \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value
+     *      or use_default_value_with_warning as methods for boundaryHandling.
      */
-    MultiLinearInterpolator( const std::vector< std::vector< IndependentVariableType > >& independentValues,
-                             const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >&
-                             dependentData,
-                             const AvailableLookupScheme selectedLookupScheme,
-                             const BoundaryInterpolationType boundaryHandling,
-                             const DependentVariableType& defaultExtrapolationValue =
-            IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) :
+    MultiLinearInterpolator(
+            const std::vector< std::vector< IndependentVariableType > >& independentValues,
+            const boost::multi_array< DependentVariableType, static_cast< size_t >( NumberOfDimensions ) >& dependentData,
+            const AvailableLookupScheme selectedLookupScheme,
+            const BoundaryInterpolationType boundaryHandling,
+            const DependentVariableType& defaultExtrapolationValue = IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) :
         MultiLinearInterpolator( independentValues, dependentData, selectedLookupScheme,
                                  std::vector< BoundaryInterpolationType >( NumberOfDimensions, boundaryHandling ),
-                                 defaultExtrapolationValue ) { }
+                                 std::vector< std::pair< DependentVariableType, DependentVariableType > >(
+                                     NumberOfDimensions, std::make_pair( defaultExtrapolationValue, defaultExtrapolationValue ) ) )
+    { }
 
     //! Default destructor.
     /*!
@@ -171,17 +172,18 @@ public:
                                       std::to_string( NumberOfDimensions ) );
         }
 
-        // Create copy of values to interpolate, such that it can be modified
+        // Create local copy of independent variables
         std::vector< IndependentVariableType > localIndependentValuesToInterpolate = independentValuesToInterpolate;
 
         // Check that independent variables are in range
-        bool useDefault = false;
+        bool useValue = false;
+        DependentVariableType currentDependentVariable;
         for ( unsigned int i = 0; i < NumberOfDimensions; i++ )
         {
-            this->checkBoundaryCase( localIndependentValuesToInterpolate.at( i ), i, useDefault );
-            if ( useDefault )
+            this->checkBoundaryCase( i, useValue, localIndependentValuesToInterpolate.at( i ), currentDependentVariable );
+            if ( useValue )
             {
-                return defaultExtrapolationValue_;
+                return currentDependentVariable;
             }
         }
 
@@ -213,15 +215,15 @@ private:
     //! Perform the step in a single dimension of the interpolation process.
     /*!
      * Function calculates single dimension of the interpolation process. Function calls itself if
-     * final dimension not yet reached. Calling this function with currentVariable = 0 will result
-     * in 2^{NumberOfDimensions} number of calls to the function at currentVariable =
-     * NumberOfDimensions -1. As such, the complete series of calls, starting at currentVariable =
+     * final dimension not yet reached. Calling this function with currentDimension = 0 will result
+     * in 2^{NumberOfDimensions} number of calls to the function at currentDimension =
+     * NumberOfDimensions -1. As such, the complete series of calls, starting at currentDimension =
      * 0, retrieves the dependent variable values at all edges of the grid hyper-rectangle and
      * properly scales them.
-     * \param currentVariable Dimension in which this interpolation step is to be performed.
+     * \param currentDimension Dimension in which this interpolation step is to be performed.
      * \param independentValuesToInterpolate Vector of values of independent variables at which
      *          interpolation is to be performed.
-     * \param currentArrayIndices Array of indices modified at index = currentVariable at each
+     * \param currentArrayIndices Array of indices modified at index = currentDimension at each
      *          call of function. Variable is passed to dependentData in highest step to return
      *          data for interpolation.
      * \param nearestLowerIndices Indices in subvectors of independentValues_ vector. That is, the
@@ -230,7 +232,7 @@ private:
      * \return Interpolated value in a single dimension
      */
     DependentVariableType performRecursiveInterpolationStep(
-            const unsigned int currentVariable,
+            const unsigned int currentDimension,
             const std::vector< IndependentVariableType >& independentValuesToInterpolate,
             boost::array< unsigned int, NumberOfDimensions > currentArrayIndices,
             const std::vector< int >& nearestLowerIndices )
@@ -240,42 +242,42 @@ private:
 
         // Calculate fractions of data points above and below independent
         // variable value to be added to interpolated value.
-        upperFraction = ( independentValuesToInterpolate[ currentVariable ] -
-                          independentValues_[ currentVariable ]
-                          [ nearestLowerIndices[ currentVariable ] ] ) /
-                ( independentValues_[ currentVariable ]
-                  [ nearestLowerIndices[ currentVariable ] + 1 ] -
-                independentValues_[ currentVariable ]
-                [ nearestLowerIndices[ currentVariable ] ] );
-        lowerFraction = -( independentValuesToInterpolate[ currentVariable ] -
-                           independentValues_[ currentVariable ]
-                           [ nearestLowerIndices[ currentVariable ] + 1 ] ) /
-                ( independentValues_[ currentVariable ]
-                  [ nearestLowerIndices[ currentVariable ] + 1 ] -
-                independentValues_[ currentVariable ]
-                [ nearestLowerIndices[ currentVariable ] ] );
+        upperFraction = ( independentValuesToInterpolate[ currentDimension ] -
+                          independentValues_[ currentDimension ]
+                          [ nearestLowerIndices[ currentDimension ] ] ) /
+                ( independentValues_[ currentDimension ]
+                  [ nearestLowerIndices[ currentDimension ] + 1 ] -
+                independentValues_[ currentDimension ]
+                [ nearestLowerIndices[ currentDimension ] ] );
+        lowerFraction = -( independentValuesToInterpolate[ currentDimension ] -
+                           independentValues_[ currentDimension ]
+                           [ nearestLowerIndices[ currentDimension ] + 1 ] ) /
+                ( independentValues_[ currentDimension ]
+                  [ nearestLowerIndices[ currentDimension ] + 1 ] -
+                independentValues_[ currentDimension ]
+                [ nearestLowerIndices[ currentDimension ] ] );
 
         // If at top dimension, call dependent variable data.
-        if ( currentVariable == NumberOfDimensions - 1 )
+        if ( currentDimension == NumberOfDimensions - 1 )
         {
-            currentArrayIndices[ NumberOfDimensions - 1 ] = nearestLowerIndices[ currentVariable ];
+            currentArrayIndices[ NumberOfDimensions - 1 ] = nearestLowerIndices[ currentDimension ];
             lowerContribution = dependentData_( currentArrayIndices );
-            currentArrayIndices[ NumberOfDimensions - 1 ] = nearestLowerIndices[ currentVariable ]
+            currentArrayIndices[ NumberOfDimensions - 1 ] = nearestLowerIndices[ currentDimension ]
                     + 1;
             upperContribution = dependentData_( currentArrayIndices );
         }
 
         // If at lower dimension, update currentArrayIndices and call function with
-        // currentVariable++.
+        // currentDimension++.
         else
         {
-            currentArrayIndices[ currentVariable ] = nearestLowerIndices[ currentVariable ];
+            currentArrayIndices[ currentDimension ] = nearestLowerIndices[ currentDimension ];
             lowerContribution = performRecursiveInterpolationStep(
-                        currentVariable + 1, independentValuesToInterpolate,
+                        currentDimension + 1, independentValuesToInterpolate,
                         currentArrayIndices, nearestLowerIndices );
-            currentArrayIndices[ currentVariable ] = nearestLowerIndices[ currentVariable ] + 1;
+            currentArrayIndices[ currentDimension ] = nearestLowerIndices[ currentDimension ] + 1;
             upperContribution = performRecursiveInterpolationStep(
-                        currentVariable + 1, independentValuesToInterpolate,
+                        currentDimension + 1, independentValuesToInterpolate,
                         currentArrayIndices, nearestLowerIndices );
         }
 

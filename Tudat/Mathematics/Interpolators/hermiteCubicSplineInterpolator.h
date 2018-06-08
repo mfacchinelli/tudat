@@ -133,9 +133,9 @@ public:
     {
         // Check whether boundary handling needs to be applied, if independent variable is beyond its defined range.
         DependentVariableType targetValue;
-        bool useBoundaryValue = false;
-        this->checkBoundaryCase( targetValue, useBoundaryValue, targetIndependentVariableValue );
-        if( useBoundaryValue )
+        bool useValue = false;
+        this->checkBoundaryCase( targetValue, useValue, targetIndependentVariableValue );
+        if( useValue )
         {
             return targetValue;
         }

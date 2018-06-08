@@ -130,9 +130,10 @@ public:
                              const std::vector< DependentVariableType >& dependentVariables,
                              const AvailableLookupScheme selectedLookupScheme = huntingAlgorithm,
                              const BoundaryInterpolationType boundaryHandling = extrapolate_at_boundary,
-                             const DependentVariableType& defaultExtrapolationValue = IdentityElement< DependentVariableType >::getAdditionIdentity( ) ):
-        OneDimensionalInterpolator< IndependentVariableType, DependentVariableType >( boundaryHandling,
-                                                                                      defaultExtrapolationValue )
+                             const std::pair< DependentVariableType, DependentVariableType >& defaultExtrapolationValue =
+            std::make_pair( IdentityElement< DependentVariableType >::getAdditionIdentity( ),
+                            IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) ) :
+        OneDimensionalInterpolator< IndependentVariableType, DependentVariableType >( boundaryHandling, defaultExtrapolationValue )
     {
         // Verify that the initialization variables are not empty.
         if ( independentVariables.size( ) == 0 || dependentVariables.size( ) == 0 )
@@ -165,6 +166,25 @@ public:
         // Calculate second derivatives of curve.
         calculateSecondDerivatives( );
     }
+
+    //! Cubic spline interpolator constructor.
+    /*!
+     * Cubic spline interpolator constructor taking separate vectors of dependent and independent
+     * variable values.
+     * \param independentVariables Vector with the independent variable values, must be
+     *  sorted in ascending order.
+     * \param dependentVariables Vector with the dependent variable values.
+     * \param selectedLookupScheme Look-up scheme that is to be used when finding interval
+     * of requested independent variable value.
+     */
+    CubicSplineInterpolator( const std::vector< IndependentVariableType >& independentVariables,
+                             const std::vector< DependentVariableType >& dependentVariables,
+                             const AvailableLookupScheme selectedLookupScheme,
+                             const BoundaryInterpolationType boundaryHandling,
+                             const DependentVariableType& defaultExtrapolationValue ):
+        CubicSplineInterpolator( independentVariables, dependentVariables, selectedLookupScheme, boundaryHandling,
+                                 std::make_pair( defaultExtrapolationValue, defaultExtrapolationValue ) )
+    { }
 
     //! Cubic spline interpolator constructor.
     /*!
@@ -232,9 +252,9 @@ public:
 
         // Check whether boundary handling needs to be applied, if independent variable is beyond its defined range.
         DependentVariableType interpolatedValue;
-        bool useBoundaryValue = false;
-        this->checkBoundaryCase( interpolatedValue, useBoundaryValue, targetIndependentVariableValue );
-        if( useBoundaryValue )
+        bool useValue = false;
+        this->checkBoundaryCase( interpolatedValue, useValue, targetIndependentVariableValue );
+        if( useValue )
         {
             return interpolatedValue;
         }

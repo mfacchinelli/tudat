@@ -777,7 +777,7 @@ protected:
     //! Function returning dependent variables (during numerical propagation)
     boost::function< Eigen::VectorXd( ) > dependentVariablesFunctions_;
 
-    //! Function to normalize state (during numerical propagation)
+    //! Function to post-process state (during numerical propagation)
     boost::function< void( Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 >& ) > statePostProcessingFunction_;
 
     //! Map listing starting entry of dependent variables in output vector, along with associated ID.

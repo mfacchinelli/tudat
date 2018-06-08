@@ -397,8 +397,8 @@ typename boost::multi_array< double, NumberOfDimensions >::index getMultiArrayIn
         const unsigned short int direction )
 {
     int offset = requestedElement - multiArray.origin( );
-    return( offset / multiArray.strides( )[ direction] % multiArray.shape( )[ direction ] +
-            multiArray.index_bases( )[direction] );
+    return( offset / multiArray.strides( )[ direction ] % multiArray.shape( )[ direction ] +
+            multiArray.index_bases( )[ direction ] );
 }
 
 //! Get indices of pointer to single entry in multi-array (size 1) of doubles

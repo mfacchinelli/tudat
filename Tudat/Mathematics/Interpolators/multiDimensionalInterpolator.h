@@ -43,20 +43,72 @@ class MultiDimensionalInterpolator : public Interpolator< IndependentVariableTyp
 {
 public:
 
-    //! Constructor.
+    //! Default constructor.
     /*!
-     *  Constructor.
+     *  Default constructor.
+     *  \param boundaryHandling Vector of boundary handling methods, in case independent variable is outside the
+     *      specified range.
+     *  \param defaultExtrapolationValue Vector of pairs of default values to be used for extrapolation, in case of
+     *      use_default_value or use_default_value_with_warning as methods for boundaryHandling.
+     */
+    MultiDimensionalInterpolator(
+            const std::vector< BoundaryInterpolationType >& boundaryHandling =
+            std::vector< BoundaryInterpolationType >( NumberOfDimensions, extrapolate_at_boundary ),
+            const std::vector< std::pair< DependentVariableType, DependentVariableType > >& defaultExtrapolationValue =
+            std::vector< std::pair< DependentVariableType, DependentVariableType > >(
+                NumberOfDimensions, std::make_pair( IdentityElement< DependentVariableType >::getAdditionIdentity( ),
+                                                    IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) ) ) :
+        boundaryHandling_( boundaryHandling ), defaultExtrapolationValue_( defaultExtrapolationValue )
+    {
+        // Check that the user-defined default value does not correspond to a boundary method that does not use the
+        // default value
+        std::pair< DependentVariableType, DependentVariableType > defaultValueForBoundaryHandling =
+                std::make_pair( IdentityElement< DependentVariableType >::getAdditionIdentity( ),
+                                IdentityElement< DependentVariableType >::getAdditionIdentity( ) );
+        for ( unsigned int i = 0; i < NumberOfDimensions; i++ )
+        {
+            if ( defaultExtrapolationValue_.at( i ) != defaultValueForBoundaryHandling )
+            {
+                if ( !( boundaryHandling_.at( i ) == use_default_value || boundaryHandling_.at( i ) == use_default_value_with_warning ) )
+                {
+                    std::cerr << "Warning in multi-dimensional interpolator. A default value has been set (for when the "
+                                 "independent variable is out-of-range) but the boundary handling method is not "
+                                 "use_default_value or use_default_value_with_warning. The method selected for dimension " <<
+                                 boost::lexical_cast< std::string >( i ) << " is: " <<
+                                 boost::lexical_cast< std::string >( boundaryHandling_.at( i ) ) << std::endl;
+                }
+            }
+        }
+    }
+
+    //! Constructor taking single pair of default values.
+    /*!
+     *  Constructor taking single pair of default values.
+     *  \param boundaryHandling Vector of boundary handling methods, in case independent variable is outside the
+     *      specified range.
+     *  \param defaultExtrapolationValue Pair of default values to be used for extrapolation, in case of use_default_value or
+     *      use_default_value_with_warning as methods for boundaryHandling.
+     */
+    MultiDimensionalInterpolator(
+            const std::vector< BoundaryInterpolationType >& boundaryHandling,
+            const std::pair< DependentVariableType, DependentVariableType >& defaultExtrapolationValue ) :
+        MultiDimensionalInterpolator( boundaryHandling, std::vector< std::pair< DependentVariableType, DependentVariableType > >(
+                                          NumberOfDimensions, defaultExtrapolationValue ) )
+    { }
+
+    //! Constructor taking single default value.
+    /*!
+     *  Constructor taking single default value.
      *  \param boundaryHandling Vector of boundary handling methods, in case independent variable is outside the
      *      specified range.
      *  \param defaultExtrapolationValue Default value to be used for extrapolation, in case of use_default_value or
      *      use_default_value_with_warning as methods for boundaryHandling.
      */
     MultiDimensionalInterpolator(
-            const std::vector< BoundaryInterpolationType >& boundaryHandling =
-            std::vector< BoundaryInterpolationType >( NumberOfDimensions, extrapolate_at_boundary ),
-            const DependentVariableType& defaultExtrapolationValue =
-            IdentityElement< DependentVariableType >::getAdditionIdentity( ) ) :
-        boundaryHandling_( boundaryHandling ), defaultExtrapolationValue_( defaultExtrapolationValue )
+            const std::vector< BoundaryInterpolationType >& boundaryHandling,
+            const DependentVariableType& defaultExtrapolationValue ) :
+        MultiDimensionalInterpolator( boundaryHandling, std::vector< std::pair< DependentVariableType, DependentVariableType > >(
+                                          NumberOfDimensions, std::make_pair( defaultExtrapolationValue, defaultExtrapolationValue ) ) )
     { }
 
     //! Destructor.
@@ -123,19 +175,19 @@ protected:
     /*!
      *  Function to return the condition of the current independent variable, i.e. whether the
      *  variable is within, above or below its defined range range.
-     *  \param independentVariable Value of current independent variable.
-     *  \param currentVariable Value of current dimension.
+     *  \param currentIndependentVariable Value of current independent variable.
+     *  \param currentDimension Value of current dimension.
      *  \return Condition with respect to boundary.
      */
-    int checkInterpolationBoundary( const IndependentVariableType& independentVariable,
-                                    const unsigned int& currentVariable )
+    int checkInterpolationBoundary( const IndependentVariableType& currentIndependentVariable,
+                                    const unsigned int& currentDimension )
     {
         int isAtBoundary = 0;
-        if ( independentVariable < independentValues_.at( currentVariable ).front( ) )
+        if ( currentIndependentVariable < independentValues_.at( currentDimension ).front( ) )
         {
             isAtBoundary = -1;
         }
-        else if ( independentVariable > independentValues_.at( currentVariable ).back( ) )
+        else if ( currentIndependentVariable > independentValues_.at( currentDimension ).back( ) )
         {
             isAtBoundary = 1;
         }
@@ -147,78 +199,108 @@ protected:
      *  Function to check whether boundary handling needs to be applied, depending on method chosen.
      *  If independent variable is beyond its range definition, boundary handling will be applied, depending
      *  on the method specified in boundaryHandling_.
+     *  \param currentDimension Value of current dimension.
+     *  \param useValue Boolean denoting whether the value given by this function needs to be used.
      *  \param independentVariable Value of current independent variable.
-     *  \param currentVariable Value of current dimension.
+     *  \param dependentVariable Value of current dependent variable, in case the independent variable is out-of-range
+     *  and the selected method is use_default_value or use_default_value_with_warning.
      */
     void checkBoundaryCase(
-            IndependentVariableType& independentVariable,
-            const unsigned int& currentVariable,
-            bool& useDefault )
+            const unsigned int currentDimension, bool& useValue,
+            IndependentVariableType& currentIndependentVariable,
+            DependentVariableType& dependentVariable )
     {
-        if ( boundaryHandling_.at( currentVariable ) != extrapolate_at_boundary )
+        // If extrapolation outside domain is not allowed
+        if ( boundaryHandling_.at( currentDimension ) != extrapolate_at_boundary )
         {
-            int isAtBoundary = checkInterpolationBoundary( independentVariable, currentVariable );
-
+            // If independent variable is out of range
+            int isAtBoundary = checkInterpolationBoundary( currentIndependentVariable, currentDimension );
             if ( isAtBoundary != 0 )
             {
-                if ( boundaryHandling_.at( currentVariable ) == throw_exception_at_boundary )
+                // Select course of action based on boundary handling method selected
+                switch ( boundaryHandling_.at( currentDimension ) )
                 {
+                case throw_exception_at_boundary:
+                {
+                    // Throw exception
                     std::string errorMessage = "Error in interpolator, requesting data point outside of boundaries, requested data of dimension " +
-                            boost::lexical_cast< std::string >( currentVariable ) + " at: " +
-                            boost::lexical_cast< std::string >( independentVariable ) + " but limit values are " +
-                            boost::lexical_cast< std::string >( independentValues_.at( currentVariable ).front( ) ) + " and " +
-                            boost::lexical_cast< std::string >( independentValues_.at( currentVariable ).back( ) );
+                            boost::lexical_cast< std::string >( currentDimension ) + " at: " +
+                            boost::lexical_cast< std::string >( currentIndependentVariable ) + " but limit values are " +
+                            boost::lexical_cast< std::string >( independentValues_.at( currentDimension ).front( ) ) + " and " +
+                            boost::lexical_cast< std::string >( independentValues_.at( currentDimension ).back( ) );
                     throw std::runtime_error( errorMessage );
+                    break;
                 }
-                else if ( boundaryHandling_.at( currentVariable ) == extrapolate_at_boundary_with_warning )
+                case extrapolate_at_boundary_with_warning:
                 {
+                    // Warn user
                     std::string errorMessage = "Warning in interpolator, requesting data point outside of boundaries, requested data of dimension " +
-                            boost::lexical_cast< std::string >( currentVariable ) + " at: " +
-                            boost::lexical_cast< std::string >( independentVariable ) + " but limit values are " +
-                            boost::lexical_cast< std::string >( independentValues_.at( currentVariable ).front( ) ) + " and " +
-                            boost::lexical_cast< std::string >( independentValues_.at( currentVariable ).back( ) ) + ", applying extrapolation instead.";
+                            boost::lexical_cast< std::string >( currentDimension ) + " at: " +
+                            boost::lexical_cast< std::string >( currentIndependentVariable ) + " but limit values are " +
+                            boost::lexical_cast< std::string >( independentValues_.at( currentDimension ).front( ) ) + " and " +
+                            boost::lexical_cast< std::string >( independentValues_.at( currentDimension ).back( ) ) + ", applying extrapolation instead.";
                     std::cerr << errorMessage << std::endl;
+                    break;
                 }
-                else if ( ( boundaryHandling_.at( currentVariable ) == use_boundary_value ) ||
-                          ( boundaryHandling_.at( currentVariable ) == use_boundary_value_with_warning ) )
+                case use_boundary_value:
+                case use_boundary_value_with_warning:
                 {
-                    if ( boundaryHandling_.at( currentVariable ) == use_boundary_value_with_warning )
+                    // Warn user, if requested
+                    if ( boundaryHandling_.at( currentDimension ) == use_boundary_value_with_warning )
                     {
                         std::string errorMessage = "Warning in interpolator, requesting data point outside of boundaries, requested data of dimension " +
-                                boost::lexical_cast< std::string >( currentVariable ) + " at: " +
-                                boost::lexical_cast< std::string >( independentVariable ) + " but limit values are " +
-                                boost::lexical_cast< std::string >( independentValues_.at( currentVariable ).front( ) ) + " and " +
-                                boost::lexical_cast< std::string >( independentValues_.at( currentVariable ).back( ) ) + ", taking boundary value instead.";
+                                boost::lexical_cast< std::string >( currentDimension ) + " at: " +
+                                boost::lexical_cast< std::string >( currentIndependentVariable ) + " but limit values are " +
+                                boost::lexical_cast< std::string >( independentValues_.at( currentDimension ).front( ) ) + " and " +
+                                boost::lexical_cast< std::string >( independentValues_.at( currentDimension ).back( ) ) + ", taking boundary value instead.";
                         std::cerr << errorMessage << std::endl;
                     }
 
+                    // Replace current independent variable with boundary value
                     if ( isAtBoundary == -1 )
                     {
-                        independentVariable = independentValues_.at( currentVariable ).front( );
+                        currentIndependentVariable = independentValues_.at( currentDimension ).front( );
                     }
                     else if ( isAtBoundary == 1 )
                     {
-                        independentVariable = independentValues_.at( currentVariable ).back( );
+                        currentIndependentVariable = independentValues_.at( currentDimension ).back( );
                     }
+                    break;
                 }
-                else if ( ( boundaryHandling_.at( currentVariable ) == use_default_value ) ||
-                          ( boundaryHandling_.at( currentVariable ) == use_default_value_with_warning ) )
+                case use_default_value:
+                case use_default_value_with_warning:
                 {
-                    if ( boundaryHandling_.at( currentVariable ) == use_default_value_with_warning )
+                    // Warn user, if requested
+                    if ( boundaryHandling_.at( currentDimension ) == use_default_value_with_warning )
                     {
                         std::string errorMessage = "Warning in interpolator, requesting data point outside of boundaries, requested data of dimension " +
-                                boost::lexical_cast< std::string >( currentVariable ) + " at: " +
-                                boost::lexical_cast< std::string >( independentVariable ) + " but limit values are " +
-                                boost::lexical_cast< std::string >( independentValues_.at( currentVariable ).front( ) ) + " and " +
-                                boost::lexical_cast< std::string >( independentValues_.at( currentVariable ).back( ) ) + ", taking default value instead.";
+                                boost::lexical_cast< std::string >( currentDimension ) + " at: " +
+                                boost::lexical_cast< std::string >( currentIndependentVariable ) + " but limit values are " +
+                                boost::lexical_cast< std::string >( independentValues_.at( currentDimension ).front( ) ) + " and " +
+                                boost::lexical_cast< std::string >( independentValues_.at( currentDimension ).back( ) ) + ", taking default value instead.";
                         std::cerr << errorMessage << std::endl;
                     }
 
-                    useDefault = true;
+                    // Get default value
+                    useValue = true;
+                    if ( isAtBoundary == -1 )
+                    {
+                        dependentVariable = defaultExtrapolationValue_.at( currentDimension ).first;
+                    }
+                    else if ( isAtBoundary == 1 )
+                    {
+                        dependentVariable = defaultExtrapolationValue_.at( currentDimension ).second;
+                    }
+                    else
+                    {
+                        throw std::runtime_error( "Error when checking interpolation boundary, inconsistent data encountered" );
+                    }
+                    break;
                 }
-                else
+                default:
                 {
                     throw std::runtime_error( "Error when checking interpolation boundary, boundary handling method not recognized." );
+                }
                 }
             }
         }
@@ -296,7 +378,7 @@ protected:
     /*!
      *  Default value to be used for extrapolation.
      */
-    DependentVariableType defaultExtrapolationValue_;
+    std::vector< std::pair< DependentVariableType, DependentVariableType > > defaultExtrapolationValue_;
 
 };
 
