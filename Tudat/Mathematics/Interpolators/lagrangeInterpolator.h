@@ -90,8 +90,7 @@ public:
     {
         if( numberOfStages_ % 2 != 0 )
         {
-            throw std::runtime_error(
-                        "Error: Lagrange interpolator currently only handles even orders." );
+            throw std::runtime_error( "Error: Lagrange interpolator currently only handles even orders." );
         }
 
         // Set data vectors.
@@ -108,19 +107,17 @@ public:
         // Verify that the initialization variables are not empty.
         if ( numberOfIndependentValues_ == 0 || dependentValues_.size( ) == 0 )
         {
-            throw std::runtime_error(
-                        "Error: Vectors used in the Lagrange interpolator initialization are empty." );
+            throw std::runtime_error( "Error: Vectors used in the Lagrange interpolator initialization are empty." );
         }
 
         // Check consistency of input data.
         if( static_cast< int >( dependentValues_.size( ) ) != numberOfIndependentValues_ )
         {
-            throw std::runtime_error(
-                        "Error: indep. and dep. variables incompatible in Lagrange interpolator." );
+            throw std::runtime_error( "Error: indep. and dep. variables incompatible in Lagrange interpolator." );
         }
 
         // Define zero entry for dependent variable.
-        zeroEntry_ = dependentVariables[ 0 ] - dependentVariables[ 0 ];
+        zeroEntry_ = dependentValues_[ 0 ] - dependentValues_[ 0 ];
         if( zeroEntry_ != zeroEntry_ )
         {
             throw std::runtime_error(
@@ -166,8 +163,7 @@ public:
     {
         if( numberOfStages_ % 2 != 0 )
         {
-            throw std::runtime_error(
-                        "Error: Lagrange interpolator currently only handles even orders." );
+            throw std::runtime_error( "Error: Lagrange interpolator currently only handles even orders." );
         }
 
         numberOfIndependentValues_ = dataMap.size( );
@@ -331,7 +327,6 @@ public:
         return numberOfStages_;
     }
 
-
 protected:
 
 private:
@@ -345,7 +340,7 @@ private:
     void initializeDenominators( )
     {
         // Check validity of requested number of stages"
-        if( numberOfStages_% 2 != 0 )
+        if( numberOfStages_ % 2 != 0 )
         {
             throw std::runtime_error(
                         "Error, Lagrange interp. only implemented for even number of stages." );
@@ -485,4 +480,5 @@ typedef LagrangeInterpolator< double, double > LagrangeInterpolatorDouble;
 } // namespace interpolators
 
 } // namespace tudat
+
 #endif // TUDAT_LAGRANGEINTERPOLATOR_H

@@ -298,9 +298,7 @@ protected:
                     break;
                 }
                 default:
-                {
                     throw std::runtime_error( "Error when checking interpolation boundary, boundary handling method not recognized." );
-                }
                 }
             }
         }

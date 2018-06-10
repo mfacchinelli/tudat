@@ -132,9 +132,13 @@ void getFinalStateForExactDependentVariableTerminationCondition(
         endTime = integrator->getCurrentIndependentVariable( );
     }
     // If dependent variable has no root in given interval, set end time at NaN
-    catch( std::runtime_error )
+    catch( std::runtime_error& caughtException )
     {
+        std::cerr << "Warning in propagation to exact dependent variable value. Root finder could not find a "
+                     "root to the function. Returning time and state as NANs. Caught exception: "
+                  << caughtException.what( ) << std::endl;
         endTime = TUDAT_NAN;
+        endState = StateType::Constant( lastState.rows( ), lastState.cols( ), TUDAT_NAN );
     }
 }
 
@@ -270,7 +274,7 @@ void getFinalStateForExactTerminationCondition(
     // Check type of termination condition
     switch( terminationCondition->getTerminationType( ) )
     {
-    case  time_stopping_condition:
+    case time_stopping_condition:
     {
         // Check input consistency
         boost::shared_ptr< FixedTimePropagationTerminationCondition > timeTerminationCondition =
@@ -285,7 +289,7 @@ void getFinalStateForExactTerminationCondition(
 
         break;
     }
-    case  cpu_time_stopping_condition:
+    case cpu_time_stopping_condition:
     {
         // No exact final condition on CPU time is possible
         std::cerr<<"Error, cannot propagate to exact CPU time, returning state after condition violation:"<<std::endl;
@@ -306,7 +310,7 @@ void getFinalStateForExactTerminationCondition(
 
         break;
     }
-    case  hybrid_stopping_condition:
+    case hybrid_stopping_condition:
     {
         boost::shared_ptr< HybridPropagationTerminationCondition > hyrbidTerminationCondition =
                 boost::dynamic_pointer_cast< HybridPropagationTerminationCondition >( terminationCondition );
@@ -595,7 +599,6 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
     return propagationTerminationReason;
 }
 
-
 //! Interface class for integrating some state derivative function.
 /*!
  *  Interface class for integrating some state derivative function.. This class is used instead of a single templated free
@@ -641,6 +644,7 @@ public:
             const boost::function< void( StateType& ) > postProcessState = boost::function< void( StateType& ) >( ),
             const TimeType printInterval = TUDAT_NAN,
             const std::chrono::steady_clock::time_point initialClockTime = std::chrono::steady_clock::now( ) );
+
 };
 
 //! Interface class for integrating some state derivative function.
@@ -706,6 +710,7 @@ public:
                     printInterval,
                     initialClockTime );
     }
+
 };
 
 //! Interface class for integrating some state derivative function.
@@ -771,6 +776,7 @@ public:
                     printInterval,
                     initialClockTime );
     }
+
 };
 
 } // namespace propagators

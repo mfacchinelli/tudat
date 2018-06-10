@@ -402,6 +402,33 @@ public:
 
     //! Constructor with no specific gas constant nor ratio of specific heats.
     /*!
+     *  Constructor with no specific gas constant nor ratio of specific heats.
+     *  \param atmosphereTableFile Map of files containing information on the atmosphere. The order of both
+     *          independent and dependent parameters needs to be specified in the independentVariablesNames and
+     *          dependentVariablesNames vectors, respectively. Note that specific gas constant and specific heat ratio
+     *          will be given the default constant values for Earth, unless they are included in the file map.
+     *  \param independentVariablesNames List of independent parameters describing the atmosphere.
+     *  \param dependentVariablesNames List of dependent parameters output by the atmosphere.
+     *  \param specificGasConstant The constant specific gas constant of the atmosphere.
+     *  \param ratioOfSpecificHeats The constant ratio of specific heats of the atmosphere.
+     *  \param boundaryHandling List of methods for interpolation behavior when independent variable is out of range.
+     *  \param defaultExtrapolationValue List of default values to be used for extrapolation, in case of
+     *          use_default_value or use_default_value_with_warning as methods for boundaryHandling.
+     */
+    TabulatedAtmosphereSettings(
+            const std::map< int, std::string >& atmosphereTableFile,
+            const std::vector< AtmosphereIndependentVariables >& independentVariablesNames,
+            const std::vector< AtmosphereDependentVariables >& dependentVariablesNames,
+            const std::vector< interpolators::BoundaryInterpolationType >& boundaryHandling,
+            const std::vector< std::vector< std::pair< double, double > > >& defaultExtrapolationValue ) :
+        AtmosphereSettings( tabulated_atmosphere ), atmosphereFile_( atmosphereTableFile ),
+        independentVariables_( independentVariablesNames ), dependentVariables_( dependentVariablesNames ),
+        specificGasConstant_( physical_constants::SPECIFIC_GAS_CONSTANT_AIR ), ratioOfSpecificHeats_( 1.4 ),
+        boundaryHandling_( boundaryHandling ), defaultExtrapolationValue_( defaultExtrapolationValue )
+    { }
+
+    //! Constructor with no specific gas constant nor ratio of specific heats.
+    /*!
      *  Constructor with no specific gas constant nor ratio of specific heats. These two values will be given
      *  the default Earth value, or are specified inside the atmosphere table file (and thus, inside the
      *  dependent variables vector).

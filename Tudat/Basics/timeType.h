@@ -16,7 +16,6 @@
 
 #include <Eigen/Core>
 
-#include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 #include "Tudat/Mathematics/BasicMathematics/basicMathematicsFunctions.h"
 
 namespace tudat

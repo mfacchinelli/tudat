@@ -78,8 +78,7 @@ boost::shared_ptr< aerodynamics::AtmosphereModel > createAtmosphereModel(
                 boost::dynamic_pointer_cast< ExponentialAtmosphereSettings >( atmosphereSettings );
         if( exponentialAtmosphereSettings == NULL )
         {
-            throw std::runtime_error(
-                        "Error, expected exponential atmosphere settings for body " + body );
+            throw std::runtime_error( "Error, expected exponential atmosphere settings for body " + body );
         }
         else
         {
@@ -102,8 +101,7 @@ boost::shared_ptr< aerodynamics::AtmosphereModel > createAtmosphereModel(
                 boost::dynamic_pointer_cast< TabulatedAtmosphereSettings >( atmosphereSettings );
         if( tabulatedAtmosphereSettings == NULL )
         {
-            throw std::runtime_error(
-                        "Error, expected tabulated atmosphere settings for body " + body );
+            throw std::runtime_error( "Error, expected tabulated atmosphere settings for body " + body );
         }
         else
         {
@@ -147,9 +145,8 @@ boost::shared_ptr< aerodynamics::AtmosphereModel > createAtmosphereModel(
     }
 #endif
     default:
-        throw std::runtime_error(
-                    "Error, did not recognize atmosphere model settings type " +
-                    std::to_string( atmosphereSettings->getAtmosphereType( ) ) );
+        throw std::runtime_error( "Error, did not recognize atmosphere model settings type " +
+                                  std::to_string( atmosphereSettings->getAtmosphereType( ) ) );
     }
 
     if( atmosphereSettings->getWindSettings( ) != NULL )
@@ -159,7 +156,6 @@ boost::shared_ptr< aerodynamics::AtmosphereModel > createAtmosphereModel(
 
     return atmosphereModel;
 }
-
 
 } // namespace simulation_setup
 

@@ -95,8 +95,7 @@ public:
         // Check whether input is really 1-dimensional
         if ( independentVariableValues.size( ) != 1  )
         {
-            throw std::runtime_error(
-                        "Error in 1-dimensional interpolator, provided input is not 1-dimensional." );
+            throw std::runtime_error( "Error in 1-dimensional interpolator, provided input is not 1-dimensional." );
         }
 
         // Call 1-dimensional interpolate function.
@@ -293,9 +292,7 @@ protected:
                     break;
                 }
                 default:
-                {
                     throw std::runtime_error( "Error when checking interpolation boundary, boundary handling method not recognized." );
-                }
                 }
             }
         }

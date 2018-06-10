@@ -206,7 +206,6 @@ public:
         return sensitivityMatrixSize_ + stateTransitionMatrixSize_;
     }
 
-
 private:
 
     //! Predefined matrix to use as return value when calling getCombinedStateTransitionAndSensitivityMatrix.

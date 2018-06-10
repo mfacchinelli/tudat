@@ -336,7 +336,6 @@ public:
         return isConditionMetWhenStopping_;
     }
 
-
 private:
 
     //! List of termination conditions that are checked when calling checkStopCondition is called.
@@ -347,6 +346,7 @@ private:
     bool fulFillSingleCondition_;
 
     std::vector< bool > isConditionMetWhenStopping_;
+
 };
 
 //! Function to create propagation termination conditions from associated settings
@@ -397,6 +397,7 @@ public:
     {
         return terminationOnExactCondition_;
     }
+
 protected:
 
     //! Reason for termination
@@ -408,6 +409,7 @@ protected:
      *  false if not, -1 if neither is relevant.
      */
     bool terminationOnExactCondition_;
+
 };
 
 //! Class for storing details on the propagation termination when using hybrid termination conditions

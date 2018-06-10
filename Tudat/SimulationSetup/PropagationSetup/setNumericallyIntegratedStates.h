@@ -420,7 +420,6 @@ void resetMultiArcIntegratedEphemerides(
             arcEphemerisList.push_back( boost::make_shared< TabulatedCartesianEphemeris< StateScalarType, TimeType > >(
                                             ephemerisInterpolator, currentBodyEphemeris->getReferenceFrameOrigin( ),
                                             currentBodyEphemeris->getReferenceFrameOrientation( ) ) );
-            
         }
         currentBodyEphemeris->resetSingleArcEphemerides( arcEphemerisList, arcStartTimes );
     }
@@ -456,7 +455,6 @@ void resetIntegratedRotationalEphemerisOfBody(
         throw std::runtime_error( "Error, no rotational ephemeris detected for body " +
                                   bodyToIntegrate + " when resetting ephemeris" );
     }
-    
     // If current ephemeris is not already a tabulated ephemeris, create new ephemeris.
     else if( boost::dynamic_pointer_cast< TabulatedRotationalEphemeris< StateScalarType, TimeType > >(
                  bodyMap.at( bodyToIntegrate )->getRotationalEphemeris( ) ) == NULL )
@@ -467,7 +465,6 @@ void resetIntegratedRotationalEphemerisOfBody(
     // Else, update existing tabulated ephemeris
     else
     {
-        
         boost::shared_ptr< TabulatedRotationalEphemeris< StateScalarType, TimeType > > tabulatedEphemeris =
                 boost::dynamic_pointer_cast< TabulatedRotationalEphemeris<  StateScalarType, TimeType > >(
                     bodyMap.at( bodyToIntegrate )->getRotationalEphemeris( ) );
@@ -523,7 +520,6 @@ boost::shared_ptr< interpolators::OneDimensionalInterpolator< TimeType, Eigen::M
 createRotationalStateInterpolator(
         const std::map< TimeType, Eigen::Matrix< StateScalarType, 7, 1 > >& stateMap );
 
-
 //! Function to reset the tabulated rotational ephemeris of a body
 /*!
  * Function to reset the tabulated rotational ephemeris of a body
@@ -550,7 +546,7 @@ void createAndSetInterpolatorsForRotationalEphemerides(
         // Create interpolator.
         boost::shared_ptr< OneDimensionalInterpolator< TimeType, Eigen::Matrix< StateScalarType, 7, 1 > > >
                 ephemerisInterpolator = createRotationalStateInterpolator(
-                    ephemerisInput  );
+                    ephemerisInput );
         
         resetIntegratedRotationalEphemerisOfBody( bodyMap, ephemerisInterpolator, bodiesToIntegrate.at( i ) );
     }

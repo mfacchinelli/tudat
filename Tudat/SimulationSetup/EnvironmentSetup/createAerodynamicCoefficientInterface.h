@@ -257,6 +257,8 @@ public:
      *  coefficients are positiver along tyhe positive axes of the body or aerodynamic frame
      *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
      *  coefficients are typically defined in negative direction.
+     *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+     *  conditions for interpolation are saved.
      */
     ConstantAerodynamicCoefficientSettings(
             const double referenceLength,
@@ -432,6 +434,8 @@ public:
      *  coefficients are positive along the positive axes of the body or aerodynamic frame
      *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
      *  coefficients are typically defined in negative direction.
+     *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+     *  conditions for interpolation are saved.
      */
     TabulatedAerodynamicCoefficientSettings(
             const std::vector< std::vector< double > > independentVariables,
@@ -473,6 +477,8 @@ public:
      *  coefficients are positive along the positive axes of the body or aerodynamic frame
      *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
      *  coefficients are typically defined in negative direction.
+     *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+     *  conditions for interpolation are saved.
      */
     TabulatedAerodynamicCoefficientSettings(
             const std::vector< std::vector< double > > independentVariables,
@@ -585,7 +591,8 @@ public:
      *  coefficients are positive along the positive axes of the body or aerodynamic frame
      *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
      *  coefficients are typically defined in negative direction.
-     *  \param interpolatorSettings Settings to be used for creating the one-dimensional interpoaltor of data.
+     *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+     *  conditions for interpolation are saved.
      */
     TabulatedAerodynamicCoefficientSettings< 1 >(
             const std::vector< double > independentVariables,
@@ -647,7 +654,8 @@ public:
      *  coefficients are positive along the positive axes of the body or aerodynamic frame
      *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
      *  coefficients are typically defined in negative direction.
-     *  \param interpolatorSettings Settings to be used for creating the one-dimensional interpoaltor of data.
+     *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+     *  conditions for interpolation are saved.
      */
     TabulatedAerodynamicCoefficientSettings< 1 >(
             const std::vector< std::vector< double > > independentVariables,
@@ -702,7 +710,8 @@ public:
      *  coefficients are positive along the positive axes of the body or aerodynamic frame
      *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
      *  coefficients are typically defined in negative direction.
-     *  \param interpolatorSettings Settings to be used for creating the one-dimensional interpoaltor of data.
+     *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+     *  conditions for interpolation are saved.
      */
     TabulatedAerodynamicCoefficientSettings< 1 >(
             const std::vector< double > independentVariables,
@@ -748,7 +757,8 @@ public:
      *  coefficients are positive along the positive axes of the body or aerodynamic frame
      *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
      *  coefficients are typically defined in negative direction.
-     *  \param interpolatorSettings Settings to be used for creating the one-dimensional interpoaltor of data.
+     *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+     *  conditions for interpolation are saved.
      */
     TabulatedAerodynamicCoefficientSettings< 1 >(
             const std::vector< std::vector< double > > independentVariables,
@@ -832,6 +842,8 @@ private:
  *  coefficients are positive along the positive axes of the body or aerodynamic frame
  *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
  *  coefficients are typically defined in negative direction.
+ *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+ *  conditions for interpolation are saved.
  *  \return Settings for creation of aerodynamic coefficient interface, based on contents read from files defined in
  *  forceCoefficientFiles and reference data given as input.
  */
@@ -898,8 +910,10 @@ readGivenSizeTabulatedAerodynamicCoefficientsFromFiles(
  *  coefficients are positive along the positive axes of the body or aerodynamic frame
  *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
  *  coefficients are typically defined in negative direction.
+ *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+ *  conditions for interpolation are saved.
  *  \return Settings for creation of aerodynamic coefficient interface, based on contents read from files defined in
- *  forceCoefficientFiles and reference data given as input
+ *  forceCoefficientFiles and reference data given as input.
  */
 template< unsigned int NumberOfDimensions >
 boost::shared_ptr< AerodynamicCoefficientSettings >
@@ -951,8 +965,10 @@ readGivenSizeTabulatedAerodynamicCoefficientsFromFiles(
  *  coefficients are positive along the positive axes of the body or aerodynamic frame
  *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
  *  coefficients are typically defined in negative direction.
+ *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+ *  conditions for interpolation are saved.
  *  \return Settings for creation of aerodynamic coefficient interface, based on contents read from files defined in
- *  forceCoefficientFiles and reference data given as input
+ *  forceCoefficientFiles and reference data given as input.
  */
 boost::shared_ptr< AerodynamicCoefficientSettings > readTabulatedAerodynamicCoefficientsFromFiles(
         const std::map< int, std::string > forceCoefficientFiles,
@@ -981,8 +997,10 @@ boost::shared_ptr< AerodynamicCoefficientSettings > readTabulatedAerodynamicCoef
  *  coefficients are positive along the positive axes of the body or aerodynamic frame
  *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
  *  coefficients are typically defined in negative direction.
+ *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+ *  conditions for interpolation are saved.
  *  \return Settings for creation of aerodynamic coefficient interface, based on contents read from files defined in
- *  forceCoefficientFiles and reference data given as input
+ *  forceCoefficientFiles and reference data given as input.
  */
 boost::shared_ptr< AerodynamicCoefficientSettings >
 readTabulatedAerodynamicCoefficientsFromFiles(
@@ -1026,9 +1044,9 @@ createConstantCoefficientAerodynamicCoefficientInterface(
         const bool areCoefficientsInAerodynamicFrame = false,
         const bool areCoefficientsInNegativeAxisDirection = true );
 
-//! Factory function for tabulated aerodynamic coefficient interface.
+//! Factory function for tabulated (N-D independent variables) aerodynamic coefficient interface.
 /*!
- *  Factory function for tabulated aerodynamic coefficient interface.
+ *  Factory function for tabulated (N-D independent variables) aerodynamic coefficient interface.
  *  \param independentVariables Values of indepependent variables at which the coefficients
  *  in the input multi arrays are defined.
  *  \param forceCoefficients Values of force coefficients at independent variables defined
@@ -1051,6 +1069,8 @@ createConstantCoefficientAerodynamicCoefficientInterface(
  *  coefficients are positive along the positive axes of the body or aerodynamic frame
  *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
  *  coefficients are typically defined in negative direction.
+ *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+ *  conditions for interpolation are saved.
  *  \return Tabulated aerodynamic coefficient interface pointer.
  */
 template< unsigned int NumberOfDimensions >
@@ -1090,10 +1110,14 @@ createTabulatedCoefficientAerodynamicCoefficientInterface(
     {
         forceInterpolator = createMultiDimensionalInterpolator< double, Eigen::Vector3d, NumberOfDimensions >(
                     independentVariables, forceCoefficients,
-                    boost::make_shared< InterpolatorSettings >( multi_linear_interpolator ) );
+                    boost::make_shared< InterpolatorSettings >( multi_linear_interpolator, huntingAlgorithm, false,
+                                                                std::vector< BoundaryInterpolationType >( NumberOfDimensions,
+                                                                                                          use_boundary_value ) ) );
         momentInterpolator = createMultiDimensionalInterpolator< double, Eigen::Vector3d, NumberOfDimensions >(
                     independentVariables, momentCoefficients,
-                    boost::make_shared< InterpolatorSettings >( multi_linear_interpolator ) );
+                    boost::make_shared< InterpolatorSettings >( multi_linear_interpolator, huntingAlgorithm, false,
+                                                                std::vector< BoundaryInterpolationType >( NumberOfDimensions,
+                                                                                                          use_boundary_value ) ) );
     }
     else
     {

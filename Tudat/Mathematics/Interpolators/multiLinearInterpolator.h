@@ -172,7 +172,7 @@ public:
                                       std::to_string( NumberOfDimensions ) );
         }
 
-        // Create local copy of independent variables
+        // Create local copy of current independent variables
         std::vector< IndependentVariableType > localIndependentValuesToInterpolate = independentValuesToInterpolate;
 
         // Check that independent variables are in range
