@@ -43,7 +43,7 @@ bool FixedCPUTimePropagationTerminationCondition::checkStopCondition( const doub
 bool SingleVariableLimitPropagationTerminationCondition::checkStopCondition( const double time, const double cpuTime  )
 {
     bool stopPropagation = 0;
-    double currentVariable = variableRetrievalFuntion_( );
+    double currentVariable = variableRetrievalFunction_( );
 
     if( useAsLowerBound_ && ( currentVariable < limitingValue_ ) )
     {

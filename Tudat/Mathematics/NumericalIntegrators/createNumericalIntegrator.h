@@ -271,10 +271,13 @@ public:
 };
 
 template< typename IndependentVariableType = double,
-          typename DependentVariableType = Eigen::Matrix< IndependentVariableType, Eigen::Dynamic, 1 > >
+          typename DependentVariableScalarType = IndependentVariableType >
 class BulirschStoerIntegratorSettings: public IntegratorSettings< IndependentVariableType >
 {
 public:
+
+    //! Typedef for vector of dependent variables.
+    typedef Eigen::Matrix< DependentVariableScalarType, Eigen::Dynamic, 1 > DependentVector;
 
     //! Constructor
     /*!
@@ -305,8 +308,8 @@ public:
             const ExtrapolationMethodStepSequences extrapolationSequence,
             const unsigned int maximumNumberOfSteps,
             const IndependentVariableType minimumStepSize, const IndependentVariableType maximumStepSize,
-            const typename DependentVariableType::Scalar relativeErrorTolerance = 1.0E-12,
-            const typename DependentVariableType::Scalar absoluteErrorTolerance = 1.0E-12,
+            const DependentVariableScalarType relativeErrorTolerance = 1.0E-12,
+            const DependentVariableScalarType absoluteErrorTolerance = 1.0E-12,
             const int saveFrequency = 1,
             const bool assessPropagationTerminationConditionDuringIntegrationSubsteps = false,
             const IndependentVariableType safetyFactorForNextStepSize = 0.7,
@@ -344,10 +347,10 @@ public:
     const IndependentVariableType maximumStepSize_;
 
     //! Relative error tolerance for step size control
-    const typename DependentVariableType::Scalar relativeErrorTolerance_;
+    const DependentVariableScalarType relativeErrorTolerance_;
 
     //! Absolute error tolerance for step size control
-    const typename DependentVariableType::Scalar absoluteErrorTolerance_;
+    const DependentVariableScalarType absoluteErrorTolerance_;
 
     //! Safety factor for step size control
     const IndependentVariableType safetyFactorForNextStepSize_;
@@ -368,10 +371,13 @@ public:
  *  variational equations.
  */
 template< typename IndependentVariableType = double,
-          typename DependentVariableType = Eigen::Matrix< IndependentVariableType, Eigen::Dynamic, 1 > >
+          typename DependentVariableScalarType = IndependentVariableType >
 class AdamsBashforthMoultonSettings: public IntegratorSettings< IndependentVariableType >
 {
 public:
+
+    //! Typedef for vector of dependent variables.
+    typedef Eigen::Matrix< DependentVariableScalarType, Eigen::Dynamic, 1 > DependentVector;
 
     //! Constructor
     /*!
@@ -397,8 +403,8 @@ public:
             const IndependentVariableType initialTime,
             const IndependentVariableType initialTimeStep,
             const IndependentVariableType minimumStepSize, const IndependentVariableType maximumStepSize,
-            const typename DependentVariableType::Scalar relativeErrorTolerance = 1.0E-12,
-            const typename DependentVariableType::Scalar absoluteErrorTolerance = 1.0E-12,
+            const DependentVariableScalarType relativeErrorTolerance = 1.0E-12,
+            const DependentVariableScalarType absoluteErrorTolerance = 1.0E-12,
             const int minimumOrder = 6,
             const int maximumOrder = 11,
             const int saveFrequency = 1,
@@ -428,10 +434,10 @@ public:
     IndependentVariableType maximumStepSize_;
 
     //! Relative error tolerance for step size control
-    typename DependentVariableType::Scalar relativeErrorTolerance_;
+    DependentVariableScalarType relativeErrorTolerance_;
 
     //! Absolute error tolerance for step size control
-    typename DependentVariableType::Scalar absoluteErrorTolerance_;
+    DependentVariableScalarType absoluteErrorTolerance_;
 
     //! Minimum order of integrator
     const int minimumOrder_;

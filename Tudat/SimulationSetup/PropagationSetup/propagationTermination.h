@@ -208,17 +208,19 @@ public:
             const boost::shared_ptr< root_finders::RootFinderSettings > terminationRootFinderSettings = NULL ):
         PropagationTerminationCondition(
             dependent_variable_stopping_condition, terminateExactlyOnFinalCondition ),
-        dependentVariableSettings_( dependentVariableSettings ), variableRetrievalFuntion_( variableRetrievalFuntion ),
+        dependentVariableSettings_( dependentVariableSettings ), variableRetrievalFunction_( variableRetrievalFuntion ),
         limitingValue_( limitingValue ), useAsLowerBound_( useAsLowerBound ),
         terminationRootFinderSettings_( terminationRootFinderSettings )
     {
-        if( ( terminateExactlyOnFinalCondition == false ) && ( terminationRootFinderSettings != NULL ) )
+        if( ( !terminateExactlyOnFinalCondition ) && ( terminationRootFinderSettings != NULL ) )
         {
-            std::cerr<<"Warning, root finder provided to SingleVariableLimitPropagationTerminationCondition, but termination on final conditions set to false"<<std::endl;
+            std::cerr << "Warning, root finder provided to SingleVariableLimitPropagationTerminationCondition, "
+                         "but termination on final conditions set to false." << std::endl;
         }
-        if( ( terminateExactlyOnFinalCondition == true ) && doesRootFinderRequireDerivatives( terminationRootFinderSettings ) )
+        if( ( terminateExactlyOnFinalCondition ) && doesRootFinderRequireDerivatives( terminationRootFinderSettings ) )
         {
-            throw std::runtime_error( "Error when setting exact dependent variable termination, requested root finder requires derivatives; not available in state derivative model" );
+            throw std::runtime_error( "Error when setting exact dependent variable termination, requested root finder "
+                                      "requires derivatives; not available in state derivative model." );
         }
     }
 
@@ -242,7 +244,7 @@ public:
      */
     double getStopConditionError( )
     {
-        return variableRetrievalFuntion_( ) - limitingValue_;
+        return variableRetrievalFunction_( ) - limitingValue_;
     }
 
     //! Function to retrieve settings to create root finder used to converge on exact final condition.
@@ -261,7 +263,7 @@ private:
     boost::shared_ptr< SingleDependentVariableSaveSettings > dependentVariableSettings_;
 
     //! Function returning the dependent variable.
-    boost::function< double( ) > variableRetrievalFuntion_;
+    boost::function< double( ) > variableRetrievalFunction_;
 
     //! Value at which the propagation is to be stopped
     double limitingValue_;

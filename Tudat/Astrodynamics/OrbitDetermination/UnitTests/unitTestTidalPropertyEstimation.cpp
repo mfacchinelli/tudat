@@ -401,7 +401,7 @@ BOOST_AUTO_TEST_CASE( test_LoveNumberEstimationFromOrbiterData )
               double( finalEphemerisTime ), cowell );
 
     // Create integrator settings
-    boost::shared_ptr< IntegratorSettings< double > > integratorSettings =
+    boost::shared_ptr< IntegratorSettings< > > integratorSettings =
             boost::make_shared< RungeKuttaVariableStepSizeSettings< double, Eigen::MatrixXd > >
             ( rungeKuttaVariableStepSize, double( initialEphemerisTime ), 60.0,
               RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78,

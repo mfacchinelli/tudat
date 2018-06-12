@@ -131,7 +131,7 @@ void getFinalStateForExactDependentVariableTerminationCondition(
         endState = integrator->performIntegrationStep( finalTimeStep );
         endTime = integrator->getCurrentIndependentVariable( );
     }
-    // If dependent variable has no root in given interval, set end time at NaN
+    // If dependent variable has no root in given interval, set end time and state at NaN
     catch( std::runtime_error& caughtException )
     {
         std::cerr << "Warning in propagation to exact dependent variable value. Root finder could not find a "

@@ -229,7 +229,6 @@ BOOST_AUTO_TEST_CASE( testEnckePopagatorForSphericalHarmonicCentralBodies )
                                 terminationSettingsList, false );
                 }
 
-
                 boost::shared_ptr< TranslationalStatePropagatorSettings< double > > propagatorSettings =
                         boost::make_shared< TranslationalStatePropagatorSettings< double > >
                         ( centralBodies, accelerationModelMap, bodiesToPropagate, vehicleInitialState, terminationSettings, cowell,
@@ -242,7 +241,6 @@ BOOST_AUTO_TEST_CASE( testEnckePopagatorForSphericalHarmonicCentralBodies )
                 {
                     integratorSettings = boost::make_shared< IntegratorSettings< > >
                             ( rungeKutta4, simulationStartEpoch, directionMultiplier * fixedStepSize );
-
                 }
                 else
                 {
