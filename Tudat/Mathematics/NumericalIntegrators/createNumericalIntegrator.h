@@ -526,7 +526,9 @@ DependentVariableType, IndependentVariableStepType > > createIntegrator(
                       ( absoluteErrorTolerance.cols( ) != initialState.cols( ) ) )
             {
                 throw std::runtime_error( "Error while creating Runge Kutta variable step size integrator. The sizes of the "
-                                          "relative and absolute tolerance vectors do not match the size of the initial state." );
+                                          "relative and absolute tolerance vectors do not match the size of the initial state. "
+                                          "This could be the case if you are propagating more than just the state, e.g., translational "
+                                          "and/or rotational dynamics and mass." );
             }
 
             // Create Runge-Kutta integrator.
