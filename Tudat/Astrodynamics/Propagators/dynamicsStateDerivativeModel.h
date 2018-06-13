@@ -536,7 +536,7 @@ public:
      * \return Number of calls to the computeStateDerivative function since object creation/last call to
      * resetFunctionEvaluationCounter function
      */
-    int getNumberOfFunctionEvaluations( )
+    unsigned int getNumberOfFunctionEvaluations( )
     {
         return functionEvaluationCounter_;
     }
@@ -558,7 +558,7 @@ public:
      * \return Number of calls to the computeStateDerivative function since object creation/last call to
      * resetFunctionEvaluationCounter function
      */
-    std::map< TimeType, TimeType > getCumulativeNumberOfFunctionEvaluations( )
+    std::map< TimeType, unsigned int > getCumulativeNumberOfFunctionEvaluations( )
     {
         return cumulativeFunctionEvaluationCounter_;
     }
@@ -698,10 +698,10 @@ private:
     currentStatesPerTypeInConventionalRepresentation_;
 
     //! Variable to keep track of the number of calls to the computeStateDerivative function
-    int functionEvaluationCounter_ = 0;
+    unsigned int functionEvaluationCounter_ = 0;
 
     //! Variable to keep track of the number of calls to the computeStateDerivative function per time step
-    std::map< TimeType, TimeType > cumulativeFunctionEvaluationCounter_;
+    std::map< TimeType, unsigned int > cumulativeFunctionEvaluationCounter_;
 };
 
 //! Function to retrieve a single given acceleration model from a list of models

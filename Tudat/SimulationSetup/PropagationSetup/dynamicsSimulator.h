@@ -441,7 +441,7 @@ public:
                     equationsOfMotionNumericalSolution_, equationsOfMotionNumericalSolutionRaw_ );
 
         // Retrieve number of function evaluations
-        int numberOfFunctionEvaluations = dynamicsStateDerivative_->getNumberOfFunctionEvaluations( );
+        unsigned int numberOfFunctionEvaluations = dynamicsStateDerivative_->getNumberOfFunctionEvaluations( );
         cumulativeNumberOfFunctionEvaluations_ = dynamicsStateDerivative_->getCumulativeNumberOfFunctionEvaluations( );
 
         // Print number of total function evaluations
@@ -501,7 +501,7 @@ public:
      * Function to return the map of cumulative number of function evaluations that was saved during numerical propagation.
      * \return Map of cumulative number of function evaluations that was saved during numerical propagation.
      */
-    std::map< TimeType, TimeType > getCumulativeNumberOfFunctionEvaluations( )
+    std::map< TimeType, unsigned int > getCumulativeNumberOfFunctionEvaluations( )
     {
         return cumulativeNumberOfFunctionEvaluations_;
     }
@@ -811,7 +811,7 @@ protected:
     std::map< TimeType, double > cumulativeComputationTimeHistory_;
 
     //! Map of cumulative number of function evaluations that was saved during numerical propagation.
-    std::map< TimeType, TimeType > cumulativeNumberOfFunctionEvaluations_;
+    std::map< TimeType, unsigned int > cumulativeNumberOfFunctionEvaluations_;
 
     //! Initial time of propagation
     double initialPropagationTime_;
