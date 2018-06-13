@@ -270,7 +270,7 @@ public:
      */
     bool isStateToBePostProcessed( )
     {
-        return true;
+        return false;
     }
 
 private:
