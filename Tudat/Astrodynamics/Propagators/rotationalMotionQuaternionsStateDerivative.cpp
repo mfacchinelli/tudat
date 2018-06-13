@@ -10,6 +10,7 @@
  */
 
 #include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
+
 #include "Tudat/Astrodynamics/Propagators/quaternionNormalizationMethod.h"
 
 namespace tudat
@@ -76,6 +77,7 @@ Eigen::Vector4d calculateQuaternionsDerivative( const Eigen::Vector4d& currentQu
     switch ( QUATERNION_NORMALIZATION_METHOD )
     {
     case 0: // no internal normalization
+    case 3: // normalization of only quaternion accoding to ART073
         return getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) * currentQuaternionsToBaseFrame;
     case 1: // normalization according to BOOK034 with rotational velocity
     {
@@ -89,19 +91,19 @@ Eigen::Vector4d calculateQuaternionsDerivative( const Eigen::Vector4d& currentQu
         return ( gainFactor * Eigen::Matrix4d::Identity( ) +
                  getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) ) * currentQuaternionsToBaseFrame;
     }
-    case 3: // normalization of derivative accoding to ART073
+    case 4: // normalization of only derivative accoding to ART073
+    case 5: // normalization of both quaternion and derivative accoding to ART073
     {
         Eigen::Vector4d quaternionDerivative = getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) *
                 currentQuaternionsToBaseFrame;
         return quaternionDerivative - currentQuaternionsToBaseFrame.dot( quaternionDerivative ) * currentQuaternionsToBaseFrame;
     }
-    case 4: // normalization of quaternion and its derivative accoding to ART073
-    {
-        Eigen::Vector4d normalizedQuaternion = currentQuaternionsToBaseFrame.normalized( );
-        Eigen::Vector4d quaternionDerivative = getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) *
-                normalizedQuaternion;
-        return quaternionDerivative - normalizedQuaternion.dot( quaternionDerivative ) * normalizedQuaternion;
-    }
+//    {
+//        Eigen::Vector4d normalizedQuaternion = currentQuaternionsToBaseFrame.normalized( );
+//        Eigen::Vector4d quaternionDerivative = getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) *
+//                normalizedQuaternion;
+//        return quaternionDerivative - normalizedQuaternion.dot( quaternionDerivative ) * normalizedQuaternion;
+//    }
     default:
         throw std::runtime_error( "Normalization method not recognized." );
     }

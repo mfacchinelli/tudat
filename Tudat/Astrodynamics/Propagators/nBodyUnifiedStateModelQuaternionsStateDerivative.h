@@ -14,6 +14,8 @@
 #include "Tudat/Astrodynamics/Propagators/nBodyStateDerivative.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/stateRepresentationConversions.h"
 
+#include "Tudat/Astrodynamics/Propagators/quaternionNormalizationMethod.h"
+
 namespace tudat
 {
 
@@ -270,7 +272,17 @@ public:
      */
     bool isStateToBePostProcessed( )
     {
-        return false;
+        switch ( QUATERNION_NORMALIZATION_METHOD )
+        {
+        case 0:
+        case 1:
+        case 2:
+        case 4:
+            return false;
+        case 3:
+        case 5:
+            return true;
+        }
     }
 
 private:
