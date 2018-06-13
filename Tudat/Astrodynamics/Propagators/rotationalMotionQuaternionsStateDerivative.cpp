@@ -85,7 +85,7 @@ Eigen::Vector4d calculateQuaternionsDerivative( const Eigen::Vector4d& currentQu
     }
     case 2: // normalization according to BOOK034 with constant factor
     {
-        double gainFactor = 1e-6 * ( 1.0 - currentQuaternionsToBaseFrame.norm( ) );
+        double gainFactor = 1e-5 * ( 1.0 - currentQuaternionsToBaseFrame.norm( ) );
         return ( gainFactor * Eigen::Matrix4d::Identity( ) +
                  getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) ) * currentQuaternionsToBaseFrame;
     }
