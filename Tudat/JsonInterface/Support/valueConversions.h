@@ -234,7 +234,7 @@ void from_json( const nlohmann::json& jsonObject, Matrix< ScalarType, rows, cols
     {
         if ( jsonArrayOfArrays.at( r ).size( ) != providedCols )
         {
-            std::cerr << "Unconsistent matrix size: some rows have different number of columns." << std::endl;
+            std::cerr << "Inconsistent matrix size: some rows have different number of columns." << std::endl;
             throw nlohmann::detail::type_error::create( 0, "" );
         }
         for ( unsigned int c = 0; c < providedCols; ++c )

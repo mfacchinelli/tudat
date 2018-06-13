@@ -652,7 +652,7 @@ public:
     {
         if ( accelerationsMap_.size( ) == 0 && accelerationSettingsMap_.size( ) != 0 )
         {
-            std::cerr << "Unconsistent sizes for map of aceleration settings and map of acceleration models. "
+            std::cerr << "Inconsistent sizes for map of aceleration settings and map of acceleration models. "
                       << "Did you forget to call resetIntegratedStateModels on the propagator?" << std::endl;
         }
         return accelerationsMap_;
@@ -785,7 +785,7 @@ public:
     {
         if ( torqueModelMap_.size( ) == 0 && torqueSettingsMap_.size( ) != 0 )
         {
-            std::cerr << "Unconsistent sizes for map of torque settings and map of torque models. "
+            std::cerr << "Inconsistent sizes for map of torque settings and map of torque models. "
                       << "Did you forget to call resetIntegratedStateModels on the propagator?" << std::endl;
         }
         return torqueModelMap_;
@@ -940,7 +940,7 @@ public:
     {
         if ( massRateModels_.size( ) == 0 && massRateSettingsMap_.size( ) != 0 )
         {
-            std::cerr << "Unconsistent sizes for map of mass-rate settings and map of mass-rate models. "
+            std::cerr << "Inconsistent sizes for map of mass-rate settings and map of mass-rate models. "
                       << "Did you forget to call resetIntegratedStateModels on the propagator?" << std::endl;
         }
         return massRateModels_;
