@@ -77,7 +77,7 @@ Eigen::Vector4d calculateQuaternionsDerivative( const Eigen::Vector4d& currentQu
     switch ( QUATERNION_NORMALIZATION_METHOD )
     {
     case 0: // no internal normalization
-    case 3: // normalization of only quaternion accoding to ART073
+    case 3: // normalization of only quaternion according to ART073
         return getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) * currentQuaternionsToBaseFrame;
     case 1: // normalization according to BOOK034 with rotational velocity
     {
@@ -91,8 +91,8 @@ Eigen::Vector4d calculateQuaternionsDerivative( const Eigen::Vector4d& currentQu
         return ( gainFactor * Eigen::Matrix4d::Identity( ) +
                  getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) ) * currentQuaternionsToBaseFrame;
     }
-    case 4: // normalization of only derivative accoding to ART073
-    case 5: // normalization of both quaternion and derivative accoding to ART073
+    case 4: // normalization of only derivative according to ART073
+    case 5: // normalization of both quaternion and derivative according to ART073
     {
         Eigen::Vector4d quaternionDerivative = getQuaterionToQuaternionRateMatrix( angularVelocityVectorInBodyFixedFrame ) *
                 currentQuaternionsToBaseFrame;
