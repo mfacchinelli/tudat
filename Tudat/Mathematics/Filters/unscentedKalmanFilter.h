@@ -156,7 +156,7 @@ public:
         DependentVector aPrioriStateEstimate = DependentVector::Zero( stateDimension_ );
         computeWeightedAverageFromSigmaPointEstimates( aPrioriStateEstimate, sigmaPointsStateEstimates );
 
-        // Compute the a-priori covariance matrix
+        // Compute the weighted average to find the a-priori covariance matrix
         DependentMatrix aPrioriCovarianceEstimate = DependentMatrix::Zero( stateDimension_, stateDimension_ );
         computeWeightedAverageFromSigmaPointEstimates( aPrioriCovarianceEstimate, aPrioriStateEstimate, sigmaPointsStateEstimates );
 
@@ -297,7 +297,29 @@ private:
         augmentedCovarianceMatrix_.topLeftCorner( stateDimension_, stateDimension_ ) = currentCovarianceEstimate;
 
         // Pre-compute square root of augmented covariance matrix
-        DependentMatrix augmentedCovarianceMatrixSquareRoot = augmentedCovarianceMatrix_.sqrt( );
+        DependentMatrix augmentedCovarianceMatrixSquareRoot;
+        if ( augmentedCovarianceMatrix_.determinant( ) != static_cast< DependentVariableType >( 0.0 ) )
+        {
+            // Matrix is invertible, so take matrix square-root directly
+            augmentedCovarianceMatrixSquareRoot = augmentedCovarianceMatrix_.sqrt( );
+        }
+        else
+        {
+            // Check if matrix is diagonal
+            DependentVector augmentedCovarianceMatrixDiagonal = augmentedCovarianceMatrix_.diagonal( );
+            DependentMatrix diagonalMatrix = augmentedCovarianceMatrixDiagonal.asDiagonal( );
+            if ( augmentedCovarianceMatrix_.isApprox( diagonalMatrix ) )
+            {
+                augmentedCovarianceMatrixDiagonal = augmentedCovarianceMatrixDiagonal.array( ).sqrt( );
+                augmentedCovarianceMatrixSquareRoot = augmentedCovarianceMatrixDiagonal.asDiagonal( );
+            }
+            else
+            {
+                // Otherwise, matrix is singular and the square-root cannot be computed
+                throw std::runtime_error( "Error in unscented Kalman filter. Augemented covariance matrix is singular. "
+                                          "Its square-root cannot be computed." );
+            }
+        }
 
         // Loop over sigma points and assign value
         for ( unsigned int i = 0; i < numberOfSigmaPoints_; i++ )

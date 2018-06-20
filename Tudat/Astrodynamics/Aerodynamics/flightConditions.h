@@ -212,7 +212,6 @@ protected:
     //! Model describing the shape of the body w.r.t. which the flight is taking place.
     const boost::shared_ptr< basic_astrodynamics::BodyShapeModel > shapeModel_;
 
-
     //! Object from which the aerodynamic/trajectory angles of the vehicle are calculated.
     boost::shared_ptr< reference_frames::AerodynamicAngleCalculator > aerodynamicAngleCalculator_;
 
@@ -223,7 +222,6 @@ protected:
     Eigen::Vector6d currentBodyCenteredState_;
 
 
-
     //! Current state of vehicle in body-fixed frame.
     Eigen::Vector6d currentBodyCenteredAirspeedBasedBodyFixedState_;
 
@@ -232,7 +230,6 @@ protected:
 
     //! Boolean denoting whether the current latitude and longitude have been computed at current time step
     bool isLatitudeAndLongitudeSet_;
-
 
     //! List of atmospheric/flight properties computed at current time step.
     std::map< FlightConditionVariables, double > scalarFlightConditions_;
@@ -286,7 +283,6 @@ public:
      *  \param currentTime Time to which conditions are to be updated.
      */
     void updateConditions( const double currentTime );
-
 
     //! Function to retrieve (and compute if necessary) the current freestream density
     /*!
@@ -385,7 +381,6 @@ public:
         return scalarFlightConditions_.at( mach_number_flight_condition );
     }
 
-
     //! Function to return atmosphere model object
     /*!
      *  Function to return atmosphere model object
@@ -460,7 +455,6 @@ public:
 
         return controlSurfaceAerodynamicCoefficientIndependentVariables_;
     }
-
 
     //! Function to reset the current time of the flight conditions.
     /*!

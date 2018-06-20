@@ -18,6 +18,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Eigen/LU>
 #include <unsupported/Eigen/MatrixFunctions>
 
 #include <boost/bind.hpp>
@@ -31,6 +32,7 @@
 #include "Tudat/Mathematics/Statistics/randomVariableGenerator.h"
 
 #include "Tudat/Basics/identityElements.h"
+#include "Tudat/Basics/utilities.h"
 
 namespace tudat
 {
@@ -152,8 +154,7 @@ public:
     DependentVector produceSystemNoise( )
     {
         // Declare system noise vector
-        DependentVector systemNoise;
-        systemNoise.resize( systemUncertainty_.rows( ), 1 );
+        DependentVector systemNoise = DependentVector::Zero( systemUncertainty_.rows( ) );
 
         // Loop over dimensions and add noise
         for ( int i = 0; i < systemUncertainty_.rows( ); i++ )
@@ -162,10 +163,6 @@ public:
             {
                 systemNoise[ i ] = static_cast< DependentVariableType >(
                             systemNoiseDistribution_.at( i )->getRandomVariableValue( ) );
-            }
-            else
-            {
-                systemNoise[ i ] = static_cast< DependentVariableType >( 0.0 );
             }
         }
 
@@ -183,8 +180,7 @@ public:
     DependentVector produceMeasurementNoise( )
     {
         // Declare system noise vector
-        DependentVector measurementNoise;
-        measurementNoise.resize( measurementUncertainty_.rows( ), 1 );
+        DependentVector measurementNoise = DependentVector::Zero( measurementUncertainty_.rows( ) );
 
         // Loop over dimensions and add noise
         for ( int i = 0; i < measurementUncertainty_.rows( ); i++ )
@@ -193,10 +189,6 @@ public:
             {
                 measurementNoise[ i ] = static_cast< DependentVariableType >(
                             measurementNoiseDistribution_.at( i )->getRandomVariableValue( ) );
-            }
-            else
-            {
-                measurementNoise[ i ] = static_cast< DependentVariableType >( 0.0 );
             }
         }
 
