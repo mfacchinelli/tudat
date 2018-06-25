@@ -412,9 +412,11 @@ public:
     void integrateEquationsOfMotion(
             const Eigen::Matrix< StateScalarType, Eigen::Dynamic, Eigen::Dynamic >& initialStates )
     {
+        // Empty solution maps
         equationsOfMotionNumericalSolution_.clear( );
         equationsOfMotionNumericalSolutionRaw_.clear( );
 
+        // Reset functions
         dynamicsStateDerivative_->setPropagationSettings( std::vector< IntegratedStateType >( ), 1, 0 );
         dynamicsStateDerivative_->resetFunctionEvaluationCounter( );
         dynamicsStateDerivative_->resetCumulativeFunctionEvaluationCounter( );

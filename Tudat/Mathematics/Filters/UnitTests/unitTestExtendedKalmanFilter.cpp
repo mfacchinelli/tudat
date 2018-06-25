@@ -169,24 +169,20 @@ BOOST_AUTO_TEST_CASE( testExtendedKalmanFilterFirstCase )
                                 std::sqrt( measurementUncertainty( 0, 0 ) ), 5e-2 );
 
     // Save actual state history
-    input_output::writeDataMapToTextFile( actualStateVectorHistory,
-                                          "EKFActualStateHistory.dat",
-                                          "/Users/Michele/Desktop/KF" );
+    input_output::writeDataMapToTextFile( actualStateVectorHistory, "EKFActualStateHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
 
     // Save estimated state history
-    input_output::writeDataMapToTextFile( extendedFilter->getEstimatedStateHistory( ),
-                                          "EKFEstimatedStateHistory.dat",
-                                          "/Users/Michele/Desktop/KF" );
+    input_output::writeDataMapToTextFile( extendedFilter->getEstimatedStateHistory( ), "EKFEstimatedStateHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
 
     // Save estimated covariance matrix history
-    input_output::writeDataMapToTextFile( extendedFilter->getEstimatedCovarianceHistory( ),
-                                          "EKFEstimatedCovarianceHistory.dat",
-                                          "/Users/Michele/Desktop/KF" );
+    input_output::writeDataMapToTextFile( extendedFilter->getEstimatedCovarianceHistory( ), "EKFEstimatedCovarianceHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
 
     // Save measurement history
-    input_output::writeDataMapToTextFile( measurementVectorHistory,
-                                          "EKFMeasurementHistory.dat",
-                                          "/Users/Michele/Desktop/KF" );
+    input_output::writeDataMapToTextFile( measurementVectorHistory, "EKFMeasurementHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
 }
 
 // Constant parameters for example
@@ -338,25 +334,28 @@ BOOST_AUTO_TEST_CASE( testExtendedKalmanFilterSecondCase )
                                 std::sqrt( measurementUncertainty( 0, 0 ) ), 5e-2 );
 
     // Save actual state history
-    input_output::writeDataMapToTextFile( actualStateVectorHistory,
-                                          "EKFActualStateHistory.dat", "/Users/Michele/Desktop/KFBook" );
+    input_output::writeDataMapToTextFile( actualStateVectorHistory, "EKFActualStateHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 
     // Save estimated state history
-    input_output::writeDataMapToTextFile( extendedFilter->getEstimatedStateHistory( ),
-                                          "EKFEstimatedStateHistory.dat", "/Users/Michele/Desktop/KFBook" );
+    input_output::writeDataMapToTextFile( extendedFilter->getEstimatedStateHistory( ), "EKFEstimatedStateHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 
     // Save estimated covariance matrix history
-    input_output::writeDataMapToTextFile( extendedFilter->getEstimatedCovarianceHistory( ),
-                                          "EKFEstimatedCovarianceHistory.dat", "/Users/Michele/Desktop/KFBook" );
+    input_output::writeDataMapToTextFile( extendedFilter->getEstimatedCovarianceHistory( ), "EKFEstimatedCovarianceHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 
     // Save measurement history
-    input_output::writeDataMapToTextFile( measurementVectorHistory, "EKFMeasurementHistory.dat", "/Users/Michele/Desktop/KFBook" );
+    input_output::writeDataMapToTextFile( measurementVectorHistory, "EKFMeasurementHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 
     // Save noise histories
     systemNoise.transposeInPlace( );
     measurementNoise.transposeInPlace( );
-    input_output::writeMatrixToFile( systemNoise, "systemNoise.dat", 16, "/Users/Michele/Desktop/KFBook" );
-    input_output::writeMatrixToFile( measurementNoise, "measurementNoise.dat", 16, "/Users/Michele/Desktop/KFBook" );
+    input_output::writeMatrixToFile( systemNoise, "systemNoise.dat", 16,
+                                     "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
+    input_output::writeMatrixToFile( measurementNoise, "measurementNoise.dat", 16,
+                                     "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 }
 
 BOOST_AUTO_TEST_SUITE_END( )

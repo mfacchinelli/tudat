@@ -152,14 +152,16 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterFirstCase )
                                 std::sqrt( measurementUncertainty( 0, 0 ) ), 5e-2 );
 
     // Save actual state history
-    input_output::writeDataMapToTextFile( actualStateVectorHistory, "UKFActualStateHistory.dat", "/Users/Michele/Desktop/KF" );
+    input_output::writeDataMapToTextFile( actualStateVectorHistory, "UKFActualStateHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
 
     // Save estimated state history
     input_output::writeDataMapToTextFile( unscentedFilter->getEstimatedStateHistory( ), "UKFEstimatedStateHistory.dat",
-                                          "/Users/Michele/Desktop/KF" );
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
 
     // Save measurement history
-    input_output::writeDataMapToTextFile( measurementVectorHistory, "UKFMeasurementHistory.dat", "/Users/Michele/Desktop/KF" );
+    input_output::writeDataMapToTextFile( measurementVectorHistory, "UKFMeasurementHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
 
 //    // Save noise histories
 //    systemNoise.transposeInPlace( );
@@ -405,19 +407,20 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterThirdCase )
                                 std::sqrt( measurementUncertainty( 0, 0 ) ), 5e-2 );
 
     // Save actual state history
-    input_output::writeDataMapToTextFile( actualStateVectorHistory,
-                                          "UKFActualStateHistory.dat", "/Users/Michele/Desktop/KFBook" );
+    input_output::writeDataMapToTextFile( actualStateVectorHistory, "UKFActualStateHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 
     // Save estimated state history
-    input_output::writeDataMapToTextFile( unscentedFilter->getEstimatedStateHistory( ),
-                                          "UKFEstimatedStateHistory.dat", "/Users/Michele/Desktop/KFBook" );
+    input_output::writeDataMapToTextFile( unscentedFilter->getEstimatedStateHistory( ), "UKFEstimatedStateHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 
     // Save estimated state history
-    input_output::writeDataMapToTextFile( unscentedFilter->getEstimatedCovarianceHistory( ),
-                                          "UKFEstimatedCovarianceHistory.dat", "/Users/Michele/Desktop/KFBook" );
+    input_output::writeDataMapToTextFile( unscentedFilter->getEstimatedCovarianceHistory( ), "UKFEstimatedCovarianceHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 
     // Save measurement history
-    input_output::writeDataMapToTextFile( measurementVectorHistory, "UKFMeasurementHistory.dat", "/Users/Michele/Desktop/KFBook" );
+    input_output::writeDataMapToTextFile( measurementVectorHistory, "UKFMeasurementHistory.dat",
+                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
 }
 
 BOOST_AUTO_TEST_SUITE_END( )
