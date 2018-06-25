@@ -244,9 +244,8 @@ public:
      * \param terminateExactlyOnFinalCondition Boolean to denote whether the propagation is to terminate exactly on the final
      * condition, or whether it is to terminate on the first step where it is violated.
      */
-    CustomTerminationSettings( const boost::function< bool( const double ) >& checkStopCondition,
-                               const bool terminateExactlyOnFinalCondition = false ):
-        PropagationTerminationSettings( custom_stopping_condition, terminateExactlyOnFinalCondition ),
+    CustomTerminationSettings( const boost::function< bool( const double ) >& checkStopCondition ):
+        PropagationTerminationSettings( custom_stopping_condition ),
         checkStopCondition_( checkStopCondition ){ }
 
     //! Destructor

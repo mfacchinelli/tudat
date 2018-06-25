@@ -31,10 +31,24 @@ public:
      *  \param navigationFilter
      *  \param stateTransitionMatrixFunction Function to compute the state transition matrix at the current time and state.
      */
-    NavigationSystem( const filters::FilterDoublePointer navigationFilter,
-                      const boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) >& stateTransitionMatrixFunction ) :
-        navigationFilter_( navigationFilter )
-    { }
+    NavigationSystem( const boost::shared_ptr< filters::FilterBase< > > navigationFilter,
+                      const boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) >& stateTransitionMatrixFunction,
+                      const double gravitationalParameter ) :
+        navigationFilter_( navigationFilter ), stateTransitionMatrixFunction_( stateTransitionMatrixFunction ),
+        gravitationalParameter_( gravitationalParameter )
+    {
+        // Set initial time
+        currentTime_ = navigationFilter_->getInitialTime( );
+
+        // Set initial state
+        currentEstimatedCartesianState_ = navigationFilter_->getCurrentStateEstimate( );
+        currentEstimatedKeplerianState_ =
+                orbital_element_conversions::convertCartesianToKeplerianElements( currentEstimatedCartesianState_,
+                                                                                  gravitationalParameter_ );
+
+        // Store initial time and state
+        storeCurrentTimeAndStateEstimates( );
+    }
 
     //! Destructor.
     ~NavigationSystem( ) { }
@@ -62,42 +76,46 @@ public:
     void atmosphereEstimator( );
 
     //! Function to retireve current time.
-    double getCurrentTime( )
-    {
-        return currentTime_;
-    }
+    double getCurrentTime( ) { return currentTime_; }
 
     //! Function to set current time to new value.
-    void setCurrentTime( const double newCurrentTime )
-    {
-        currentTime_ = newCurrentTime;
-    }
+    void setCurrentTime( const double newCurrentTime ) { currentTime_ = newCurrentTime; }
 
     //! Function to retireve current state.
-    std::pair< Eigen::Vector6d, Eigen::Vector6d > getCurrentEstimatedState( )
+    std::pair< Eigen::VectorXd, Eigen::VectorXd > getCurrentEstimatedState( )
     {
         return std::make_pair( currentEstimatedCartesianState_, currentEstimatedKeplerianState_ );
     }
 
     //! Function to set current Cartesian state to new value.
-    void setCurrentCartesianState( const Eigen::Vector6d& newCurrentCartesianState,
-                                   const double gravitationalParameter )
+    void setCurrentEstimatedCartesianState( const Eigen::VectorXd& newCurrentCartesianState )
     {
         currentEstimatedCartesianState_ = newCurrentCartesianState;
         currentEstimatedKeplerianState_ =
-                orbital_element_conversions::convertCartesianToKeplerianElements( newCurrentCartesianState, gravitationalParameter );
+                orbital_element_conversions::convertCartesianToKeplerianElements( newCurrentCartesianState, gravitationalParameter_ );
     }
 
     //! Function to set current Keplerian state to new value.
-    void setCurrentKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState,
-                                   const double gravitationalParameter )
+    void setCurrentEstimatedKeplerianState( const Eigen::VectorXd& newCurrentKeplerianState )
     {
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
         currentEstimatedCartesianState_ =
-                orbital_element_conversions::convertKeplerianToCartesianElements( newCurrentKeplerianState, gravitationalParameter );
+                orbital_element_conversions::convertKeplerianToCartesianElements( newCurrentKeplerianState, gravitationalParameter_ );
+    }
+
+    //! Function to retrieve history of estimated states over time.
+    std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > > getHistoryOfEstimatedStates( )
+    {
+        return historyOfEstimatedStates_;
     }
 
 private:
+
+    //! Function to store current time and current state estimates.
+    void storeCurrentTimeAndStateEstimates( )
+    {
+        historyOfEstimatedStates_[ currentTime_ ] = std::make_pair( currentEstimatedCartesianState_, currentEstimatedKeplerianState_ );
+    }
 
     //! Double denoting the current time in the estimation process.
     double currentTime_;
@@ -116,7 +134,13 @@ private:
     std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > > historyOfEstimatedStates_;
 
     //! Filter object to be used for estimation of state.
-    filters::FilterDoublePointer navigationFilter_;
+    boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
+
+    //! Function to propagate estimated state error.
+    boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) > stateTransitionMatrixFunction_;
+
+    //! Standard gravitational parameter.
+    double gravitationalParameter_;
 
 };
 

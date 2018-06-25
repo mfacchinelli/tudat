@@ -11,6 +11,8 @@
 #ifndef MICHELE_GNC_COMPUTER
 #define MICHELE_GNC_COMPUTER
 
+#include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
+
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/control.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/navigation.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/guidance.h"
@@ -49,14 +51,26 @@ public:
      */
     bool checkStoppingCondition( const double currentTime )
     {
-        if ( currentTime != previousTime_ )
-        {
-            // Update current time
-            previousTime_ = guidanceSystem_->getCurrentTime( );
-            guidanceSystem_->setCurrentTime( currentTime );
+        // Update current time
+        previousTime_ = navigationSystem_->getCurrentTime( );
+        navigationSystem_->setCurrentTime( currentTime );
 
-            // Update filter from previous time to next time
-            navigationSystem_->stateEstimator( previousTime_ );
+        // Update filter from previous time to next time
+        navigationSystem_->stateEstimator( previousTime_ );
+
+        // Check if either stopping condition is met
+        if ( stopAtNextStep_ )
+        {
+            stopAtNextStep_ = false;
+            return true;
+        }
+        else
+        {
+            std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedState( );
+            if ( currentEstimatedState.second[ 5 ] >= mathematical_constants::PI ) // check mean anomaly
+            {
+
+            }
         }
     }
 

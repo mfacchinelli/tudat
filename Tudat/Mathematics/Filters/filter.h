@@ -206,6 +206,9 @@ public:
         return measurementNoise;
     }
 
+    //! Function to retrieve initial time.
+    IndependentVariableType getInitialTime( ) { return initialTime_; }
+
     //! Function to retrieve current state estimate.
     /*!
      *  Function to retrieve current state estimate. The state estimate needs to first be computed by updating the
