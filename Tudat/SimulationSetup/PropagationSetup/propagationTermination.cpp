@@ -184,6 +184,16 @@ boost::shared_ptr< PropagationTerminationCondition > createPropagationTerminatio
                     hybridTerminationSettings->terminateExactlyOnFinalCondition_ );
         break;
     }
+    case custom_stopping_condition:
+    {
+        boost::shared_ptr< CustomTerminationSettings > customTerminationSettings =
+                boost::dynamic_pointer_cast< CustomTerminationSettings >( terminationSettings );
+
+        // Create dependent variable termination condition.
+        propagationTerminationCondition = boost::make_shared< CustomTerminationCondition >(
+                    customTerminationSettings->checkStopCondition_,
+                    customTerminationSettings->terminateExactlyOnFinalCondition_ );
+    }
     default:
         std::string errorMessage = "Error, stopping condition type " + std::to_string(
                     terminationSettings->terminationType_ ) + "not recognized when making stopping conditions object";

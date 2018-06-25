@@ -145,6 +145,15 @@ public:
     virtual void updateFilter( const IndependentVariableType currentTime,
                                const DependentVector& currentMeasurementVector ) = 0;
 
+    //! Function to update the a-posteriori estimates of state and covariance with external data.
+    void modifyCurrentStateAndCovarianceEstimates( const DependentVector& newStateEstimate,
+                                                   const DependentMatrix& newCovarianceEstimate )
+    {
+        // Update estimates with user-provided data
+        aPosterioriStateEstimate_ = newStateEstimate;
+        aPosterioriCovarianceEstimate_ = newCovarianceEstimate;
+    }
+
     //! Function to produce system noise.
     /*!
      *  Function to produce system noise, based on a Gaussian distribution, with zero mean and standard
@@ -451,6 +460,12 @@ private:
     std::vector< DependentVector > measurementNoiseHistory_;
 
 };
+
+//! Typedef for a filter with double data type.
+typedef FilterBase< > FilterDouble;
+
+//! Typedef for a shared-pointer to a filter with double data type.
+typedef boost::shared_ptr< FilterDouble > FilterDoublePointer;
 
 } // namespace filters
 

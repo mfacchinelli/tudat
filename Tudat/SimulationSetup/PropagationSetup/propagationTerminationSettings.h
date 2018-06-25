@@ -31,7 +31,8 @@ enum PropagationTerminationTypes
     time_stopping_condition,
     cpu_time_stopping_condition,
     dependent_variable_stopping_condition,
-    hybrid_stopping_condition
+    hybrid_stopping_condition,
+    custom_stopping_condition
 };
 
 
@@ -64,6 +65,7 @@ public:
     //! Boolean to denote whether the propagation is to terminate exactly on the final condition, or whether it is to terminate
     //! on the first step where it is violated.
     bool terminateExactlyOnFinalCondition_;
+
 };
 
 //! Class for propagation stopping conditions settings: stopping the propagation after a fixed amount of time
@@ -92,6 +94,7 @@ public:
 
     //! Maximum time for the propagation, upon which the propagation is to be stopped
     double terminationTime_;
+
 };
 
 //! Class for propagation stopping conditions settings: stopping the propagation after a fixed amount of CPU time
@@ -223,6 +226,35 @@ public:
     //! Boolean denoting whether a single (if true) or all (if false) of the conditions
     //! defined by the entries in the terminationSettings list should be met.
     bool fulFillSingleCondition_;
+};
+
+//! Class for propagation stopping conditions settings: stopping the propagation based on custom requirements
+/*!
+ *  Class for propagation stopping conditions settings: stopping the propagation after a fixed amount of time. Note that the
+ *  propagator will finish a given time step, slightly surpassing the defined final time.
+ */
+class CustomTerminationSettings: public PropagationTerminationSettings
+{
+public:
+
+    //! Constructor
+    /*!
+     * Constructor
+     * \param terminationTime Maximum time for the propagation, upon which the propagation is to be stopped
+     * \param terminateExactlyOnFinalCondition Boolean to denote whether the propagation is to terminate exactly on the final
+     * condition, or whether it is to terminate on the first step where it is violated.
+     */
+    CustomTerminationSettings( const boost::function< bool( const double ) >& checkStopCondition,
+                               const bool terminateExactlyOnFinalCondition = false ):
+        PropagationTerminationSettings( custom_stopping_condition, terminateExactlyOnFinalCondition ),
+        checkStopCondition_( checkStopCondition ){ }
+
+    //! Destructor
+    ~CustomTerminationSettings( ){ }
+
+    //! Custom temination function.
+    boost::function< bool( const double ) > checkStopCondition_;
+
 };
 
 } // namespace propagators

@@ -120,7 +120,6 @@ public:
         stopTime_( stopTime ),
         propagationDirectionIsPositive_( propagationDirectionIsPositive ){ }
 
-
     //! Function to check whether the propagation is to be be stopped
     /*!
      * Function to check whether the propagation is to be be stopped, i.e. whether the stopTime_ has been reached or not.
@@ -149,6 +148,7 @@ private:
 
     //!  Boolean denoting whether propagation is forward (if true) or backwards (if false) in time.
     bool propagationDirectionIsPositive_;
+
 };
 
 //! Class for stopping the propagation after a fixed amount of CPU time
@@ -454,10 +454,47 @@ private:
 
 };
 
+//! Class for stopping the propagation with custom stopping function.
+class CustomTerminationCondition: public PropagationTerminationCondition
+{
+public:
+
+    //! Constructor
+    /*!
+     * Constructor
+     * \param checkStopCondition Custom function to check for the attainment of the propagation stopping conditions.
+     * \param terminateExactlyOnFinalCondition Boolean to denote whether the propagation is to terminate exactly on the final
+     * condition, or whether it is to terminate on the first step where it is violated.
+     */
+    CustomTerminationCondition(
+            boost::function< bool( const double ) >& checkStopCondition,
+            const bool terminateExactlyOnFinalCondition = false ):
+        PropagationTerminationCondition( time_stopping_condition, terminateExactlyOnFinalCondition ),
+        checkStopCondition_( checkStopCondition )
+    { }
+
+    //! Function to check whether the propagation is to be be stopped
+    /*!
+     * Function to check whether the propagation is to be be stopped via the user-provided function.
+     * \param time Current time in propagation.
+     * \param cpuTime Current CPU time in propagation.
+     * \return True if propagation is to be stopped, false otherwise.
+     */
+    bool checkStopCondition( const double time, const double cpuTime )
+    {
+        TUDAT_UNUSED_PARAMETER( cpuTime );
+        return checkStopCondition_( time );
+    }
+
+private:
+
+    //! Custom temination function.
+    boost::function< bool( const double ) > checkStopCondition_;
+
+};
 
 } // namespace propagators
 
 } // namespace tudat
-
 
 #endif // TUDAT_PROPAGATIONTERMINATIONCONDITIONS_H
