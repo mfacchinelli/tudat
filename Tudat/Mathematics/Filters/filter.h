@@ -188,7 +188,7 @@ public:
      */
     DependentVector produceMeasurementNoise( )
     {
-        // Declare system noise vector
+        // Declare measurement noise vector
         DependentVector measurementNoise = DependentVector::Zero( measurementUncertainty_.rows( ) );
 
         // Loop over dimensions and add noise

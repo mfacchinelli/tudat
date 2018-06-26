@@ -11,10 +11,14 @@
 #ifndef MICHELE_GNC_INSTRUMENT
 #define MICHELE_GNC_INSTRUMENT
 
-#include <boost/shared_ptr.hpp>
+#include <cmath>
 #include <eigen/Core>
+#include <boost/shared_ptr.hpp>
+
+#include "Tudat/Mathematics/Statistics/randomVariableGenerator.h"
 
 #include "Tudat/SimulationSetup/EnvironmentSetup/body.h"
+
 #include "Tudat/SimulationSetup/PropagationSetup/accelerationSettings.h"
 #include "Tudat/SimulationSetup/PropagationSetup/createAccelerationModels.h"
 #include "Tudat/SimulationSetup/PropagationSetup/createTorqueModel.h"
@@ -48,12 +52,19 @@ class InstrumentSystem
 public:
 
     //! Constructor.
+    /*!
+     *  Constructor.
+     *  \param bodyMap
+     *  \param selectedAccelerationPerBody
+     *  \param centralBodies
+     *  \param spacecraftName
+     */
     InstrumentSystem( const simulation_setup::NamedBodyMap& bodyMap,
                       const simulation_setup::SelectedAccelerationMap& selectedAccelerationPerBody,
                       const std::map< std::string, std::string >& centralBodies,
-                      const std::string& nameOfSpacecraft ) :
+                      const std::string& spacecraftName ) :
         bodyMap_( bodyMap ), selectedAccelerationPerBody_( selectedAccelerationPerBody ),
-        centralBodies_( centralBodies ), nameOfSpacecraft_( nameOfSpacecraft )
+        centralBodies_( centralBodies ), spacecraftName_( spacecraftName )
     {
         // Set instrument presence to false
         inertialMeasurementUnitAdded_ = false;
@@ -64,12 +75,25 @@ public:
     ~InstrumentSystem( ) { }
 
     //! Function to add an inertial measurement unit to the spacecraft set of instruments.
+    /*!
+     *  Function to add an inertial measurement unit to the spacecraft set of instruments.
+     *  \param accelerometerBias Bias of the accelerometer.
+     *  \param accelerometerScaleFactor Scale factor of the accelerometer.
+     *  \param accelerometerMisalignment Misalignment of the accelerometer.
+     *  \param accelerometerAccuracy Accuracy of accelerometer along each axis (3 sigma).
+     *  \param gyroscopeBias Bias of the gyroscope.
+     *  \param gyroscopeScaleFactor Scale factor of the gyroscope.
+     *  \param gyroscopeMisalignment Misalignment of the gyroscope.
+     *  \param gyroscopeAccuracy Accuracy of gyroscope along each axis (3 sigma).
+     */
     void addInertialMeasurementUnit( const Eigen::Vector3d& accelerometerBias,
                                      const Eigen::Vector3d& accelerometerScaleFactor,
                                      const Eigen::Vector6d& accelerometerMisalignment,
+                                     const Eigen::Vector3d& accelerometerAccuracy,
                                      const Eigen::Vector3d& gyroscopeBias,
                                      const Eigen::Vector3d& gyroscopeScaleFactor,
-                                     const Eigen::Vector6d& gyroscopeMisalignment )
+                                     const Eigen::Vector6d& gyroscopeMisalignment,
+                                     const Eigen::Vector3d& gyroscopeAccuracy )
     {
         // Check whether an inertial measurement unit is already present
         if ( !inertialMeasurementUnitAdded_ )
@@ -77,23 +101,26 @@ public:
             // Inertial measurement unit has been created
             inertialMeasurementUnitAdded_ = true;
 
+            // Generate random noise distribution
+            generateInertialMeasurementUnitRandomNoiseDistribution( accelerometerAccuracy, gyroscopeAccuracy );
+
             // Create acceleration model object
             accelerationModelMap_ = simulation_setup::createAccelerationModelsMap( bodyMap_, selectedAccelerationPerBody_,
                                                                                    centralBodies_ );
 
             // Create function for computing corrupted translational accelerations
             inertialMeasurementUnitTranslationalAccelerationFunction_ = boost::bind(
-                        &getCurrentTranslationalAcceleration, this, _1, accelerometerBias,
+                        &InstrumentSystem::getCurrentTranslationalAcceleration, this, _1, accelerometerBias,
                         computeScaleMisalignmentMatrix( accelerometerScaleFactor, accelerometerMisalignment ) );
 
             // Create function for computing corrupted rotational velocity
             inertialMeasurementUnitRotationalVelocityFunction_ = boost::bind(
-                        &getCurrentRotationalVelocity, this, _1, gyroscopeBias,
+                        &InstrumentSystem::getCurrentRotationalVelocity, this, _1, gyroscopeBias,
                         computeScaleMisalignmentMatrix( gyroscopeScaleFactor, gyroscopeMisalignment ) );
         }
         else
         {
-            throw std::runtime_error( "Error in creation of inertial measurement unit for body " + nameOfSpacecraft_ +
+            throw std::runtime_error( "Error in creation of inertial measurement unit for body " + spacecraftName_ +
                                       ". An IMU is already present." );
         }
     }
@@ -102,7 +129,7 @@ public:
     /*!
      *  Function to add a system of orthogonal star trackers to the spacecraft set of instruments.
      *  \param numberOfStarTrackers Number of star trackers to add to the spacecraft.
-     *  \param starTrackerAccuracy Accuracy of a star tracker along each axis (3 sigma).
+     *  \param starTrackerAccuracy Accuracy of star tracker along each axis (3 sigma).
      */
     void addStarTracker( const unsigned int numberOfStarTrackers,
                          const Eigen::Vector3d& starTrackerAccuracy )
@@ -114,16 +141,23 @@ public:
             {
                 // Star tracker has been created
                 starTrackerAdded_ = true;
+
+                // Generate random noise distribution
+                generateStarTrackerRandomNoiseDistribution( starTrackerAccuracy );
+
+                // Create function for computing corrupted spacecraft orientation
+                starTrackerOrientationFunction_ = boost::bind(
+                            &InstrumentSystem::getCurrentAttitude, this, _1 );
             }
             else
             {
-                throw std::runtime_error( "Error in creation of star tracker system for body " + nameOfSpacecraft_ +
+                throw std::runtime_error( "Error in creation of star tracker system for body " + spacecraftName_ +
                                           ". Only a system of two orthogonal star trackers is supported." );
             }
         }
         else
         {
-            throw std::runtime_error( "Error in creation of star tracker system for body " + nameOfSpacecraft_ +
+            throw std::runtime_error( "Error in creation of star tracker system for body " + spacecraftName_ +
                                       ". A star tracker system is already present." );
         }
     }
@@ -135,19 +169,19 @@ public:
         if ( inertialMeasurementUnitAdded_ )
         {
             // Define output vector
-            Eigen::Vector6d inertialMeasurementUnitMeasurement;
+            Eigen::Vector6d currentInertialMeasurementUnitMeasurement;
 
             // Translational accelerations
-            Eigen::Vector3d translationalAccelerationVector = Eigen::Vector3d::Zero( );
-            inertialMeasurementUnitTranslationalAccelerationFunction_( translationalAccelerationVector );
+            Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
+            inertialMeasurementUnitTranslationalAccelerationFunction_( currentTranslationalAcceleration );
 
-            // Rotational acceleration (i.e., torque)
-            Eigen::Vector3d rotationalVelocityVector = Eigen::Vector3d::Zero( );
-            inertialMeasurementUnitRotationalVelocityFunction_( rotationalVelocityVector );
+            // Rotational velocity
+            Eigen::Vector3d currentRotationalVelocity;
+            inertialMeasurementUnitRotationalVelocityFunction_( currentRotationalVelocity );
 
             // Merge translational and rotational accelerations
-            inertialMeasurementUnitMeasurement << translationalAccelerationVector, rotationalVelocityVector;
-            return inertialMeasurementUnitMeasurement;
+            currentInertialMeasurementUnitMeasurement << currentTranslationalAcceleration, currentRotationalVelocity;
+            return currentInertialMeasurementUnitMeasurement;
         }
         else
         {
@@ -162,7 +196,10 @@ public:
         // Check that an inertial measurement unit is present in the spacecraft
         if ( starTrackerAdded_ )
         {
-
+            // Compute and output orientation
+            Eigen::Vector4d currentQuaternionToBaseFrame;
+            starTrackerOrientationFunction_( currentQuaternionToBaseFrame );
+            return currentQuaternionToBaseFrame;
         }
         else
         {
@@ -174,41 +211,191 @@ public:
 private:
 
     //! Function to retrieve current translational accelerations exerted on the spacecraft.
-    void getCurrentTranslationalAcceleration( Eigen::Vector3d& translationalAcceleration,
+    void getCurrentTranslationalAcceleration( Eigen::Vector3d& currentTranslationalAcceleration,
                                               const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
     {
         // Iterate over all accelerations acting on body
-        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = accelerationModelMap_.at( nameOfSpacecraft_ );
+        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = accelerationModelMap_.at( spacecraftName_ );
         for ( accelerationIterator_ = accelerationsOnBody.begin( ); accelerationIterator_ != accelerationsOnBody.end( );
               accelerationIterator_++ )
         {
-            // Loop over each acceleration
-            for ( unsigned int i = 0; i < accelerationIterator_->second.size( ); i++ )
+            // Loop over each acceleration and disregard the central gravitational accelerations,
+            // since IMUs do not measure them
+            for ( unsigned int i = 1; i < accelerationIterator_->second.size( ); i++ )
             {
-                // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( i != 0 )
-                {
-                    // Calculate acceleration and add to state derivative
-                    translationalAcceleration += accelerationIterator_->second[ i ]->getAcceleration( );
-                }
+                // Calculate acceleration and add to state derivative
+                currentTranslationalAcceleration += accelerationIterator_->second[ i ]->getAcceleration( );
             }
         }
 
         // Add errors to acceleration value
-        translationalAcceleration = scaleMisalignmentMatrix * translationalAcceleration;
-        translationalAcceleration += biasVector;
+        currentTranslationalAcceleration = scaleMisalignmentMatrix * currentTranslationalAcceleration;
+        currentTranslationalAcceleration += biasVector + produceAccelerometerNoise( );
     }
 
     //! Function to retrieve current rotational velocity of the spacecraft.
-    void getCurrentRotationalVelocity( Eigen::Vector3d& rotationalVelocity,
+    void getCurrentRotationalVelocity( Eigen::Vector3d& currentRotationalVelocity,
                                        const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
     {
         // Iterate over all accelerations acting on body
-        rotationalVelocity = bodyMap_.at( nameOfSpacecraft_ )->getCurrentAngularVelocityVectorInGlobalFrame( );
+        currentRotationalVelocity = bodyMap_.at( spacecraftName_ )->getCurrentAngularVelocityVectorInGlobalFrame( );
 
         // Add errors to acceleration value
-        rotationalVelocity = scaleMisalignmentMatrix * rotationalVelocity;
-        rotationalVelocity += biasVector;
+        currentRotationalVelocity = scaleMisalignmentMatrix * currentRotationalVelocity;
+        currentRotationalVelocity += biasVector + produceGyroscopeNoise( );
+    }
+
+    //! Function to retrieve current inertial orientation of the spacecraft.
+    void getCurrentAttitude( Eigen::Vector4d& currentQuaternionToBaseFrame )
+    {
+        // Iterate over all accelerations acting on body
+        currentQuaternionToBaseFrame = bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( );
+
+        // Add errors to acceleration value
+        currentQuaternionToBaseFrame += produceStarTrackerNoise( );
+    }
+
+    //! Function to generate the noise distributions for the inertial measurement unit.
+    /*!
+     *  Function to generate the noise distributions for both instruments of the inertial measurement unit,
+     *  which uses a Gaussian distribution, with zero mean and standard deviation given by the accuracy of the
+     *  accelerometer and gyroscopes.
+     *  \param accelerometerAccuracy Accuracy of accelerometer along each axis (3 sigma).
+     *  \param gyroscopeAccuracy Accuracy of gyroscope along each axis (3 sigma).
+     */
+    void generateInertialMeasurementUnitRandomNoiseDistribution( const Eigen::Vector3d& accelerometerAccuracy,
+                                                                 const Eigen::Vector3d& gyroscopeAccuracy )
+    {
+        using namespace tudat::statistics;
+
+        // Create accelerometer noise distribution
+        for ( unsigned int i = 0; i < 3; i++ )
+        {
+            if ( accelerometerAccuracy[ i ] != 0.0 )
+            {
+                accelerometerNoiseDistribution_.push_back(
+                            createBoostContinuousRandomVariableGenerator(
+                                normal_boost_distribution, { 0.0, accelerometerAccuracy[ i ] / 3.0 }, i ) );
+            }
+            else
+            {
+                accelerometerNoiseDistribution_.push_back( NULL );
+            }
+        }
+
+        // Create gyroscope noise distribution
+        for ( unsigned int i = 0; i < 3; i++ )
+        {
+            if ( gyroscopeAccuracy[ i ] != 0.0 )
+            {
+                gyroscopeNoiseDistribution_.push_back(
+                            createBoostContinuousRandomVariableGenerator(
+                                normal_boost_distribution, { 0.0, gyroscopeAccuracy[ i ] / 3.0 },
+                                accelerometerAccuracy.rows( ) + i ) );
+            }
+            else
+            {
+                gyroscopeNoiseDistribution_.push_back( NULL );
+            }
+        }
+    }
+
+    //! Function to generate the noise distributions for the star trackers.
+    /*!
+     *  Function to generate the noise distributions for the star trackers, which uses a Gaussian distribution,
+     *  with zero mean and standard deviation given by the accuracy of the star tracker.
+     *  \param starTrackerAccuracy Accuracy of star tracker along each axis (3 sigma).
+     */
+    void generateInertialMeasurementUnitRandomNoiseDistribution( const Eigen::Vector4d& starTrackerAccuracy )
+    {
+        using namespace tudat::statistics;
+
+        // Create accelerometer noise distribution
+        for ( unsigned int i = 0; i < 4; i++ )
+        {
+            if ( starTrackerAccuracy[ i ] != 0.0 )
+            {
+                starTrackerNoiseDistribution_.push_back(
+                            createBoostContinuousRandomVariableGenerator(
+                                normal_boost_distribution, { 0.0, starTrackerAccuracy[ i ] / 3.0 }, i ) );
+            }
+            else
+            {
+                starTrackerNoiseDistribution_.push_back( NULL );
+            }
+        }
+    }
+
+    //! Function to produce accelerometer noise.
+    /*!
+     *  Function to produce accelerometer noise.
+     *  \return Vector where the noise for the accelerometer of the inertial measurement unit is stored.
+     */
+    Eigen::Vector3d produceAccelerometerNoise( )
+    {
+        // Declare noise vector
+        Eigen::Vector3d accelerometerNoise;
+
+        // Loop over dimensions and add noise
+        for ( int i = 0; i < 3; i++ )
+        {
+            if ( accelerometerNoiseDistribution_.at( i ) != NULL )
+            {
+                accelerometerNoise[ i ] = accelerometerNoiseDistribution_.at( i )->getRandomVariableValue( );
+            }
+        }
+
+        // Give back noise
+        //        accelerometerNoiseHistory_.push_back( accelerometerNoise );
+        return accelerometerNoise;
+    }
+
+    //! Function to produce gyroscope noise.
+    /*!
+     *  Function to produce gyroscope noise.
+     *  \return Vector where the noise for the gyroscope of the inertial measurement unit is stored.
+     */
+    Eigen::Vector3d produceGyroscopeNoise( )
+    {
+        // Declare noise vector
+        Eigen::Vector3d gyroscopeNoise;
+
+        // Loop over dimensions and add noise
+        for ( int i = 0; i < 3; i++ )
+        {
+            if ( gyroscopeNoiseDistribution_.at( i ) != NULL )
+            {
+                gyroscopeNoise.second[ i ] = gyroscopeNoiseDistribution_.at( i )->getRandomVariableValue( );
+            }
+        }
+
+        // Give back noise
+        //        gyroscopeNoiseHistory_.push_back( gyroscopeNoise );
+        return gyroscopeNoise;
+    }
+
+    //! Function to produce star tracker noise.
+    /*!
+     *  Function to produce star tracker noise.
+     *  \return Vector where the noise for the star tracker is stored.
+     */
+    Eigen::Vector4d produceStarTrackerNoise( )
+    {
+        // Declare noise vector
+        Eigen::Vector4d starTrackerNoise;
+
+        // Loop over dimensions and add noise
+        for ( int i = 0; i < 4; i++ )
+        {
+            if ( starTrackerNoiseDistribution_.at( i ) != NULL )
+            {
+                starTrackerNoise[ i ] = starTrackerNoiseDistribution_.at( i )->getRandomVariableValue( );
+            }
+        }
+
+        // Give back noise
+        //        starTrackerNoiseHistory_.push_back( starTrackerNoise );
+        return starTrackerNoise;
     }
 
     //! Body map of the simulation.
@@ -221,13 +408,22 @@ private:
     std::map< std::string, std::string > centralBodies_;
 
     //! String denoting the name of the spacecraft body.
-    std::string nameOfSpacecraft_;
+    std::string spacecraftName_;
 
     //! Boolean denoting whether an inertial measurement unit is present in the spacecraft.
     bool inertialMeasurementUnitAdded_;
 
     //! Boolean denoting whether a star tracker is present in the spacecraft.
     bool starTrackerAdded_;
+
+    //! Vector where the noise generators for the translational accelerations are stored.
+    std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > accelerometerNoiseDistribution_;
+
+    //! Vector where the noise generators for the rotational velocity are stored.
+    std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > gyroscopeNoiseDistribution_;
+
+    //! Vector where the noise generators for the spacecraft attitude are stored.
+    std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > starTrackerNoiseDistribution_;
 
     //! Pointer to accelerations exerted on the spacecraft.
     basic_astrodynamics::AccelerationMap accelerationModelMap_;
@@ -242,6 +438,10 @@ private:
     //! Function to compute the rotational velocity measured by the inertial measurement unit.
     boost::function< void( Eigen::Vector3d&, const Eigen::Vector3d&, const Eigen::Matrix3d& ) >
     inertialMeasurementUnitRotationalVelocityFunction_;
+
+    //! Function to compute the rotational velocity measured by the inertial measurement unit.
+    boost::function< void( Eigen::Vector4d&, const Eigen::Vector3d& ) >
+    starTrackerOrientationFunction_;
 
 };
 

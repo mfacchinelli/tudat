@@ -11,8 +11,8 @@
 #ifndef MICHELE_GNC_COMPUTER
 #define MICHELE_GNC_COMPUTER
 
+#include "Tudat/Astrodynamics/BasicAstrodynamics/stateVectorIndices.h"
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
-#include "Tudat/Astrodynamics/BasicAstrodynamics/convertMeanToEccentricAnomalies.h"
 
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/control.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/instrument.h"
@@ -46,7 +46,7 @@ public:
     //! Destructor.
     ~OnboardComputer( ) { }
 
-    //! Function to update the navigation system.
+    //! Function to check whether the propagation is to be be stopped.
     /*!
      *  Function to check whether the propagation is to be be stopped, based on the estimated state. The propagation
      *  is stopped if either one of the two conditions below is met:
@@ -59,6 +59,9 @@ public:
      */
     bool checkStoppingCondition( const double currentTime )
     {
+        // Define output value
+        isPropagationToBeStopped = false;
+
         // Update current time
         previousTime_ = navigationSystem_->getCurrentTime( );
         navigationSystem_->setCurrentTime( currentTime );
@@ -68,11 +71,13 @@ public:
 
         // Check if either stopping condition is met
         std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedState( );
-        double currentEstimatedTrueAnomaly = orbital_element_conversions::convertEllipticalEccentricAnomalyToTrueAnomaly(
-                    orbital_element_conversions::convertMeanAnomalyToEccentricAnomaly( currentEstimatedState.second[ 2 ],
-                    currentEstimatedState.second[ 5 ] ), currentEstimatedState.second[ 2 ] );
-        if ( currentEstimatedTrueAnomaly >= mathematical_constants::PI && !maneuveringPhaseComplete_ ) // check mean anomaly
+        double currentEstimatedTrueAnomaly = currentEstimatedState.second[ orbital_element_conversions::trueAnomalyIndex ];
+        if ( currentEstimatedTrueAnomaly >= mathematical_constants::PI && !maneuveringPhaseComplete_ ) // check true anomaly
         {
+            // Stop propagation to add Delta V to actual state
+            isPropagationToBeStopped = true;
+
+
 
             // Invert completion flags
             maneuveringPhaseComplete_ = true;
@@ -81,11 +86,16 @@ public:
         else if ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceAltitude_ ) > 0.0 &&
                     currentEstimatedTrueAnomaly >= 0.0 ) && !atmosphericPhaseComplete_ ) // check altitude
         {
+            // Perform periapse time estimation
+            navigationSystem_->periapseTimeEstimator(  );
 
             // Invert completion flags
             maneuveringPhaseComplete_ = false;
             atmosphericPhaseComplete_ = true;
         }
+
+        // Give output
+        return isPropagationToBeStopped;
     }
 
 private:

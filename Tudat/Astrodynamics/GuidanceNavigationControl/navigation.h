@@ -42,7 +42,7 @@ public:
         currentTime_ = navigationFilter_->getInitialTime( );
 
         // Retrieve navigation filter step size
-        navigationUpdateStepSize_ = navigationFilter_->getIntegrationStepSize( );
+        navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
 
         // Set initial state
         currentEstimatedCartesianState_ = navigationFilter_->getCurrentStateEstimate( );
@@ -68,13 +68,10 @@ public:
      *  pericenter. Then the values of \f$ \Delta \vartheta \f$ (which is derived from the change in time of periapsis crossing)
      *  and \f$ \Delta a \f$ are used to correct the current state estimate, by using the state transition matrix of the
      *  system.
-     *  \param estimatedState Map of time and estimated state of the spacecraft; the state is stored as a pair of
-     *      Cartesian and Keplerian elements, respectively.
      *  \param estimatedAerodynamicAcceleration Map of time and estimated aerodynamic acceleration; the acceleration is
      *      the one computed from the IMU measurements and is stored as a three-dimensional vector.
      */
-    void periapseTimeEstimator( std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > >& estimatedState,
-                                const std::map< double, Eigen::Vector3d >& estimatedAerodynamicAcceleration );
+    void periapseTimeEstimator( const std::map< double, Eigen::Vector3d >& estimatedAerodynamicAcceleration );
 
     //! Atmosphere estimator (AE).
     void atmosphereEstimator( );
@@ -110,6 +107,11 @@ public:
     }
 
     //! Function to retrieve history of estimated states over time.
+    /*!
+     *  Function to retrieve history of estimated states over time.
+     *  \return Map of time and estimated state of the spacecraft; the state is stored as a pair of
+     *      Cartesian and Keplerian elements, respectively.
+     */
     std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > > getHistoryOfEstimatedStates( )
     {
         return historyOfEstimatedStates_;
@@ -133,7 +135,7 @@ private:
     double currentTime_;
 
     //! Double denoting the integration constant time step for navigation.
-    double navigationUpdateStepSize_;
+    double navigationRefreshStepSize_;
 
     //! Vector denoting the current estimated state in Cartesian elements.
     Eigen::VectorXd currentEstimatedCartesianState_;
@@ -147,6 +149,14 @@ private:
      *  times and the mapped values are a pair of vectors, denoting the Cartesian and Keplerian elements.
      */
     std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > > historyOfEstimatedStates_;
+
+    //! History of estimated states in Cartesian and Keplerian elements for current orbit.
+    /*!
+     *  History of estimated states in Cartesian and Keplerian elements for current orbit, stored as a map,
+     *  where the keys are times and the mapped values are a pair of vectors, denoting the Cartesian and
+     *  Keplerian elements.
+     */
+    std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > > currentOrbitHistoryOfEstimatedStates_;
 
     //! Filter object to be used for estimation of state.
     boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
