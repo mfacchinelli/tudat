@@ -237,10 +237,7 @@ public:
         terminationSettings_ = terminationSettings;
     }
 
-
-
 protected:
-
 
     //!Type of state being propagated
     IntegratedStateType stateType_;
@@ -256,7 +253,6 @@ protected:
     double printInterval_;
 
 };
-
 
 //! Function to get the total size of multi-arc initial state vector
 /*!
@@ -448,7 +444,6 @@ public:
             singleArcSettings_.at( i )->resetInitialStates( initialStateList_[ i ] );
             currentIndex += singleArcSettings_.at( i )->getConventionalStateSize( );
         }
-
     }
 
 protected:

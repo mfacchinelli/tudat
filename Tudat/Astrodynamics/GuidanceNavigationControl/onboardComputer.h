@@ -12,8 +12,10 @@
 #define MICHELE_GNC_COMPUTER
 
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/convertMeanToEccentricAnomalies.h"
 
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/control.h"
+#include "Tudat/Astrodynamics/GuidanceNavigationControl/instrument.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/navigation.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/guidance.h"
 
@@ -31,9 +33,15 @@ public:
     //! Constructor.
     OnboardComputer( const boost::shared_ptr< ControlSystem > controlSystem,
                      const boost::shared_ptr< GuidanceSystem > guidanceSystem,
-                     const boost::shared_ptr< NavigationSystem > navigationSystem ) :
+                     const boost::shared_ptr< NavigationSystem > navigationSystem,
+                     const boost::shared_ptr< InstrumentSystem > instrumentSystem ) :
         controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem )
-    { }
+    {
+        // Define internal constants
+        maneuveringPhaseComplete_ = true;
+        atmosphericPhaseComplete_ = false;
+        atmosphericInterfaceAltitude_ = navigationSystem_->getRadius( ) + 500.0e3;
+    }
 
     //! Destructor.
     ~OnboardComputer( ) { }
@@ -59,18 +67,24 @@ public:
         navigationSystem_->stateEstimator( previousTime_ );
 
         // Check if either stopping condition is met
-        if ( stopAtNextStep_ )
+        std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedState( );
+        double currentEstimatedTrueAnomaly = orbital_element_conversions::convertEllipticalEccentricAnomalyToTrueAnomaly(
+                    orbital_element_conversions::convertMeanAnomalyToEccentricAnomaly( currentEstimatedState.second[ 2 ],
+                    currentEstimatedState.second[ 5 ] ), currentEstimatedState.second[ 2 ] );
+        if ( currentEstimatedTrueAnomaly >= mathematical_constants::PI && !maneuveringPhaseComplete_ ) // check mean anomaly
         {
-            stopAtNextStep_ = false;
-            return true;
-        }
-        else
-        {
-            std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedState( );
-            if ( currentEstimatedState.second[ 5 ] >= mathematical_constants::PI ) // check mean anomaly
-            {
 
-            }
+            // Invert completion flags
+            maneuveringPhaseComplete_ = true;
+            atmosphericPhaseComplete_ = false;
+        }
+        else if ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceAltitude_ ) > 0.0 &&
+                    currentEstimatedTrueAnomaly >= 0.0 ) && !atmosphericPhaseComplete_ ) // check altitude
+        {
+
+            // Invert completion flags
+            maneuveringPhaseComplete_ = false;
+            atmosphericPhaseComplete_ = true;
         }
     }
 
@@ -78,6 +92,15 @@ private:
 
     //! Double denoting the previous time in the estimation process.
     double previousTime_;
+
+    //! Boolean denoting whether the maneuvering phase for this orbit has been complete.
+    bool maneuveringPhaseComplete_;
+
+    //! Boolean denoting whether the atmospheric phase for this orbit has been complete.
+    bool atmosphericPhaseComplete_;
+
+    //! Double denoting the atmospheric interface altitude.
+    double atmosphericInterfaceAltitude_;
 
     //! Pointer to the control system for the aerobraking maneuver.
     boost::shared_ptr< ControlSystem > controlSystem_;

@@ -153,7 +153,7 @@ std::pair< boost::shared_ptr< PodOutput< StateScalarType > >, Eigen::VectorXd > 
     LinkEnds linkEnds;
     observation_models::ObservationSettingsMap observationSettingsMap;
 
-    if(observableType == 0 )
+    if( observableType == 0 )
     {
         linkEnds[ observed_body ] = std::make_pair( "Earth", "" );
         observationSettingsMap.insert( std::make_pair( linkEnds, boost::make_shared< ObservationSettings >(

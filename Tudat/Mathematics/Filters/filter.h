@@ -209,6 +209,9 @@ public:
     //! Function to retrieve initial time.
     IndependentVariableType getInitialTime( ) { return initialTime_; }
 
+    //! Function to retrieve step size for integration.
+    IndependentVariableType getIntegrationStepSize( ) { return integrationStepSize_; }
+
     //! Function to retrieve current state estimate.
     /*!
      *  Function to retrieve current state estimate. The state estimate needs to first be computed by updating the

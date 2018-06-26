@@ -40,7 +40,7 @@ private:
 
 };
 
-} // namespace thesis
+} // namespace guidance_navigation_control
 
 } // namespace tudat
 

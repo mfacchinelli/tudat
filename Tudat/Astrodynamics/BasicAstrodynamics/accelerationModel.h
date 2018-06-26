@@ -40,7 +40,6 @@ class AccelerationModel
 {
 public:
 
-
     //! Constructor.
     AccelerationModel( ):
         currentTime_( TUDAT_NAN ){ }

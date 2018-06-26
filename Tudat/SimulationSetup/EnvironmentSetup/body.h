@@ -321,7 +321,7 @@ public:
                 }
             }
             // If body is global frame origin, set state to zeroes, and barycentric state value.
-            else if( bodyIsGlobalFrameOrigin_  == 1 )
+            else if( bodyIsGlobalFrameOrigin_ == 1 )
             {
                 currentState_.setZero( );
                 currentLongState_.setZero( );
@@ -425,7 +425,6 @@ public:
      * \return Current velocity.
      */
     Eigen::Vector3d getVelocity( ) { return currentState_.segment( 3, 3 ); }
-
 
     //! Get current state, in long double precision
     /*!
@@ -643,7 +642,6 @@ public:
     {
         return currentAngularVelocityVectorInGlobalFrame_;
     }
-
 
     //! Function to set the ephemeris of the body.
     /*!

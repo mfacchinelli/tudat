@@ -33,18 +33,22 @@ public:
      */
     NavigationSystem( const boost::shared_ptr< filters::FilterBase< > > navigationFilter,
                       const boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) >& stateTransitionMatrixFunction,
-                      const double gravitationalParameter ) :
+                      const double planetaryGravitationalParameter,
+                      const double planetaryRadius ) :
         navigationFilter_( navigationFilter ), stateTransitionMatrixFunction_( stateTransitionMatrixFunction ),
-        gravitationalParameter_( gravitationalParameter )
+        planetaryGravitationalParameter_( planetaryGravitationalParameter ), planetaryRadius_( planetaryRadius )
     {
         // Set initial time
         currentTime_ = navigationFilter_->getInitialTime( );
+
+        // Retrieve navigation filter step size
+        navigationUpdateStepSize_ = navigationFilter_->getIntegrationStepSize( );
 
         // Set initial state
         currentEstimatedCartesianState_ = navigationFilter_->getCurrentStateEstimate( );
         currentEstimatedKeplerianState_ =
                 orbital_element_conversions::convertCartesianToKeplerianElements( currentEstimatedCartesianState_,
-                                                                                  gravitationalParameter_ );
+                                                                                  planetaryGravitationalParameter_ );
 
         // Store initial time and state
         storeCurrentTimeAndStateEstimates( );
@@ -92,7 +96,8 @@ public:
     {
         currentEstimatedCartesianState_ = newCurrentCartesianState;
         currentEstimatedKeplerianState_ =
-                orbital_element_conversions::convertCartesianToKeplerianElements( newCurrentCartesianState, gravitationalParameter_ );
+                orbital_element_conversions::convertCartesianToKeplerianElements( newCurrentCartesianState,
+                                                                                  planetaryGravitationalParameter_ );
     }
 
     //! Function to set current Keplerian state to new value.
@@ -100,7 +105,8 @@ public:
     {
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
         currentEstimatedCartesianState_ =
-                orbital_element_conversions::convertKeplerianToCartesianElements( newCurrentKeplerianState, gravitationalParameter_ );
+                orbital_element_conversions::convertKeplerianToCartesianElements( newCurrentKeplerianState,
+                                                                                  planetaryGravitationalParameter_ );
     }
 
     //! Function to retrieve history of estimated states over time.
@@ -108,6 +114,12 @@ public:
     {
         return historyOfEstimatedStates_;
     }
+
+    //! Function to retireve standard gravitational parameter of body being orbited.
+    double getStandardGravitationalParameter( ) { return planetaryGravitationalParameter_; }
+
+    //! Function to retireve radius of body being orbited.
+    double getRadius( ) { return planetaryRadius_; }
 
 private:
 
@@ -119,6 +131,9 @@ private:
 
     //! Double denoting the current time in the estimation process.
     double currentTime_;
+
+    //! Double denoting the integration constant time step for navigation.
+    double navigationUpdateStepSize_;
 
     //! Vector denoting the current estimated state in Cartesian elements.
     Eigen::VectorXd currentEstimatedCartesianState_;
@@ -139,12 +154,15 @@ private:
     //! Function to propagate estimated state error.
     boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) > stateTransitionMatrixFunction_;
 
-    //! Standard gravitational parameter.
-    double gravitationalParameter_;
+    //! Standard gravitational parameter of body being orbited.
+    double planetaryGravitationalParameter_;
+
+    //! Radius of body being orbited.
+    double planetaryRadius_;
 
 };
 
-} // namespace thesis
+} // namespace guidance_navigation_control
 
 } // namespace tudat
 
