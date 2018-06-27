@@ -13,6 +13,21 @@
 
 #include <Eigen/Core>
 
+//! Function to compute the error in the current quaternion state, based on the commanded quaternion.
+/*!
+ *  Function to compute the error in the current quaternion state, based on the commanded quaternion. The
+ *  error quaternion is computed by taking the difference between the commanded and estimated quaternions.
+ *  Note that the real part of the error quaternion is zero by default, since only three of the quaternion
+ *  elements are needed to compute the control vector.
+ *  \param currentQuaternionToBaseFrame Current estimated quaternion, expressing the rotation from the
+ *      body-fixed frame to the inertial frame.
+ *  \param currentCommandedQuaternionToBaseFrame Current commanded quaternion, expressing the wanted rotation
+ *      from body-fixed frame to the inertial frame.
+ *  \return Error quaternion, expressing the difference between the commanded and the estimated quaternions.
+ */
+Eigen::Vector4d computeErrorInEstimatedQuaternionState( const Eigen::Vector4d& currentQuaternionToBaseFrame,
+                                                        const Eigen::Vector4d& currentCommandedQuaternionToBaseFrame );
+
 namespace tudat
 {
 
@@ -51,6 +66,12 @@ public:
     Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApsoapsisManeuver_; }
 
 private:
+
+    //! Function to compute the current commanded quaternion to base frame.
+    Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::VectorXd& currentEstimatedState )
+    {
+        return Eigen::Vector4d::UnitX( );
+    }
 
     //! Vector denoting the current quaternion attitude correction.
     Eigen::Vector3d currentControlVector_;

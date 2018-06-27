@@ -35,9 +35,11 @@ public:
     NavigationSystem( const boost::shared_ptr< filters::FilterBase< > > navigationFilter,
                       const boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) >& stateTransitionMatrixFunction,
                       const double planetaryGravitationalParameter,
-                      const double planetaryRadius ) :
+                      const double planetaryRadius,
+                      const double atmosphericInterfaceAltitude ) :
         navigationFilter_( navigationFilter ), stateTransitionMatrixFunction_( stateTransitionMatrixFunction ),
-        planetaryGravitationalParameter_( planetaryGravitationalParameter ), planetaryRadius_( planetaryRadius )
+        planetaryGravitationalParameter_( planetaryGravitationalParameter ), planetaryRadius_( planetaryRadius ),
+        atmosphericInterfaceRadius_( planetaryRadius + atmosphericInterfaceAltitude )
     {
         // Set initial time
         currentTime_ = navigationFilter_->getInitialTime( );
@@ -53,6 +55,8 @@ public:
 
         // Store initial time and state
         storeCurrentTimeAndStateEstimates( );
+
+        // Create root-finder object for bisection of aerodynamic acceleration curve
     }
 
     //! Destructor.
@@ -60,7 +64,7 @@ public:
 
     //! State estimator (SE).
     void runStateEstimator( const double previousTime,
-                         const boost::shared_ptr< system_models::NavigationInstrumentsModel > instrumentsModel );
+                            const boost::shared_ptr< system_models::NavigationInstrumentsModel > instrumentsModel );
 
     //! Periapse time estimator (PTE).
     /*!
@@ -122,11 +126,14 @@ public:
         return historyOfEstimatedStates_;
     }
 
-    //! Function to retireve standard gravitational parameter of body being orbited.
+    //! Function to retireve the standard gravitational parameter of the body being orbited.
     double getStandardGravitationalParameter( ) { return planetaryGravitationalParameter_; }
 
-    //! Function to retireve radius of body being orbited.
+    //! Function to retireve the radius of the body being orbited.
     double getRadius( ) { return planetaryRadius_; }
+
+    //! Function to retireve the atmospheric interface radius of the body being orbited.
+    double getAtmosphericInterfaceRadius( ) { return atmosphericInterfaceRadius_; }
 
 private:
 
@@ -167,16 +174,19 @@ private:
     std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > > currentOrbitHistoryOfEstimatedStates_;
 
     //! Filter object to be used for estimation of state.
-    boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
+    const boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
 
     //! Function to propagate estimated state error.
-    boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) > stateTransitionMatrixFunction_;
+    const boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) > stateTransitionMatrixFunction_;
 
     //! Standard gravitational parameter of body being orbited.
-    double planetaryGravitationalParameter_;
+    const double planetaryGravitationalParameter_;
 
     //! Radius of body being orbited.
-    double planetaryRadius_;
+    const double planetaryRadius_;
+
+    //! Double denoting the atmospheric interface altitude.
+    const double atmosphericInterfaceRadius_;
 
 };
 

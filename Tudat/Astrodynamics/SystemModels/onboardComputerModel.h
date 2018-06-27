@@ -43,7 +43,7 @@ public:
         // Define internal constants
         maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with no need to perform a maneuver
         atmosphericPhaseComplete_ = false;
-        atmosphericInterfaceAltitude_ = navigationSystem_->getRadius( ) + 500.0e3;
+        atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
     }
 
     //! Destructor.
@@ -85,7 +85,7 @@ public:
             maneuveringPhaseComplete_ = true;
             atmosphericPhaseComplete_ = false;
         }
-        else if ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceAltitude_ ) > 0.0 &&
+        else if ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceRadius_ ) > 0.0 &&
                     currentEstimatedTrueAnomaly >= 0.0 ) && !atmosphericPhaseComplete_ ) // check altitude
         {
             // Retireve history of inertial measurement unit measurements
@@ -134,7 +134,7 @@ private:
     bool atmosphericPhaseComplete_;
 
     //! Double denoting the atmospheric interface altitude.
-    double atmosphericInterfaceAltitude_;
+    double atmosphericInterfaceRadius_;
 
     //! Pointer to the control system for the aerobraking maneuver.
     const boost::shared_ptr< ControlSystem > controlSystem_;
