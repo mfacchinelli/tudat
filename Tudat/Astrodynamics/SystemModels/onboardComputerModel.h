@@ -8,14 +8,14 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef TUDAT_GNC_ONBOARD_COMPUTER_H
-#define TUDAT_GNC_ONBOARD_COMPUTER_H
+#ifndef TUDAT_ONBOARD_COMPUTER_MODEL_H
+#define TUDAT_ONBOARD_COMPUTER_MODEL_H
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/stateVectorIndices.h"
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
-#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentModel.h"
+#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/navigationSystem.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/guidanceSystem.h"
 
@@ -28,35 +28,33 @@ namespace guidance_navigation_control
 using namespace tudat::system_models;
 
 //! Class for the onboard computer of the spacecraft.
-class OnboardComputer
+class OnboardComputerModel
 {
 public:
 
     //! Constructor.
-    OnboardComputer( const boost::shared_ptr< ControlSystem > controlSystem,
-                     const boost::shared_ptr< GuidanceSystem > guidanceSystem,
-                     const boost::shared_ptr< NavigationSystem > navigationSystem,
-                     const boost::shared_ptr< NavigationInstrumentModel > instrumentModel ) :
+    OnboardComputerModel( const boost::shared_ptr< ControlSystem > controlSystem,
+                          const boost::shared_ptr< GuidanceSystem > guidanceSystem,
+                          const boost::shared_ptr< NavigationSystem > navigationSystem,
+                          const boost::shared_ptr< NavigationInstrumentsModel > instrumentsModel ) :
         controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem ),
-        instrumentModel_( instrumentModel )
+        instrumentsModel_( instrumentsModel )
     {
         // Define internal constants
-        maneuveringPhaseComplete_ = true;
+        maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with no need to perform a maneuver
         atmosphericPhaseComplete_ = false;
         atmosphericInterfaceAltitude_ = navigationSystem_->getRadius( ) + 500.0e3;
     }
 
     //! Destructor.
-    ~OnboardComputer( ) { }
+    ~OnboardComputerModel( ) { }
 
     //! Function to check whether the propagation is to be be stopped.
     /*!
      *  Function to check whether the propagation is to be be stopped, based on the estimated state. The propagation
-     *  is stopped if either one of the two conditions below is met:
-     *      - spacecraft is estimated to be at apoapsis;
-     *      - spacecraft is estimated to have just left the atmosphere.
-     *  To make sure that the propagation is checked every time step, this function needs to be fed to the propagator
-     *  via the custom propagation termination settings.
+     *  is stopped if the pacecraft is estimated to be at apoapsis. In case the spacecraft is estimated to have just
+     *  left the atmosphere, the post-atmosphere processes are initiated. To make sure that the propagation is checked
+     *  every time step, this function needs to be fed to the propagator via the custom propagation termination settings.
      *  \param currentTime Current time in propagation.
      *  \return Boolean denoting whether the propagation has to be stopped.
      */
@@ -70,9 +68,9 @@ public:
         navigationSystem_->setCurrentTime( currentTime );
 
         // Update filter from previous time to next time
-        navigationSystem_->stateEstimator( previousTime_ );
+        navigationSystem_->runStateEstimator( previousTime_, instrumentsModel_ );
 
-        // Check if either stopping condition is met
+        // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedState( );
         double currentEstimatedTrueAnomaly = currentEstimatedState.second[ orbital_element_conversions::trueAnomalyIndex ];
         if ( currentEstimatedTrueAnomaly >= mathematical_constants::PI && !maneuveringPhaseComplete_ ) // check true anomaly
@@ -80,7 +78,8 @@ public:
             // Stop propagation to add Delta V to actual state
             isPropagationToBeStopped = true;
 
-
+            // Retireve required apoapsis maneuver and feed it to the control system
+            controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
 
             // Invert completion flags
             maneuveringPhaseComplete_ = true;
@@ -89,8 +88,30 @@ public:
         else if ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceAltitude_ ) > 0.0 &&
                     currentEstimatedTrueAnomaly >= 0.0 ) && !atmosphericPhaseComplete_ ) // check altitude
         {
+            // Retireve history of inertial measurement unit measurements
+            std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
+                    instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
+
+            // Extract measured translational accelerations
+            std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedAccelerations;
+            for ( measurementConstantIterator_ measurementIterator = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
+                  measurementIterator != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
+                  measurementIterator++ )
+            {
+                currentOrbitHistoryOfEstimatedAccelerations[ measurementIterator->first ] = measurementIterator->second.segment( 0, 3 );
+            }
+
             // Perform periapse time estimation
-            navigationSystem_->periapseTimeEstimator(  );
+            navigationSystem_->runPeriapseTimeEstimator( currentOrbitHistoryOfEstimatedAccelerations );
+
+            // Perform atmosphere estimation
+            navigationSystem_->runAtmosphereEstimator( currentOrbitHistoryOfEstimatedAccelerations );
+
+            // Perform corridor estimation
+            guidanceSystem_->runCorridorEstimator( );
+
+            // Perform maneuver estimation
+            guidanceSystem_->runManeuverEstimator( );
 
             // Invert completion flags
             maneuveringPhaseComplete_ = false;
@@ -116,16 +137,19 @@ private:
     double atmosphericInterfaceAltitude_;
 
     //! Pointer to the control system for the aerobraking maneuver.
-    boost::shared_ptr< ControlSystem > controlSystem_;
+    const boost::shared_ptr< ControlSystem > controlSystem_;
 
     //! Pointer to the guidance system for the aerobraking maneuver.
-    boost::shared_ptr< GuidanceSystem > guidanceSystem_;
+    const boost::shared_ptr< GuidanceSystem > guidanceSystem_;
 
     //! Pointer to the navigation system for the aerobraking maneuver.
-    boost::shared_ptr< NavigationSystem > navigationSystem_;
+    const boost::shared_ptr< NavigationSystem > navigationSystem_;
 
     //! Pointer to the navigation system for the aerobraking maneuver.
-    boost::shared_ptr< NavigationInstrumentModel > instrumentModel_;
+    const boost::shared_ptr< NavigationInstrumentsModel > instrumentsModel_;
+
+    //! Predefined iterator to save (de)allocation time.
+    std::map< double, Eigen::Vector6d >::const_iterator measurementConstantIterator_;
 
 };
 
@@ -133,4 +157,4 @@ private:
 
 } // namespace tudat
 
-#endif // TUDAT_GNC_ONBOARD_COMPUTER_H
+#endif // TUDAT_ONBOARD_COMPUTER_MODEL_H

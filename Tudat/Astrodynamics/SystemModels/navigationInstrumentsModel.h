@@ -8,8 +8,8 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef TUDAT_NAVIGATION_INSTRUMENT_H
-#define TUDAT_NAVIGATION_INSTRUMENT_H
+#ifndef TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H
+#define TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H
 
 #include <cmath>
 #include <Eigen/Core>
@@ -47,7 +47,7 @@ Eigen::Matrix3d computeScaleMisalignmentMatrix( const Eigen::Vector3d& scaleFact
 }
 
 //! Class for guidance system of an aerobraking maneuver.
-class NavigationInstrumentModel
+class NavigationInstrumentsModel
 {
 public:
 
@@ -59,7 +59,7 @@ public:
      *  \param centralBodies
      *  \param spacecraftName
      */
-    NavigationInstrumentModel( const simulation_setup::NamedBodyMap& bodyMap,
+    NavigationInstrumentsModel( const simulation_setup::NamedBodyMap& bodyMap,
                                const simulation_setup::SelectedAccelerationMap& selectedAccelerationPerBody,
                                const std::map< std::string, std::string >& centralBodies,
                                const std::string& spacecraftName ) :
@@ -72,7 +72,7 @@ public:
     }
 
     //! Destructor.
-    ~NavigationInstrumentModel( ) { }
+    ~NavigationInstrumentsModel( ) { }
 
     //! Function to add an inertial measurement unit to the spacecraft set of instruments.
     /*!
@@ -110,12 +110,12 @@ public:
 
             // Create function for computing corrupted translational accelerations
             inertialMeasurementUnitTranslationalAccelerationFunction_ = boost::bind(
-                        &NavigationInstrumentModel::getCurrentTranslationalAcceleration, this, _1, accelerometerBias,
+                        &NavigationInstrumentsModel::getCurrentTranslationalAcceleration, this, _1, accelerometerBias,
                         computeScaleMisalignmentMatrix( accelerometerScaleFactor, accelerometerMisalignment ) );
 
             // Create function for computing corrupted rotational velocity
             inertialMeasurementUnitRotationalVelocityFunction_ = boost::bind(
-                        &NavigationInstrumentModel::getCurrentRotationalVelocity, this, _1, gyroscopeBias,
+                        &NavigationInstrumentsModel::getCurrentRotationalVelocity, this, _1, gyroscopeBias,
                         computeScaleMisalignmentMatrix( gyroscopeScaleFactor, gyroscopeMisalignment ) );
         }
         else
@@ -147,7 +147,7 @@ public:
 
                 // Create function for computing corrupted spacecraft orientation
                 starTrackerOrientationFunction_ = boost::bind(
-                            &NavigationInstrumentModel::getCurrentAttitude, this, _1 );
+                            &NavigationInstrumentsModel::getCurrentAttitude, this, _1 );
             }
             else
             {
@@ -163,7 +163,7 @@ public:
     }
 
     //! Function to retrieve current inertial measurement unit measurement.
-    Eigen::Vector6d getCurrentInertialMeasurementUnitMeasurement( )
+    Eigen::Vector6d getCurrentInertialMeasurementUnitMeasurement( const double currentTime )
     {
         // Check that an inertial measurement unit is present in the spacecraft
         if ( inertialMeasurementUnitAdded_ )
@@ -181,6 +181,7 @@ public:
 
             // Merge translational and rotational accelerations
             currentInertialMeasurementUnitMeasurement << currentTranslationalAcceleration, currentRotationalVelocity;
+            currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_[ currentTime ] = currentInertialMeasurementUnitMeasurement;
             return currentInertialMeasurementUnitMeasurement;
         }
         else
@@ -191,7 +192,7 @@ public:
     }
 
     //! Function to retrieve current star tracker measurement.
-    Eigen::Vector4d getCurrentStarTrackerMeasurement( )
+    Eigen::Vector4d getCurrentStarTrackerMeasurement( const double currentTime )
     {
         // Check that an inertial measurement unit is present in the spacecraft
         if ( starTrackerAdded_ )
@@ -199,12 +200,38 @@ public:
             // Compute and output orientation
             Eigen::Vector4d currentQuaternionToBaseFrame;
             starTrackerOrientationFunction_( currentQuaternionToBaseFrame );
+            currentOrbitHistoryOfStarTrackerMeasurements_[ currentTime ] = currentQuaternionToBaseFrame;
             return currentQuaternionToBaseFrame;
         }
         else
         {
             throw std::runtime_error( "Error while retrieving rotational velocity from onboard instrument system. No "
                                       "star trackers are present." );
+        }
+    }
+
+    //! Get history of inertial measurement unit measurements for the current orbit.
+    std::map< double, Eigen::Vector6d > getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( )
+    {
+        return currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_;
+    }
+
+    //! Get history of star tracker measurements for the current orbit.
+    std::map< double, Eigen::Vector4d > getCurrentOrbitHistoryOfStarTrackerMeasurements( )
+    {
+        return currentOrbitHistoryOfStarTrackerMeasurements_;
+    }
+
+    //! Clear histories of inertial measurmenet and star tracker measurements for current orbit.
+    void clearCurrentOrbitMeasurementHistories( )
+    {
+        if ( inertialMeasurementUnitAdded_ )
+        {
+            currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.clear( );
+        }
+        if ( starTrackerAdded_ )
+        {
+            currentOrbitHistoryOfStarTrackerMeasurements_.clear( );
         }
     }
 
@@ -443,10 +470,17 @@ private:
     boost::function< void( Eigen::Vector4d&, const Eigen::Vector3d& ) >
     starTrackerOrientationFunction_;
 
+    //! Map of translational accelerations and rotational velocities measured by the inertial measurment unit
+    //! during the current orbit.
+    std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_;
+
+    //! Map of attitude measured by the star tracker during the current orbit.
+    std::map< double, Eigen::Vector4d > currentOrbitHistoryOfStarTrackerMeasurements_;
+
 };
 
 } // namespace system_models
 
 } // namespace tudat
 
-#endif // TUDAT_NAVIGATION_INSTRUMENT_H
+#endif // TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H

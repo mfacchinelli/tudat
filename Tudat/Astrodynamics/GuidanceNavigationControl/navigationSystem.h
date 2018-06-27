@@ -8,10 +8,11 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef TUDAT_GNC_NAVIGATION_H
-#define TUDAT_GNC_NAVIGATION_H
+#ifndef TUDAT_NAVIGATION_SYSTEM_H
+#define TUDAT_NAVIGATION_SYSTEM_H
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
+#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 #include "Tudat/Mathematics/Filters/filter.h"
 
 namespace tudat
@@ -58,7 +59,8 @@ public:
     ~NavigationSystem( ) { }
 
     //! State estimator (SE).
-    void stateEstimator( const double previousTime );
+    void runStateEstimator( const double previousTime,
+                         const boost::shared_ptr< system_models::NavigationInstrumentsModel > instrumentsModel );
 
     //! Periapse time estimator (PTE).
     /*!
@@ -71,10 +73,10 @@ public:
      *  \param estimatedAerodynamicAcceleration Map of time and estimated aerodynamic acceleration; the acceleration is
      *      the one computed from the IMU measurements and is stored as a three-dimensional vector.
      */
-    void periapseTimeEstimator( const std::map< double, Eigen::Vector3d >& estimatedAerodynamicAcceleration );
+    void runPeriapseTimeEstimator( const std::map< double, Eigen::Vector3d >& estimatedAerodynamicAcceleration );
 
     //! Atmosphere estimator (AE).
-    void atmosphereEstimator( );
+    void runAtmosphereEstimator( const std::map< double, Eigen::Vector3d >& estimatedAerodynamicAcceleration );
 
     //! Function to retireve current time.
     double getCurrentTime( ) { return currentTime_; }
@@ -182,4 +184,4 @@ private:
 
 } // namespace tudat
 
-#endif // TUDAT_GNC_NAVIGATION_H
+#endif // TUDAT_NAVIGATION_SYSTEM_H

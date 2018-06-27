@@ -8,8 +8,8 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef TUDAT_GNC_CONTROL_H
-#define TUDAT_GNC_CONTROL_H
+#ifndef TUDAT_CONTROL_SYSTEM_H
+#define TUDAT_CONTROL_SYSTEM_H
 
 #include <Eigen/Core>
 
@@ -25,19 +25,47 @@ class ControlSystem
 public:
 
     //! Constructor.
-    ControlSystem( ) { }
+    ControlSystem( const double proportionalGain, const double integralGain, const double derivativeGain ) :
+        proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain )
+    { }
 
     //! Destructor.
     ~ControlSystem( ) { }
 
-    Eigen::VectorXd getControlVector( )
+    //! Attitude control system.
+    void updateAttitudeController( )
     {
-        return controlVector_;
+        currentControlVector_ = Eigen::Vector3d::Zero( );
     }
+
+    //! Function to update the orbit controller with the scheduled apoapsis maneuver, computed by the guidance system.
+    void updateOrbitController( const Eigen::Vector3d& scheduledApsoapsisManeuver )
+    {
+        scheduledApsoapsisManeuver_ = scheduledApsoapsisManeuver;
+    }
+
+    //! Function to retireve current control vector for attitude.
+    Eigen::Vector3d getCurrentAttitudeControlVector( ) { return currentControlVector_; }
+
+    //! Function to retirieve the apoapsis maneuver.
+    Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApsoapsisManeuver_; }
 
 private:
 
-    Eigen::VectorXd controlVector_;
+    //! Vector denoting the current quaternion attitude correction.
+    Eigen::Vector3d currentControlVector_;
+
+    //! Double denoting the proportional gain for the PID attitude controller.
+    const double proportionalGain_;
+
+    //! Double denoting the integral gain for the PID attitude controller.
+    const double integralGain_;
+
+    //! Double denoting the derivative gain for the PID attitude controller.
+    const double derivativeGain_;
+
+    //! Vector denoting the velocity change scheduled to be applied at apoapsis.
+    Eigen::Vector3d scheduledApsoapsisManeuver_;
 
 };
 
@@ -45,4 +73,4 @@ private:
 
 } // namespace tudat
 
-#endif // TUDAT_GNC_CONTROL_H
+#endif // TUDAT_CONTROL_SYSTEM_H

@@ -7,7 +7,7 @@ namespace guidance_navigation_control
 {
 
 //! Periapse time estimator (PTE).
-void NavigationSystem::periapseTimeEstimator( std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > >& estimatedState,
+void NavigationSystem::runPeriapseTimeEstimator( std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > >& estimatedState,
                                               const std::map< double, Eigen::Vector3d >& estimatedAerodynamicAcceleration )
 {
 

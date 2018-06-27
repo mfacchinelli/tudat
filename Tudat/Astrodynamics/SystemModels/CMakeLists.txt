@@ -11,8 +11,9 @@
 # Set the header files.
 set(SYSTEMMODELS_HEADERS 
   "${SRCROOT}${SYSTEMMODELSDIR}/engineModel.h"
+  "${SRCROOT}${SYSTEMMODELSDIR}/onboardComputerModel.h"
+  "${SRCROOT}${SYSTEMMODELSDIR}/navigationInstrumentsModel.h"
   "${SRCROOT}${SYSTEMMODELSDIR}/vehicleSystems.h"
-  "${SRCROOT}${SYSTEMMODELSDIR}/navigationInstrumentModel.h"
 )
 
 set(SYSTEMMODELS_SOURCES
