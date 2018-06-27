@@ -8,8 +8,8 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef MICHELE_GNC_NAVIGATION
-#define MICHELE_GNC_NAVIGATION
+#ifndef TUDAT_GNC_NAVIGATION_H
+#define TUDAT_GNC_NAVIGATION_H
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Mathematics/Filters/filter.h"
@@ -106,6 +106,9 @@ public:
                                                                                   planetaryGravitationalParameter_ );
     }
 
+    //! Function to retrieve the current estimated density.
+    double getCurrentEstimatedDensity( ) { return currentEstimatedDensity_; }
+
     //! Function to retrieve history of estimated states over time.
     /*!
      *  Function to retrieve history of estimated states over time.
@@ -143,6 +146,9 @@ private:
     //! Vector denoting the current estimated state in Keplerian elements.
     Eigen::VectorXd currentEstimatedKeplerianState_;
 
+    //! Double denoting current estimated density.
+    double currentEstimatedDensity_;
+
     //! History of estimated states in Cartesian and Keplerian elements.
     /*!
      *  History of estimated states in Cartesian and Keplerian elements, stored as a map, where the keys are
@@ -176,4 +182,4 @@ private:
 
 } // namespace tudat
 
-#endif // MICHELE_GNC_NAVIGATION
+#endif // TUDAT_GNC_NAVIGATION_H

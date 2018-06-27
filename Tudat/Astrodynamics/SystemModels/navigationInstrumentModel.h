@@ -8,11 +8,11 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef MICHELE_GNC_INSTRUMENT
-#define MICHELE_GNC_INSTRUMENT
+#ifndef TUDAT_NAVIGATION_INSTRUMENT_H
+#define TUDAT_NAVIGATION_INSTRUMENT_H
 
 #include <cmath>
-#include <eigen/Core>
+#include <Eigen/Core>
 #include <boost/shared_ptr.hpp>
 
 #include "Tudat/Mathematics/Statistics/randomVariableGenerator.h"
@@ -26,7 +26,7 @@
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Function to compute the scale-misalignment matrix from the scale and misalignment vectors.
@@ -47,7 +47,7 @@ Eigen::Matrix3d computeScaleMisalignmentMatrix( const Eigen::Vector3d& scaleFact
 }
 
 //! Class for guidance system of an aerobraking maneuver.
-class InstrumentSystem
+class NavigationInstrumentModel
 {
 public:
 
@@ -59,10 +59,10 @@ public:
      *  \param centralBodies
      *  \param spacecraftName
      */
-    InstrumentSystem( const simulation_setup::NamedBodyMap& bodyMap,
-                      const simulation_setup::SelectedAccelerationMap& selectedAccelerationPerBody,
-                      const std::map< std::string, std::string >& centralBodies,
-                      const std::string& spacecraftName ) :
+    NavigationInstrumentModel( const simulation_setup::NamedBodyMap& bodyMap,
+                               const simulation_setup::SelectedAccelerationMap& selectedAccelerationPerBody,
+                               const std::map< std::string, std::string >& centralBodies,
+                               const std::string& spacecraftName ) :
         bodyMap_( bodyMap ), selectedAccelerationPerBody_( selectedAccelerationPerBody ),
         centralBodies_( centralBodies ), spacecraftName_( spacecraftName )
     {
@@ -72,7 +72,7 @@ public:
     }
 
     //! Destructor.
-    ~InstrumentSystem( ) { }
+    ~NavigationInstrumentModel( ) { }
 
     //! Function to add an inertial measurement unit to the spacecraft set of instruments.
     /*!
@@ -110,12 +110,12 @@ public:
 
             // Create function for computing corrupted translational accelerations
             inertialMeasurementUnitTranslationalAccelerationFunction_ = boost::bind(
-                        &InstrumentSystem::getCurrentTranslationalAcceleration, this, _1, accelerometerBias,
+                        &NavigationInstrumentModel::getCurrentTranslationalAcceleration, this, _1, accelerometerBias,
                         computeScaleMisalignmentMatrix( accelerometerScaleFactor, accelerometerMisalignment ) );
 
             // Create function for computing corrupted rotational velocity
             inertialMeasurementUnitRotationalVelocityFunction_ = boost::bind(
-                        &InstrumentSystem::getCurrentRotationalVelocity, this, _1, gyroscopeBias,
+                        &NavigationInstrumentModel::getCurrentRotationalVelocity, this, _1, gyroscopeBias,
                         computeScaleMisalignmentMatrix( gyroscopeScaleFactor, gyroscopeMisalignment ) );
         }
         else
@@ -147,7 +147,7 @@ public:
 
                 // Create function for computing corrupted spacecraft orientation
                 starTrackerOrientationFunction_ = boost::bind(
-                            &InstrumentSystem::getCurrentAttitude, this, _1 );
+                            &NavigationInstrumentModel::getCurrentAttitude, this, _1 );
             }
             else
             {
@@ -445,8 +445,8 @@ private:
 
 };
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat
 
-#endif // MICHELE_GNC_INSTRUMENT
+#endif // TUDAT_NAVIGATION_INSTRUMENT_H

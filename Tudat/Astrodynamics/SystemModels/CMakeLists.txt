@@ -12,6 +12,7 @@
 set(SYSTEMMODELS_HEADERS 
   "${SRCROOT}${SYSTEMMODELSDIR}/engineModel.h"
   "${SRCROOT}${SYSTEMMODELSDIR}/vehicleSystems.h"
+  "${SRCROOT}${SYSTEMMODELSDIR}/navigationInstrumentModel.h"
 )
 
 set(SYSTEMMODELS_SOURCES

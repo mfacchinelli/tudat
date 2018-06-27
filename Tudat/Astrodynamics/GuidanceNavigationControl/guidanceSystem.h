@@ -8,8 +8,8 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef MICHELE_GNC_GUIDANCE
-#define MICHELE_GNC_GUIDANCE
+#ifndef TUDAT_GNC_GUIDANCE_H
+#define TUDAT_GNC_GUIDANCE_H
 
 #include "Tudat/Basics/basicTypedefs.h"
 
@@ -44,4 +44,4 @@ private:
 
 } // namespace tudat
 
-#endif // MICHELE_GNC_GUIDANCE
+#endif // TUDAT_GNC_GUIDANCE_H

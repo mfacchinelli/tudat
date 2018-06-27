@@ -8,8 +8,10 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef MICHELE_GNC_CONTROL
-#define MICHELE_GNC_CONTROL
+#ifndef TUDAT_GNC_CONTROL_H
+#define TUDAT_GNC_CONTROL_H
+
+#include <Eigen/Core>
 
 namespace tudat
 {
@@ -43,4 +45,4 @@ private:
 
 } // namespace tudat
 
-#endif // MICHELE_GNC_CONTROL
+#endif // TUDAT_GNC_CONTROL_H

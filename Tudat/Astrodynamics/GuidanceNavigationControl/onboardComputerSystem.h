@@ -8,22 +8,24 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef MICHELE_GNC_COMPUTER
-#define MICHELE_GNC_COMPUTER
+#ifndef TUDAT_GNC_ONBOARD_COMPUTER_H
+#define TUDAT_GNC_ONBOARD_COMPUTER_H
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/stateVectorIndices.h"
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/control.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/instrument.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/navigation.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/guidance.h"
+#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
+#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentModel.h"
+#include "Tudat/Astrodynamics/GuidanceNavigationControl/navigationSystem.h"
+#include "Tudat/Astrodynamics/GuidanceNavigationControl/guidanceSystem.h"
 
 namespace tudat
 {
 
 namespace guidance_navigation_control
 {
+
+using namespace tudat::system_models;
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputer
@@ -34,8 +36,9 @@ public:
     OnboardComputer( const boost::shared_ptr< ControlSystem > controlSystem,
                      const boost::shared_ptr< GuidanceSystem > guidanceSystem,
                      const boost::shared_ptr< NavigationSystem > navigationSystem,
-                     const boost::shared_ptr< InstrumentSystem > instrumentSystem ) :
-        controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem )
+                     const boost::shared_ptr< NavigationInstrumentModel > instrumentModel ) :
+        controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem ),
+        instrumentModel_( instrumentModel )
     {
         // Define internal constants
         maneuveringPhaseComplete_ = true;
@@ -121,10 +124,13 @@ private:
     //! Pointer to the navigation system for the aerobraking maneuver.
     boost::shared_ptr< NavigationSystem > navigationSystem_;
 
+    //! Pointer to the navigation system for the aerobraking maneuver.
+    boost::shared_ptr< NavigationInstrumentModel > instrumentModel_;
+
 };
 
 } // namespace thesis
 
 } // namespace tudat
 
-#endif // MICHELE_GNC_COMPUTER
+#endif // TUDAT_GNC_ONBOARD_COMPUTER_H
