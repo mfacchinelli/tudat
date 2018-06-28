@@ -70,7 +70,7 @@ std::vector< DependentVariableType > solveTridiagonalMatrixEquation(
 
     // Perform solution algorithm, from (Press W.H., et al., 2002).
     double scalingFactor = diagonal[ 0 ];
-    solution[ 0 ]= rightHandSide[ 0 ] / scalingFactor;
+    solution[ 0 ] = rightHandSide[ 0 ] / scalingFactor;
 
     for ( unsigned int j = 1; j < matrixSize; j++ )
     {

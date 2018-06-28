@@ -575,6 +575,28 @@ std::map< MapKey, Eigen::Array< ScalarType, Eigen::Dynamic, 1 > > convertStlVect
     return eigenMap;
 }
 
+//! Function to slice standard library vector, given an optional initial and final slicing values.
+template< typename T >
+std::vector< T > sliceStlVector( const std::vector< T >& vectorToBeSliced, const unsigned int startIndex = 0,
+                                 const unsigned int endIndex = std::numeric_limits< unsigned int >::signaling_NaN( ) )
+{
+    // Declare output vector
+    std::vector< T > slicedVector;
+
+    // Give value to end index
+    if ( endIndex == std::numeric_limits< unsigned int >::signaling_NaN( ) )
+    {
+        endIndex = vectorToBeSliced.size( ) - 1;
+    }
+
+    // Transfer values to sliced array
+    for ( unsigned int i = startIndex; i < endIndex; i++ )
+    {
+        slicedVector.push_back( vectorToBeSliced.at( i ) );
+    }
+    return slicedVector;
+}
+
 } // namespace utilities
 
 } // namespace tudat

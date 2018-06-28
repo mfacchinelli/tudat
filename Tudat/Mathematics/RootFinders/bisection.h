@@ -32,6 +32,7 @@
 
 namespace tudat
 {
+
 namespace root_finders
 {
 
@@ -78,11 +79,9 @@ public:
      * \param upperBound Upper bound of the interval containing a root. (Default is 1.0).
      */
     BisectionCore( const TerminationFunction terminationFunction,
-                   const DataType lowerBound = -1.0,
-                   const DataType upperBound = 1.0 )
-        : RootFinderCore< DataType >( terminationFunction ),
-          lowerBound_( lowerBound ),
-          upperBound_( upperBound )
+                   const DataType lowerBound = -1.0, const DataType upperBound = 1.0 ) :
+        RootFinderCore< DataType >( terminationFunction ),
+        lowerBound_( lowerBound ), upperBound_( upperBound )
     { }
 
     //! Constructor taking typical convergence criteria and the bracket of the solution.
@@ -101,15 +100,14 @@ public:
      * \param upperBound Upper bound of the interval containing a root. (Default is 1.0).
      */
     BisectionCore( const DataType relativeXTolerance, const unsigned int maxIterations,
-                   const DataType lowerBound = -1.0, const DataType upperBound = 1.0 ):
+                   const DataType lowerBound = -1.0, const DataType upperBound = 1.0 ) :
         RootFinderCore< DataType >(
             boost::bind(
                 &termination_conditions::RootRelativeToleranceTerminationCondition< DataType >::
                 checkTerminationCondition, boost::make_shared<
                 termination_conditions::RootRelativeToleranceTerminationCondition< DataType > >(
                     relativeXTolerance, maxIterations ), _1, _2, _3, _4, _5 ) ),
-        lowerBound_( lowerBound ),
-        upperBound_( upperBound )
+        lowerBound_( lowerBound ), upperBound_( upperBound )
     { }
 
     //! Default destructor.
@@ -201,7 +199,6 @@ public:
                                            previousRootFunctionValue, counter ) );
 
         return rootValue;
-
     }
 
     //! Reset the bracket of the solution.
@@ -235,6 +232,7 @@ typedef BisectionCore< double > Bisection;
 typedef boost::shared_ptr< Bisection > BisectionPointer;
 
 } // namespace root_finders
+
 } // namespace tudat
 
 #endif // TUDAT_BISECTION_H

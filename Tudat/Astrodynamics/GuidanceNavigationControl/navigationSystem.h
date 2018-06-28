@@ -21,6 +21,25 @@ namespace tudat
 namespace guidance_navigation_control
 {
 
+//! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
+/*!
+ *  Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
+ *  The function returns the difference between the areas under the acceleration curve, computed before and after
+ *  a true anomaly guess provided by the root-finder object. Since the area under the curve is a constant value, the
+ *  slicing procedure will always result in a larger and a smaller value of area, unless the slicing occurs exactly
+ *  at the centroid of the area curve (which is the tagert point). Since no interpolation is used, it is possible that
+ *  the true anomaly guess is not cointained in the estimatedTrueAnomaly vector, thus, the nearest lower index is used
+ *  as reference to compute the area.
+ *  \param currentTrueAnomalyGuess Current guess in true anomaly to be used as slicing parameter.
+ *  \param estimatedTrueAnomaly Vector of the estimated true anomalies below the atmospheric interface.
+ *  \param estimatedAerodynamicAccelerationMagnitude Vector of estimated aerodynamic acceleration magnitudes below the
+ *      atmospheric interface altitude.
+ *  \return Double representing the difference between the areas under the acceleration curve computed before and
+ *      after the current true anomaly estimate (i.e., the slicing parameter).
+ */
+double areaBisectionFunction( const double currentTrueAnomalyGuess, const std::vector< double >& estimatedTrueAnomaly,
+                              const std::vector< double >& estimatedAerodynamicAccelerationMagnitude );
+
 //! Class for the navigation system of an aerobraking maneuver.
 class NavigationSystem
 {
@@ -33,7 +52,7 @@ public:
      *  \param stateTransitionMatrixFunction Function to compute the state transition matrix at the current time and state.
      */
     NavigationSystem( const boost::shared_ptr< filters::FilterBase< > > navigationFilter,
-                      const boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) >& stateTransitionMatrixFunction,
+                      const boost::function< Eigen::MatrixXd( const Eigen::VectorXd& ) >& stateTransitionMatrixFunction,
                       const double planetaryGravitationalParameter,
                       const double planetaryRadius,
                       const double atmosphericInterfaceAltitude ) :
@@ -43,6 +62,7 @@ public:
     {
         // Set initial time
         currentTime_ = navigationFilter_->getInitialTime( );
+        currentOrbitCounter_ = 0;
 
         // Retrieve navigation filter step size
         navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
@@ -57,6 +77,9 @@ public:
         storeCurrentTimeAndStateEstimates( );
 
         // Create root-finder object for bisection of aerodynamic acceleration curve
+        // The values inserted are the tolerance in independent value (i.e., one arcminute of true anomaly) and
+        //      the maximum number of interations (i.e., 10 iterations)
+        areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( 1.7e-3, 10 );
     }
 
     //! Destructor.
@@ -66,7 +89,7 @@ public:
     void runStateEstimator( const double previousTime,
                             const boost::shared_ptr< system_models::NavigationInstrumentsModel > instrumentsModel );
 
-    //! Periapse time estimator (PTE).
+    //! Function to run the Periapse Time Estimator (PTE).
     /*!
      *  Function to estimate the time of periapsis, by finding the centroid of the aerodynamic acceleration curve,
      *  via the bisection root-finder. Then it computes the change in velocity \f$ \Delta V \f$ by integrating the aerodynamic
@@ -74,13 +97,13 @@ public:
      *  pericenter. Then the values of \f$ \Delta \vartheta \f$ (which is derived from the change in time of periapsis crossing)
      *  and \f$ \Delta a \f$ are used to correct the current state estimate, by using the state transition matrix of the
      *  system.
-     *  \param estimatedAerodynamicAcceleration Map of time and estimated aerodynamic acceleration; the acceleration is
+     *  \param mapOfEstimatedAerodynamicAcceleration Map of time and estimated aerodynamic acceleration; the acceleration is
      *      the one computed from the IMU measurements and is stored as a three-dimensional vector.
      */
-    void runPeriapseTimeEstimator( const std::map< double, Eigen::Vector3d >& estimatedAerodynamicAcceleration );
+    void runPeriapseTimeEstimator( const std::map< double, Eigen::Vector3d >& mapOfEstimatedAerodynamicAcceleration );
 
-    //! Atmosphere estimator (AE).
-    void runAtmosphereEstimator( const std::map< double, Eigen::Vector3d >& estimatedAerodynamicAcceleration );
+    //! Function to run the Atmosphere Estimator (AE).
+    void runAtmosphereEstimator( const std::map< double, Eigen::Vector3d >& mapOfEstimatedAerodynamicAcceleration );
 
     //! Function to retireve current time.
     double getCurrentTime( ) { return currentTime_; }
@@ -98,18 +121,18 @@ public:
     void setCurrentEstimatedCartesianState( const Eigen::VectorXd& newCurrentCartesianState )
     {
         currentEstimatedCartesianState_ = newCurrentCartesianState;
-        currentEstimatedKeplerianState_ =
-                orbital_element_conversions::convertCartesianToKeplerianElements( newCurrentCartesianState,
-                                                                                  planetaryGravitationalParameter_ );
+        currentEstimatedKeplerianState_ = orbital_element_conversions::convertCartesianToKeplerianElements(
+                    newCurrentCartesianState, planetaryGravitationalParameter_ );
+        storeCurrentTimeAndStateEstimates( ); // overwrite previous values
     }
 
     //! Function to set current Keplerian state to new value.
     void setCurrentEstimatedKeplerianState( const Eigen::VectorXd& newCurrentKeplerianState )
     {
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
-        currentEstimatedCartesianState_ =
-                orbital_element_conversions::convertKeplerianToCartesianElements( newCurrentKeplerianState,
-                                                                                  planetaryGravitationalParameter_ );
+        currentEstimatedCartesianState_ = orbital_element_conversions::convertKeplerianToCartesianElements(
+                    newCurrentKeplerianState, planetaryGravitationalParameter_ );
+        storeCurrentTimeAndStateEstimates( ); // overwrite previous values
     }
 
     //! Function to retrieve the current estimated density.
@@ -143,8 +166,26 @@ private:
         historyOfEstimatedStates_[ currentTime_ ] = std::make_pair( currentEstimatedCartesianState_, currentEstimatedKeplerianState_ );
     }
 
+    //! Filter object to be used for estimation of state.
+    const boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
+
+    //! Function to propagate estimated state error.
+    const boost::function< Eigen::MatrixXd( const Eigen::VectorXd& ) > stateTransitionMatrixFunction_;
+
+    //! Standard gravitational parameter of body being orbited.
+    const double planetaryGravitationalParameter_;
+
+    //! Radius of body being orbited.
+    const double planetaryRadius_;
+
+    //! Double denoting the atmospheric interface altitude.
+    const double atmosphericInterfaceRadius_;
+
     //! Double denoting the current time in the estimation process.
     double currentTime_;
+
+    //! Double denoting the current time in the estimation process.
+    unsigned int currentOrbitCounter_;
 
     //! Double denoting the integration constant time step for navigation.
     double navigationRefreshStepSize_;
@@ -154,6 +195,12 @@ private:
 
     //! Vector denoting the current estimated state in Keplerian elements.
     Eigen::VectorXd currentEstimatedKeplerianState_;
+
+    //! Pointer to root-finder used to esimated the time of periapsis.
+    boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;
+
+    //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
+    std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;
 
     //! Double denoting current estimated density.
     double currentEstimatedDensity_;
@@ -172,21 +219,6 @@ private:
      *  Keplerian elements.
      */
     std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > > currentOrbitHistoryOfEstimatedStates_;
-
-    //! Filter object to be used for estimation of state.
-    const boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
-
-    //! Function to propagate estimated state error.
-    const boost::function< Eigen::MatrixXd( const double, const Eigen::VectorXd& ) > stateTransitionMatrixFunction_;
-
-    //! Standard gravitational parameter of body being orbited.
-    const double planetaryGravitationalParameter_;
-
-    //! Radius of body being orbited.
-    const double planetaryRadius_;
-
-    //! Double denoting the atmospheric interface altitude.
-    const double atmosphericInterfaceRadius_;
 
 };
 

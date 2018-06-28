@@ -19,6 +19,7 @@
 
 namespace tudat
 {
+
 namespace basic_astrodynamics
 {
 
@@ -30,9 +31,9 @@ double computeKeplerOrbitalPeriod( const double semiMajorAxis,
                                    const double massOfOrbitingBody )
 {
     return 2.0 * PI * std::sqrt( std::pow( semiMajorAxis, 3.0 )
-                                   /  ( ( physical_constants::GRAVITATIONAL_CONSTANT
-                                          * massOfOrbitingBody )
-                                        + gravitationalParameterOfCentralBody ) );
+                                 / ( ( physical_constants::GRAVITATIONAL_CONSTANT
+                                       * massOfOrbitingBody )
+                                     + gravitationalParameterOfCentralBody ) );
 }
 
 //! Compute Kepler angular momentum.
@@ -47,10 +48,10 @@ double computeKeplerAngularMomentum( const double semiMajorAxis, const double ec
 //! Compute Kepler mean motion.
 double computeKeplerMeanMotion( const double semiMajorAxis,
                                 const double gravitationalParameterOfCentralBody,
-        const double massOfOrbitingBody )
+                                const double massOfOrbitingBody )
 {
     return std::sqrt( ( ( physical_constants::GRAVITATIONAL_CONSTANT * massOfOrbitingBody )
-                      + gravitationalParameterOfCentralBody ) / std::pow( semiMajorAxis, 3.0 ) );
+                        + gravitationalParameterOfCentralBody ) / std::pow( semiMajorAxis, 3.0 ) );
 }
 
 //! Compute Kepler orbital energy.
@@ -86,6 +87,6 @@ double computePeriapsisAltitudeFromCartesianState( const Eigen::Vector6d& state,
                     state, centralBodyGravitationalParameter ), centralBodyRadius );
 }
 
-
 } // namespace basic_astrodynamics
+
 } // namespace tudat

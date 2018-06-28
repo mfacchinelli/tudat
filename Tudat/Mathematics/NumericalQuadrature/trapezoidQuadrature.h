@@ -6,6 +6,10 @@
  *    under the terms of the Modified BSD license. You should have received
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
+ *
+ *    References:
+ *      Press, W., Flannery, B., Teukolsky, S., and Vetterling, W., Numerical Recipes in Fortran 77: The Art of Scientific Computing,
+ *          2nd ed. Cambridge University Press, 1992, vol. 1.
  */
 
 #ifndef TUDAT_TRAPEZOIDAL_INTEGRATOR_H
@@ -18,16 +22,39 @@
 #include <Eigen/Core>
 
 #include "Tudat/Mathematics/NumericalQuadrature/numericalQuadrature.h"
+
 namespace tudat
 {
 
 namespace numerical_quadrature
 {
 
-
 //! Function to perform numerical quadrature using the trapezoidal method.
 /*!
  * Function to perform numerical quadrature using the trapezoidal method.
+ * \param independentVariables Values of independent variables at which dependentVariables are given
+ * \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
+ * independentVariables.
+ * \return Numerical quadrature (integral) of the data provided as input
+ */
+template< typename IndependentVariableType, typename DependentVariableType >
+DependentVariableType performTrapezoidalQuadrature(
+        const std::vector< IndependentVariableType >& independentVariables,
+        const std::vector< DependentVariableType >& dependentVariables )
+{
+    DependentVariableType integral = dependentVariables.at( 0 ) - dependentVariables.at( 0 );
+    IndependentVariableType timeStep;
+    for( unsigned int i = 0 ; i < independentVariables.size( ) - 1 ; i++ )
+    {
+        timeStep = independentVariables[ i + 1 ] - independentVariables[ i ];
+        integral += timeStep * ( dependentVariables[ i + 1 ] + dependentVariables[ i ] ) / 2.0 ;
+    }
+    return integral;
+}
+
+//! Function to perform numerical quadrature using the extended Simpson's method.
+/*!
+ * Function to perform numerical quadrature using the extended Simpson's method (Press et al., 1992).
  * \param independentVariables Values of independent variables at which dependentVariables are given
  * \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
  * independentVariables.
@@ -65,7 +92,7 @@ public:
      * independentVariables.
      */
     TrapezoidNumericalQuadrature( const std::vector< IndependentVariableType >& independentVariables,
-                                  const std::vector< DependentVariableType >& dependentVariables)
+                                  const std::vector< DependentVariableType >& dependentVariables )
     {
         independentVariables_ = independentVariables;
         dependentVariables_ = dependentVariables;
