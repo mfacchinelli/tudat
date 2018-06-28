@@ -81,6 +81,9 @@ public:
             // Retireve required apoapsis maneuver and feed it to the control system
             controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
 
+            // Run house keeping routines
+            runHouseKeepingRoutines( );
+
             // Invert completion flags
             maneuveringPhaseComplete_ = true;
             atmosphericPhaseComplete_ = false;
@@ -101,16 +104,12 @@ public:
                 currentOrbitHistoryOfEstimatedAccelerations[ measurementIterator->first ] = measurementIterator->second.segment( 0, 3 );
             }
 
-            // Perform periapse time estimation
+            // Perform periapse time and atmosphere estimations
             navigationSystem_->runPeriapseTimeEstimator( currentOrbitHistoryOfEstimatedAccelerations );
-
-            // Perform atmosphere estimation
             navigationSystem_->runAtmosphereEstimator( currentOrbitHistoryOfEstimatedAccelerations );
 
-            // Perform corridor estimation
+            // Perform corridor and maneuver estimations
             guidanceSystem_->runCorridorEstimator( );
-
-            // Perform maneuver estimation
             guidanceSystem_->runManeuverEstimator( );
 
             // Invert completion flags
@@ -123,6 +122,13 @@ public:
     }
 
 private:
+
+    //! Function to run house keeping routines when new orbit is initiated.
+    void runHouseKeepingRoutines( )
+    {
+        navigationSystem_->clearCurrentOrbitEstimationHistory( );
+        instrumentsModel_->clearCurrentOrbitMeasurementHistories( );
+    }
 
     //! Double denoting the previous time in the estimation process.
     double previousTime_;

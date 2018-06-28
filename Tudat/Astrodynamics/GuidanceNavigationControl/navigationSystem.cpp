@@ -91,6 +91,12 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
                                  vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ) ) );
     std::cout << "Estimated Error in True Anomaly: " <<
                  unit_conversions::convertDegreesToRadians( estimatedErrorInTrueAnomaly ) << " deg" << std::endl;
+    // note that this represents directly the error in estimated true anomaly, since the true anomaly of
+    // periapsis is zero by definition
+
+    // Find nearest lower index to error in true anomaly
+    int estimatedPeriapsisIndex = basic_mathematics::computeNearestLeftNeighborUsingBinarySearch(
+                estimatedErrorInTrueAnomaly, estimatedTrueAnomalyBelowAtmosphericInterface );
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double esimatedChangeInVelocity = - numerical_quadrature::performTrapezoidalQuadrature(
@@ -123,11 +129,13 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
 
     // Correct latest estimated Keplerian state with new information from PTE
+    double timeFromPeriapsisToCurrentPosition = timeBelowAtmosphericInterface[ timeBelowAtmosphericInterface.rows( ) ] -
+            timeBelowAtmosphericInterface[ estimatedPeriapsisIndex ];
     Eigen::Vector6d updatedCurrentEstimatedKeplerianState = initialEstimatedKeplerianState;
-    initialEstimatedKeplerianState[ 5 ] = 0.0; // set true anomaly to periapsis, to assume that no change in orbit has occurred
-                                               // during atmospheric phase
+    initialEstimatedKeplerianState[ 5 ] = 0.0; // set true anomaly to periapsis, to assume that no change in orbital elements
+                                               // has occurred during atmospheric phase
     updatedCurrentEstimatedKeplerianState += stateTransitionMatrixFunction_( initialEstimatedKeplerianState ) *
-            estimatedErrorInKeplerianState * timeStep;
+            estimatedErrorInKeplerianState * timeFromPeriapsisToCurrentPosition;
 
     // Update navigation system state estimates
     setCurrentEstimatedKeplerianState( updatedCurrentEstimatedKeplerianState );

@@ -8,8 +8,8 @@
  *    http://tudat.tudelft.nl/LICENSE.
  *
  *    References:
- *      Press, W., Flannery, B., Teukolsky, S., and Vetterling, W., Numerical Recipes in Fortran 77: The Art of Scientific Computing,
- *          2nd ed. Cambridge University Press, 1992, vol. 1.
+ *      Press, W., Flannery, B., Teukolsky, S., and Vetterling, W., Numerical Recipes in Fortran 77:
+ *          The Art of Scientific Computing, 2nd ed. Cambridge University Press, 1992, vol. 1.
  */
 
 #ifndef TUDAT_TRAPEZOIDAL_INTEGRATOR_H
@@ -32,10 +32,10 @@ namespace numerical_quadrature
 //! Function to perform numerical quadrature using the trapezoidal method.
 /*!
  * Function to perform numerical quadrature using the trapezoidal method.
- * \param independentVariables Values of independent variables at which dependentVariables are given
+ * \param independentVariables Values of independent variables at which dependentVariables are given.
  * \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
  * independentVariables.
- * \return Numerical quadrature (integral) of the data provided as input
+ * \return Numerical quadrature (integral) of the data provided as input.
  */
 template< typename IndependentVariableType, typename DependentVariableType >
 DependentVariableType performTrapezoidalQuadrature(
@@ -54,23 +54,39 @@ DependentVariableType performTrapezoidalQuadrature(
 
 //! Function to perform numerical quadrature using the extended Simpson's method.
 /*!
- * Function to perform numerical quadrature using the extended Simpson's method (Press et al., 1992).
- * \param independentVariables Values of independent variables at which dependentVariables are given
+ * Function to perform numerical quadrature using the extended Simpson's method (Press et al., 1992). Note
+ * that the spacing of the (in)dependent needs to be constant.
+ * \param constantIndependentVariableStep Constant independent variable step size.
  * \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
  * independentVariables.
- * \return Numerical quadrature (integral) of the data provided as input
+ * \return Numerical quadrature (integral) of the data provided as input.
  */
 template< typename IndependentVariableType, typename DependentVariableType >
-DependentVariableType performTrapezoidalQuadrature(
-        const std::vector< IndependentVariableType >& independentVariables,
+DependentVariableType performExtendedSimpsonsQuadrature(
+        const IndependentVariableType constantIndependentVariableStep,
         const std::vector< DependentVariableType >& dependentVariables )
 {
+    // Get initial variables
     DependentVariableType integral = dependentVariables.at( 0 ) - dependentVariables.at( 0 );
-    IndependentVariableType timeStep;
-    for( unsigned int i = 0 ; i < independentVariables.size( ) - 1 ; i++ )
+    unsigned int numberOfVariables = dependentVariables.size( );
+
+    // Create weight vector
+    std::vector< IndependentVariableType > vectorOfWeights = std::vector< IndependentVariableType >( numberOfVariables,
+                                                                                                     constantIndependentVariableStep );
+
+    vectorOfWeights.at( 0 ) *= 3.0 / 8.0;
+    vectorOfWeights.at( numberOfVariables - 1 ) *= 3.0 / 8.0;
+
+    vectorOfWeights.at( 1 ) *= 7.0 / 6.0;
+    vectorOfWeights.at( numberOfVariables - 2 ) *= 7.0 / 6.0;
+
+    vectorOfWeights.at( 2 ) *= 23.0 / 24.0;
+    vectorOfWeights.at( numberOfVariables - 3 ) *= 23.0 / 24.0;
+
+    // Loop over each time step and return result
+    for( unsigned int i = 0 ; i < numberOfVariables; i++ )
     {
-        timeStep = independentVariables[ i + 1 ] - independentVariables[ i ];
-        integral += timeStep * ( dependentVariables[ i + 1 ] + dependentVariables[ i ] ) / 2.0 ;
+        integral += vectorOfWeights[ i ] * dependentVariables[ i ];
     }
     return integral;
 }

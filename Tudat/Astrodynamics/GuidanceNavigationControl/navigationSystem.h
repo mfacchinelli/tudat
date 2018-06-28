@@ -158,6 +158,12 @@ public:
     //! Function to retireve the atmospheric interface radius of the body being orbited.
     double getAtmosphericInterfaceRadius( ) { return atmosphericInterfaceRadius_; }
 
+    //! Clear current orbit estimation history.
+    void clearCurrentOrbitEstimationHistory( )
+    {
+        currentOrbitHistoryOfEstimatedStates_.clear( );
+    }
+
 private:
 
     //! Function to store current time and current state estimates.
