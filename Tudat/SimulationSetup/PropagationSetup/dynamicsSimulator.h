@@ -29,6 +29,7 @@
 #include "Tudat/SimulationSetup/PropagationSetup/propagationTermination.h"
 #include "Tudat/Astrodynamics/Propagators/dynamicsStateDerivativeModel.h"
 #include "Tudat/Mathematics/Interpolators/lagrangeInterpolator.h"
+#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
 
 namespace tudat
 {
@@ -265,6 +266,12 @@ protected:
      */
     virtual void processNumericalEquationsOfMotionSolution( ) = 0;
 
+//    //! Function to retrieve concatenated control vectors for current time.
+//    Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > retrieveCurrentControlVectors( )
+//    {
+
+//    }
+
     //!  Map of bodies (with names) of all bodies in integration.
     simulation_setup::NamedBodyMap bodyMap_;
 
@@ -381,7 +388,8 @@ public:
 
         stateDerivativeFunction_ =
                 boost::bind( &DynamicsStateDerivativeModel< TimeType, StateScalarType >::computeStateDerivative,
-                             dynamicsStateDerivative_, _1, _2 );
+                             dynamicsStateDerivative_, _1, _2 );//,
+//                             boost::bind( &DynamicsSimulator< StateScalarType, TimeType >::retrieveCurrentControlVectors, this ) );
         doubleStateDerivativeFunction_ =
                 boost::bind( &DynamicsStateDerivativeModel< TimeType, StateScalarType >::computeStateDoubleDerivative,
                              dynamicsStateDerivative_, _1, _2 );

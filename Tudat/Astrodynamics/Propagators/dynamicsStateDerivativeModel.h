@@ -223,7 +223,7 @@ public:
 
             variationalEquations_->evaluateVariationalEquations< StateScalarType >(
                         time, state.block( 0, 0, totalConventionalStateSize_, variationalEquations_->getNumberOfParameterValues( ) ),
-                        stateDerivative_.block( 0, 0, totalConventionalStateSize_, variationalEquations_->getNumberOfParameterValues( ) )  );
+                        stateDerivative_.block( 0, 0, totalConventionalStateSize_, variationalEquations_->getNumberOfParameterValues( ) ) );
         }
 
         // Update counters
@@ -244,7 +244,8 @@ public:
     Eigen::MatrixXd computeStateDoubleDerivative(
             const double time, const Eigen::MatrixXd& state )
     {
-        return computeStateDerivative( static_cast< TimeType >( time ), state.template cast< StateScalarType >( ) ).template cast< double >( );
+        return computeStateDerivative( static_cast< TimeType >( time ),
+                                       state.template cast< StateScalarType >( ) ).template cast< double >( );
     }
 
     //! Function to convert the state in the conventional form to the propagator-specific form.

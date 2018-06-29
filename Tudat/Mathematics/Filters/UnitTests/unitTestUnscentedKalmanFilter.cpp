@@ -88,7 +88,8 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterFirstCase )
 
     // Create extended Kalman filter object
     UnscentedKalmanFilterDoublePointer unscentedFilter = boost::make_shared< UnscentedKalmanFilterDouble >(
-                boost::bind( &stateFunction1, _1, _2, control->getControlVector( ) ),
+                boost::bind( &stateFunction1, _1, _2,
+                             boost::bind( &ControlWrapper< double, double, 2 >::getControlVector, control ) ),
                 boost::bind( &measurementFunction1, _1, _2 ),
                 systemUncertainty, measurementUncertainty,
                 initialTime, initialEstimatedStateVector, initialEstimatedStateCovarianceMatrix,
@@ -231,7 +232,8 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterSecondCase )
     // Create extended Kalman filter object
     boost::shared_ptr< KalmanFilterBase< long double, long double > > unscentedFilter =
             boost::make_shared< UnscentedKalmanFilter< long double, long double > >(
-                boost::bind( &stateFunction2, _1, _2, control->getControlVector( ) ),
+                boost::bind( &stateFunction2, _1, _2,
+                             boost::bind( &ControlWrapper< long double, long double, 3 >::getControlVector, control ) ),
                 boost::bind( &measurementFunction2, _1, _2 ),
                 systemUncertainty, measurementUncertainty,
                 initialTime, initialEstimatedStateVector, initialEstimatedStateCovarianceMatrix,
@@ -343,7 +345,8 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterThirdCase )
 
     // Create extended Kalman filter object
     UnscentedKalmanFilterDoublePointer unscentedFilter = boost::make_shared< UnscentedKalmanFilterDouble >(
-                boost::bind( &stateFunction3, _1, _2, control->getControlVector( ) ),
+                boost::bind( &stateFunction3, _1, _2,
+                             boost::bind( &ControlWrapper< double, double, 3 >::getControlVector, control ) ),
                 boost::bind( &measurementFunction3, _1, _2 ),
                 systemUncertainty, measurementUncertainty,
                 initialTime, initialEstimatedStateVector, initialEstimatedStateCovarianceMatrix,

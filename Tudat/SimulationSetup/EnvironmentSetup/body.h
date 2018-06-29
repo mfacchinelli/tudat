@@ -219,16 +219,14 @@ public:
      * Constructor for a body, sets current state (with zero default value).
      * \param state Current state of body at initialization (default = zeroes).
      */
-    Body( const Eigen::Vector6d& state =
-            Eigen::Vector6d::Zero( ) )
-        : bodyIsGlobalFrameOrigin_( -1 ), currentState_( state ), timeOfCurrentState_( TUDAT_NAN ),
-          ephemerisFrameToBaseFrame_( boost::make_shared< BaseStateInterfaceImplementation< double, double > >(
-                                          "", boost::lambda::constant( Eigen::Vector6d::Zero( ) ) ) ),
-          currentRotationToLocalFrame_( Eigen::Quaterniond( Eigen::Matrix3d::Identity( ) ) ),
-          currentRotationToLocalFrameDerivative_( Eigen::Matrix3d::Zero( ) ),
-          currentAngularVelocityVectorInGlobalFrame_( Eigen::Vector3d::Zero( ) ),
-          bodyMassFunction_( NULL ),
-          bodyInertiaTensor_( Eigen::Matrix3d::Zero( ) )
+    Body( const Eigen::Vector6d& state = Eigen::Vector6d::Zero( ) ) :
+        bodyIsGlobalFrameOrigin_( -1 ), currentState_( state ), timeOfCurrentState_( TUDAT_NAN ),
+        ephemerisFrameToBaseFrame_( boost::make_shared< BaseStateInterfaceImplementation< double, double > >(
+                                        "", boost::lambda::constant( Eigen::Vector6d::Zero( ) ) ) ),
+        currentRotationToLocalFrame_( Eigen::Quaterniond( Eigen::Matrix3d::Identity( ) ) ),
+        currentRotationToLocalFrameDerivative_( Eigen::Matrix3d::Zero( ) ),
+        currentAngularVelocityVectorInGlobalFrame_( Eigen::Vector3d::Zero( ) ),
+        bodyMassFunction_( NULL ), bodyInertiaTensor_( Eigen::Matrix3d::Zero( ) )
     {
         currentLongState_ = currentState_.cast< long double >( );
     }
@@ -252,7 +250,6 @@ public:
     {
         ephemerisFrameToBaseFrame_ = ephemerisFrameToBaseFrame;
     }
-
 
     //! Set current state of body manually
     /*!
@@ -1146,13 +1143,8 @@ private:
     //! Current state with long double precision.
     Eigen::Matrix< long double, 6, 1 > currentBarycentricLongState_;
 
-
-
-
     //! Time at which state was last set from ephemeris
     Time timeOfCurrentState_;
-
-
 
     //! Class returning the state of this body's ephemeris origin w.r.t. the global origin (as typically created by
     //! setGlobalFrameBodyEphemerides function).
@@ -1175,10 +1167,8 @@ private:
     //! Function returning body mass as a function of time.
     boost::function< double( const double ) > bodyMassFunction_;
 
-
     //! Body moment-of-inertia tensor.
     Eigen::Matrix3d bodyInertiaTensor_;
-
 
     //! Ephemeris of body.
     boost::shared_ptr< ephemerides::Ephemeris > bodyEphemeris_;

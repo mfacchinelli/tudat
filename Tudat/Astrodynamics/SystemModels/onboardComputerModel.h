@@ -15,17 +15,25 @@
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
-#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/navigationSystem.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/guidanceSystem.h"
+
+#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
-using namespace tudat::system_models;
+using namespace tudat::guidance_navigation_control;
+
+//! Function to model the onboard system dynamics based on the simplified onboard model.
+Eigen::Matrix< double, 16, 1 > onboardSystemModel( const double currentTime,
+                                                   const Eigen::Matrix< double, 16, 1 >& currentStateVector,
+                                                   const Eigen::VectorXd& currentControlVector,
+                                                   const Eigen::Vector3d& currentTranslationalAccelerationVector,
+                                                   const Eigen::Vector3d& currentRotationalVelocityVector );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
@@ -44,6 +52,15 @@ public:
         maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with no need to perform a maneuver
         atmosphericPhaseComplete_ = false;
         atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
+
+        // Create navigation filter based on user inputs
+        navigationSystem_->createNavigationFilter(
+                    boost::bind( &onboardSystemModel, _1, _2,
+                                 boost::bind( &ControlSystem::getCurrentAttitudeControlVector, controlSystem_ ),
+                                 boost::bind( &NavigationSystem::getCurrentEstimatedAcceleration, navigationSystem_ ),
+                                 boost::bind( &NavigationInstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) ),
+                    boost::bind( &onboardMeasurementModel, _1, _2,
+                                 boost::bind( &NavigationInstrumentsModel::getCurrentStarTrackerMeasurement, instrumentsModel_ ) ) );
     }
 
     //! Destructor.
@@ -68,12 +85,13 @@ public:
         navigationSystem_->setCurrentTime( currentTime );
 
         // Update filter from previous time to next time
-        navigationSystem_->runStateEstimator( previousTime_, instrumentsModel_ );
+        instrumentsModel_->updateInstruments( currentTime );
+        navigationSystem_->runStateEstimator( previousTime_ );
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
-        std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedState( );
+        std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
         double currentEstimatedTrueAnomaly = currentEstimatedState.second[ orbital_element_conversions::trueAnomalyIndex ];
-        if ( currentEstimatedTrueAnomaly >= mathematical_constants::PI && !maneuveringPhaseComplete_ ) // check true anomaly
+        if ( ( currentEstimatedTrueAnomaly >= mathematical_constants::PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
         {
             // Stop propagation to add Delta V to actual state
             isPropagationToBeStopped = true;
@@ -88,8 +106,8 @@ public:
             maneuveringPhaseComplete_ = true;
             atmosphericPhaseComplete_ = false;
         }
-        else if ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceRadius_ ) > 0.0 &&
-                    currentEstimatedTrueAnomaly >= 0.0 ) && !atmosphericPhaseComplete_ ) // check altitude
+        else if ( ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceRadius_ ) > 0.0 ) &&
+                    ( currentEstimatedTrueAnomaly >= 0.0 ) ) && !atmosphericPhaseComplete_ ) // check altitude
         {
             // Retireve history of inertial measurement unit measurements
             std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =

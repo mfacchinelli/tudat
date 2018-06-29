@@ -276,7 +276,6 @@ public:
         return currentBodyFixedGroundSpeedBasedState_.segment( 3, 3 );
     }
 
-
     //! Function to reset the value of the currentBodyAngleTime_ variable
     /*!
      * Function to reset the value of the currentBodyAngleTime_ variable. Typically used to reset the time to NaN,

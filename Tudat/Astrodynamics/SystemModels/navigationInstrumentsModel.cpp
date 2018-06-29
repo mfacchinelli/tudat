@@ -42,18 +42,14 @@ void NavigationInstrumentsModel::addInertialMeasurementUnit( const Eigen::Vector
         // Generate random noise distribution
         generateInertialMeasurementUnitRandomNoiseDistribution( accelerometerAccuracy, gyroscopeAccuracy );
 
-        // Create acceleration model object
-        accelerationModelMap_ = simulation_setup::createAccelerationModelsMap( bodyMap_, selectedAccelerationPerBody_,
-                                                                               centralBodies_ );
-
         // Create function for computing corrupted translational accelerations
         inertialMeasurementUnitTranslationalAccelerationFunction_ = boost::bind(
-                    &NavigationInstrumentsModel::getCurrentTranslationalAcceleration, this, _1, accelerometerBias,
+                    &NavigationInstrumentsModel::getCurrentTranslationalAcceleration, this, accelerometerBias,
                     computeScaleMisalignmentMatrix( accelerometerScaleFactor, accelerometerMisalignment ) );
 
         // Create function for computing corrupted rotational velocity
         inertialMeasurementUnitRotationalVelocityFunction_ = boost::bind(
-                    &NavigationInstrumentsModel::getCurrentRotationalVelocity, this, _1, gyroscopeBias,
+                    &NavigationInstrumentsModel::getCurrentRotationalVelocity, this, gyroscopeBias,
                     computeScaleMisalignmentMatrix( gyroscopeScaleFactor, gyroscopeMisalignment ) );
     }
     else
@@ -80,7 +76,7 @@ void NavigationInstrumentsModel::addStarTracker( const unsigned int numberOfStar
 
             // Create function for computing corrupted spacecraft orientation
             starTrackerOrientationFunction_ = boost::bind(
-                        &NavigationInstrumentsModel::getCurrentAttitude, this, _1 );
+                        &NavigationInstrumentsModel::getCurrentAttitude, this );
         }
         else
         {

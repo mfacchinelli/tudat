@@ -455,8 +455,10 @@ createOneDimensionalInterpolator(
     // Check that boundary handling is one-dimensional
     if ( interpolatorSettings->getBoundaryHandling( ).size( ) != 1 )
     {
-        throw std::runtime_error( "Error while creating interpolator of type: " + std::to_string( interpolatorSettings->getInterpolatorType( ) ) +
-                                  ". The interpolator is one-dimensional, but more than one boundary handling methods have been defined." );
+        throw std::runtime_error( "Error while creating interpolator of type: " +
+                                  std::to_string( interpolatorSettings->getInterpolatorType( ) ) +
+                                  ". The interpolator is one-dimensional, but more than one boundary "
+                                  "handling methods have been defined." );
     }
 
     // Check type of interpolator.

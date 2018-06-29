@@ -87,6 +87,10 @@ public:
         ratioOfSpecificHeats_( ratioOfSpecificHeats ), boundaryHandling_( boundaryHandling ),
         defaultExtrapolationValue_( defaultExtrapolationValue )
     {
+        // Set default dependent variables
+        dependentVariablesDependency_ = std::vector< bool >( 6, false ); // only 6 dependent variables supported
+        dependentVariableIndices_ = std::vector< unsigned int >( 6, 0 ); // only 6 dependent variables supported
+
         // Initialize atmosphere
         initialize( );
     }
@@ -177,6 +181,10 @@ public:
                 }
             }
         }
+
+        // Set default dependent variables
+        dependentVariablesDependency_ = std::vector< bool >( 6, false ); // only 6 dependent variables supported
+        dependentVariableIndices_ = std::vector< unsigned int >( 6, 0 ); // only 6 dependent variables supported
 
         // Initialize atmosphere
         initialize( );
@@ -517,7 +525,7 @@ private:
      *  Vector of booleans that determines if the atmosphere file contains dentity, pressure, temperature,
      *  gas constant and/or ratio of specific heats.
      */
-    std::vector< bool > dependentVariablesDependency_ = std::vector< bool >( 6, false ); // only 6 dependent variables supported
+    std::vector< bool > dependentVariablesDependency_;
 
     //! Vector of integers that specifies the order of dentity, pressure, temperature, gas constant and
     //! ratio of specific heats are located.
@@ -525,7 +533,7 @@ private:
      *  Vector of integers that specifies the order of dentity, pressure, temperature, gas constant and
      *  ratio of specific heats are located.
      */
-    std::vector< unsigned int > dependentVariableIndices_ = std::vector< unsigned int >( 6, 0 ); // only 6 dependent variables supported
+    std::vector< unsigned int > dependentVariableIndices_;
 
     //! Specific gas constant of the atmosphere.
     /*!

@@ -32,6 +32,15 @@ double areaBisectionFunction( const double currentTrueAnomalyGuess, const std::v
     return upperSliceQuadratureResult - lowerSliceQuadratureResult;
 }
 
+//! State estimator (SE).
+void NavigationSystem::runStateEstimator( const double previousTime )
+{
+
+    // Store initial time and state and update body and acceleration maps
+    storeCurrentTimeAndTranslationalStateEstimates( );
+    updateBodyAndAccelerationMaps( currentTime_ );
+}
+
 //! Periapse time estimator (PTE).
 void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::Vector3d >& mapOfEstimatedAerodynamicAcceleration )
 {
@@ -40,8 +49,8 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
     std::vector< double > vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
     for ( std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > >::iterator stateIterator =
-          currentOrbitHistoryOfEstimatedStates_.begin( ); stateIterator != currentOrbitHistoryOfEstimatedStates_.end( );
-          stateIterator++ )
+          currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
+          stateIterator != currentOrbitHistoryOfEstimatedTranslationalStates_.end( ); stateIterator++ )
     {
         currentIterationTime = stateIterator->first;
         if ( stateIterator->second.first.segment( 0, 3 ).norm( ) <= atmosphericInterfaceRadius_ )
@@ -140,6 +149,32 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     // Update navigation system state estimates
     setCurrentEstimatedKeplerianState( updatedCurrentEstimatedKeplerianState );
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
+}
+
+//! Function to create navigation filter object for onboard state estimation.
+void NavigationSystem::createNavigationFilter(
+        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
+        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
+{
+    // Create filter object
+    navigationFilter_ = filters::createFilter( navigationFilterSettings_, &onboardSystemModel, &onboardMeasurementModel );
+
+    // Set initial time
+    currentTime_ = navigationFilter_->getInitialTime( );
+    currentOrbitCounter_ = 0;
+
+    // Retrieve navigation filter step size
+    navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
+
+    // Set initial state
+    currentEstimatedCartesianState_ = navigationFilter_->getCurrentStateEstimate( );
+    currentEstimatedKeplerianState_ =
+            orbital_element_conversions::convertCartesianToKeplerianElements( currentEstimatedCartesianState_,
+                                                                              planetaryGravitationalParameter_ );
+
+    // Store initial time and state and update body and acceleration maps
+    storeCurrentTimeAndTranslationalStateEstimates( );
+    updateBodyAndAccelerationMaps( currentTime_ );
 }
 
 } // namespace navigation

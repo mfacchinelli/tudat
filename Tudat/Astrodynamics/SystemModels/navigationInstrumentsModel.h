@@ -17,11 +17,8 @@
 
 #include "Tudat/Mathematics/Statistics/randomVariableGenerator.h"
 
+#include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModel.h"
 #include "Tudat/SimulationSetup/EnvironmentSetup/body.h"
-
-#include "Tudat/SimulationSetup/PropagationSetup/accelerationSettings.h"
-#include "Tudat/SimulationSetup/PropagationSetup/createAccelerationModels.h"
-#include "Tudat/SimulationSetup/PropagationSetup/createTorqueModel.h"
 
 namespace tudat
 {
@@ -42,16 +39,14 @@ public:
     /*!
      *  Constructor.
      *  \param bodyMap
-     *  \param selectedAccelerationPerBody
-     *  \param centralBodies
+     *  \param accelerationModelMap
      *  \param spacecraftName
      */
     NavigationInstrumentsModel( const simulation_setup::NamedBodyMap& bodyMap,
-                                const simulation_setup::SelectedAccelerationMap& selectedAccelerationPerBody,
-                                const std::map< std::string, std::string >& centralBodies,
+                                const basic_astrodynamics::AccelerationMap& accelerationModelMap,
                                 const std::string& spacecraftName ) :
-        bodyMap_( bodyMap ), selectedAccelerationPerBody_( selectedAccelerationPerBody ),
-        centralBodies_( centralBodies ), spacecraftName_( spacecraftName ), currentTime_( 0.0 )
+        bodyMap_( bodyMap ), accelerationModelMap_( accelerationModelMap ),
+        spacecraftName_( spacecraftName ), currentTime_( 0.0 )
     {
         // Set instrument presence to false
         inertialMeasurementUnitAdded_ = false;
@@ -98,7 +93,7 @@ public:
      */
     void updateInstruments( const double currentTime )
     {
-        // If current time has not been already updated
+        // If instruments have not been already updated for the current time
         if ( currentTime_ != currentTime )
         {
             // Update current time
@@ -108,12 +103,10 @@ public:
             if ( inertialMeasurementUnitAdded_ )
             {
                 // Translational accelerations
-                currentTranslationalAcceleration_.setZero( );
-                inertialMeasurementUnitTranslationalAccelerationFunction_( currentTranslationalAcceleration_ );
+                inertialMeasurementUnitTranslationalAccelerationFunction_( );
 
                 // Rotational velocity
-                currentRotationalVelocity_.setZero( );
-                inertialMeasurementUnitRotationalVelocityFunction_( currentRotationalVelocity_ );
+                inertialMeasurementUnitRotationalVelocityFunction_( );
 
                 // Save inertial measurement unit measurements
                 currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_[ currentTime_ ] =
@@ -124,8 +117,7 @@ public:
             if ( starTrackerAdded_ )
             {
                 // Compute and output orientation
-                currentQuaternionToBaseFrame_.setZero( );
-                starTrackerOrientationFunction_( currentQuaternionToBaseFrame_ );
+                starTrackerOrientationFunction_( );
                 currentOrbitHistoryOfStarTrackerMeasurements_[ currentTime_ ] = currentQuaternionToBaseFrame_;
             }
         }
@@ -163,8 +155,8 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error while retrieving accelerations from onboard instrument system. No "
-                                      "inertial measurement unit is present." );
+            throw std::runtime_error( "Error while retrieving translational accelerations from onboard instrument "
+                                      "system. No inertial measurement unit is present." );
         }
     }
 
@@ -185,8 +177,8 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error while retrieving accelerations from onboard instrument system. No "
-                                      "inertial measurement unit is present." );
+            throw std::runtime_error( "Error while retrieving rotational velocities from onboard instrument system. "
+                                      "No inertial measurement unit is present." );
         }
     }
 
@@ -207,7 +199,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error while retrieving rotational velocity from onboard instrument system. No "
+            throw std::runtime_error( "Error while retrieving attitude from onboard instrument system. No "
                                       "star trackers are present." );
         }
     }
@@ -240,9 +232,11 @@ public:
 private:
 
     //! Function to retrieve current translational accelerations exerted on the spacecraft.
-    void getCurrentTranslationalAcceleration( Eigen::Vector3d& currentTranslationalAcceleration,
-                                              const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
+    void getCurrentTranslationalAcceleration( const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
     {
+        // Clear translational accelerations vector
+        currentTranslationalAcceleration_.setZero( );
+
         // Iterate over all accelerations acting on body
         basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = accelerationModelMap_.at( spacecraftName_ );
         for ( accelerationIterator_ = accelerationsOnBody.begin( ); accelerationIterator_ != accelerationsOnBody.end( );
@@ -253,35 +247,34 @@ private:
             for ( unsigned int i = 1; i < accelerationIterator_->second.size( ); i++ )
             {
                 // Calculate acceleration and add to state derivative
-                currentTranslationalAcceleration += accelerationIterator_->second[ i ]->getAcceleration( );
+                currentTranslationalAcceleration_ += accelerationIterator_->second[ i ]->getAcceleration( );
             }
         }
 
         // Add errors to acceleration value
-        currentTranslationalAcceleration = scaleMisalignmentMatrix * currentTranslationalAcceleration;
-        currentTranslationalAcceleration += biasVector + produceAccelerometerNoise( );
+        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
+        currentTranslationalAcceleration_ += biasVector + produceAccelerometerNoise( );
     }
 
     //! Function to retrieve current rotational velocity of the spacecraft.
-    void getCurrentRotationalVelocity( Eigen::Vector3d& currentRotationalVelocity,
-                                       const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
+    void getCurrentRotationalVelocity( const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
     {
         // Iterate over all accelerations acting on body
-        currentRotationalVelocity = bodyMap_.at( spacecraftName_ )->getCurrentAngularVelocityVectorInGlobalFrame( );
+        currentRotationalVelocity_ = bodyMap_.at( spacecraftName_ )->getCurrentAngularVelocityVectorInGlobalFrame( );
 
         // Add errors to acceleration value
-        currentRotationalVelocity = scaleMisalignmentMatrix * currentRotationalVelocity;
-        currentRotationalVelocity += biasVector + produceGyroscopeNoise( );
+        currentRotationalVelocity_ = scaleMisalignmentMatrix * currentRotationalVelocity_;
+        currentRotationalVelocity_ += biasVector + produceGyroscopeNoise( );
     }
 
     //! Function to retrieve current inertial orientation of the spacecraft.
-    void getCurrentAttitude( Eigen::Vector4d& currentQuaternionToBaseFrame )
+    void getCurrentAttitude( )
     {
         // Iterate over all accelerations acting on body
-        currentQuaternionToBaseFrame = bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( );
+        currentQuaternionToBaseFrame_ = bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( );
 
         // Add errors to acceleration value
-        currentQuaternionToBaseFrame += produceStarTrackerNoise( );
+        currentQuaternionToBaseFrame_ += produceStarTrackerNoise( );
     }
 
     //! Function to generate the noise distributions for the inertial measurement unit.
@@ -378,11 +371,8 @@ private:
     //! Body map of the simulation.
     simulation_setup::NamedBodyMap bodyMap_;
 
-    //! Translational accelerations acting on the spacecraft.
-    simulation_setup::SelectedAccelerationMap selectedAccelerationPerBody_;
-
-    //! Central bodies of the simulation.
-    std::map< std::string, std::string > centralBodies_;
+    //! Pointer to accelerations exerted on the spacecraft.
+    basic_astrodynamics::AccelerationMap accelerationModelMap_;
 
     //! String denoting the name of the spacecraft body.
     std::string spacecraftName_;
@@ -405,9 +395,6 @@ private:
     //! Vector where the noise generators for the spacecraft attitude are stored.
     std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > starTrackerNoiseDistribution_;
 
-    //! Pointer to accelerations exerted on the spacecraft.
-    basic_astrodynamics::AccelerationMap accelerationModelMap_;
-
     //! Predefined iterator to save (de)allocation time.
     basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationIterator_;
 
@@ -421,16 +408,14 @@ private:
     Eigen::Vector4d currentQuaternionToBaseFrame_;
 
     //! Function to compute the translational acceleration measured by the inertial measurement unit.
-    boost::function< void( Eigen::Vector3d&, const Eigen::Vector3d&, const Eigen::Matrix3d& ) >
+    boost::function< void( const Eigen::Vector3d&, const Eigen::Matrix3d& ) >
     inertialMeasurementUnitTranslationalAccelerationFunction_;
 
     //! Function to compute the rotational velocity measured by the inertial measurement unit.
-    boost::function< void( Eigen::Vector3d&, const Eigen::Vector3d&, const Eigen::Matrix3d& ) >
-    inertialMeasurementUnitRotationalVelocityFunction_;
+    boost::function< void( const Eigen::Vector3d&, const Eigen::Matrix3d& ) > inertialMeasurementUnitRotationalVelocityFunction_;
 
     //! Function to compute the rotational velocity measured by the inertial measurement unit.
-    boost::function< void( Eigen::Vector4d&, const Eigen::Vector3d& ) >
-    starTrackerOrientationFunction_;
+    boost::function< void( const Eigen::Vector3d& ) > starTrackerOrientationFunction_;
 
     //! Map of translational accelerations and rotational velocities measured by the inertial measurment unit
     //! during the current orbit.

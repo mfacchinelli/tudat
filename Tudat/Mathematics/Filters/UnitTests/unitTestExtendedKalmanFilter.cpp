@@ -101,9 +101,11 @@ BOOST_AUTO_TEST_CASE( testExtendedKalmanFilterFirstCase )
 
     // Create extended Kalman filter object
     KalmanFilterDoublePointer extendedFilter = boost::make_shared< ExtendedKalmanFilterDouble >(
-                boost::bind( &stateFunction1, _1, _2, control->getControlVector( ) ),
+                boost::bind( &stateFunction1, _1, _2,
+                             boost::bind( &ControlWrapper< double, double, 2 >::getControlVector, control ) ),
                 boost::bind( &measurementFunction1, _1, _2 ),
-                boost::bind( &stateJacobianFunction1, _1, _2, control->getControlVector( ) ),
+                boost::bind( &stateJacobianFunction1, _1, _2,
+                             boost::bind( &ControlWrapper< double, double, 2 >::getControlVector, control ) ),
                 boost::lambda::constant( Eigen::Matrix2d::Identity( ) ),
                 boost::bind( &measurementJacobianFunction1, _1, _2 ),
                 boost::lambda::constant( Eigen::Vector1d::Identity( ) ),
@@ -266,9 +268,11 @@ BOOST_AUTO_TEST_CASE( testExtendedKalmanFilterSecondCase )
 
     // Create extended Kalman filter object
     KalmanFilterDoublePointer extendedFilter = boost::make_shared< ExtendedKalmanFilterDouble >(
-                boost::bind( &stateFunction2, _1, _2, control->getControlVector( ) ),
+                boost::bind( &stateFunction2, _1, _2,
+                             boost::bind( &ControlWrapper< double, double, 3 >::getControlVector, control ) ),
                 boost::bind( &measurementFunction2, _1, _2 ),
-                boost::bind( &stateJacobianFunction2, _1, _2, control->getControlVector( ) ),
+                boost::bind( &stateJacobianFunction2, _1, _2,
+                             boost::bind( &ControlWrapper< double, double, 3 >::getControlVector, control ) ),
                 boost::lambda::constant( Eigen::Matrix3d::Zero( ) ),
                 boost::bind( &measurementJacobianFunction2, _1, _2 ),
                 boost::lambda::constant( Eigen::Vector1d::Zero( ) ),

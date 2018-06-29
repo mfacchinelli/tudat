@@ -93,6 +93,7 @@ protected:
 protected:
 
 private:
+
 };
 
 //! Typedef to a 3D acceleration model.

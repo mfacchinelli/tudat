@@ -353,9 +353,9 @@ protected:
     //! Boolean specifying whether the state needs to be integrated.
     bool isStateToBeIntegrated_;
 
-    //! Pointer to the integrator settings.
+    //! Pointer to the integrator.
     /*!
-     *  Pointer to the integrator settings, which is used to propagate the state to the new time step.
+     *  Pointer to the integrator, which is used to propagate the state to the new time step.
      */
     boost::shared_ptr< Integrator > integrator_;
 

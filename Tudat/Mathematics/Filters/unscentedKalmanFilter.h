@@ -420,7 +420,7 @@ private:
      *  Vector of constant parameters. See description of setConstantParameterValues function for information on the order and
      *  meaning of the constant parameters.
      */
-    std::vector< DependentVariableType > constantParameters_ = std::vector< DependentVariableType >( 5, 0.0 );
+    std::vector< DependentVariableType > constantParameters_;
 
     //! Vector of weights used for the computation of the weighted average of the state and measurement vectors.
     std::vector< DependentVariableType > stateEstimationWeights_;
@@ -477,6 +477,9 @@ void UnscentedKalmanFilter< IndependentVariableType, DependentVariableType >::se
         const ConstantParameterReferences constantValueReference,
         const std::pair< DependentVariableType, DependentVariableType >& customConstantParameters )
 {
+    // Assign size to vector
+    constantParameters_.resize( 5 );
+
     // Set parameters based on input
     switch ( constantValueReference )
     {
