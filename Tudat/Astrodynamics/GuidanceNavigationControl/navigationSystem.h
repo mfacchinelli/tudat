@@ -13,7 +13,12 @@
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
+
 #include "Tudat/Mathematics/Filters/createFilter.h"
+
+//! Typedefs and using statements to simplify code.
+typedef Eigen::Matrix< double, 16, 1 > Eigen::Vector16d;
+typedef Eigen::Matrix< double, 16, 16 > Eigen::Matrix16d;
 
 namespace tudat
 {
@@ -79,8 +84,8 @@ public:
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel );
 
-    //! State estimator (SE).
-    void runStateEstimator( const double previousTime );
+    //! Function to run the State Estimator (SE).
+    void runStateEstimator( const double previousTime, const Eigen::Vector4d& currentExternalMeasurementVector );
 
     //! Function to run the Periapse Time Estimator (PTE).
     /*!
@@ -162,17 +167,14 @@ public:
     //! Function to retireve current time.
     double getCurrentTime( ) { return currentTime_; }
 
-    //! Function to set current time to new value.
-    void setCurrentTime( const double newCurrentTime ) { currentTime_ = newCurrentTime; }
-
     //! Function to retireve current state.
-    std::pair< Eigen::VectorXd, Eigen::VectorXd > getCurrentEstimatedTranslationalState( )
+    std::pair< Eigen::Vector6d, Eigen::Vector6d > getCurrentEstimatedTranslationalState( )
     {
         return std::make_pair( currentEstimatedCartesianState_, currentEstimatedKeplerianState_ );
     }
 
     //! Function to set current Cartesian state to new value.
-    void setCurrentEstimatedCartesianState( const Eigen::VectorXd& newCurrentCartesianState )
+    void setCurrentEstimatedCartesianState( const Eigen::Vector6d& newCurrentCartesianState )
     {
         currentEstimatedCartesianState_ = newCurrentCartesianState;
         currentEstimatedKeplerianState_ = orbital_element_conversions::convertCartesianToKeplerianElements(
@@ -181,7 +183,7 @@ public:
     }
 
     //! Function to set current Keplerian state to new value.
-    void setCurrentEstimatedKeplerianState( const Eigen::VectorXd& newCurrentKeplerianState )
+    void setCurrentEstimatedKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState )
     {
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
         currentEstimatedCartesianState_ = orbital_element_conversions::convertKeplerianToCartesianElements(
@@ -195,7 +197,7 @@ public:
      *  \return Map where the keys are times and the mapped value is a pair, whose first element is the pair
      *  of Cartesian and Keplerian elements, whereas the second element is the rotational state.
      */
-    std::map< double, std::pair< std::pair< Eigen::VectorXd, Eigen::VectorXd >, Eigen::VectorXd > > getHistoryOfEstimatedStates( )
+    std::map< double, std::pair< std::pair< Eigen::Vector6d, Eigen::Vector6d >, Eigen::Vector7d > > getHistoryOfEstimatedStates( )
     {
         return historyOfEstimatedStates_;
     }
@@ -261,19 +263,19 @@ private:
     double navigationRefreshStepSize_;
 
     //! Vector denoting the current estimated translational state in Cartesian elements.
-    Eigen::VectorXd currentEstimatedCartesianState_;
+    Eigen::Vector6d currentEstimatedCartesianState_;
 
     //! Vector denoting the current estimated translational state in Keplerian elements.
-    Eigen::VectorXd currentEstimatedKeplerianState_;
+    Eigen::Vector6d currentEstimatedKeplerianState_;
 
     //! Vector denoting the current estimated rotational state.
-    Eigen::VectorXd currentEstimatedRotationalState_;
+    Eigen::Vector7d currentEstimatedRotationalState_;
 
     //! Filter object to be used for estimation of state.
     const boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
 
     //! Function to propagate estimated state error.
-    const boost::function< Eigen::MatrixXd( const Eigen::VectorXd& ) > stateTransitionMatrixFunction_;
+    const boost::function< Eigen::Matrix6d( const Eigen::Vector6d& ) > stateTransitionMatrixFunction_;
 
     //! Pointer to root-finder used to esimated the time of periapsis.
     boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;
@@ -287,7 +289,7 @@ private:
      *  stored as a map, where the keys are times and the mapped value is a pair, whose first element is the pair
      *  of Cartesian and Keplerian elements, whereas the second element is the rotational state.
      */
-    std::map< double, std::pair< std::pair< Eigen::VectorXd, Eigen::VectorXd >, Eigen::VectorXd > > historyOfEstimatedStates_;
+    std::map< double, std::pair< std::pair< Eigen::Vector6d, Eigen::Vector6d >, Eigen::Vector7d > > historyOfEstimatedStates_;
 
     //! History of estimated states in Cartesian and Keplerian elements for current orbit.
     /*!
@@ -295,7 +297,7 @@ private:
      *  where the keys are times and the mapped values are a pair of vectors, denoting the Cartesian and
      *  Keplerian elements.
      */
-    std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > > currentOrbitHistoryOfEstimatedTranslationalStates_;
+    std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > > currentOrbitHistoryOfEstimatedTranslationalStates_;
 
     //! Predefined iterator to save (de)allocation time.
     basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationIterator_;

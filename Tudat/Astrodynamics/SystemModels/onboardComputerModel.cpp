@@ -11,14 +11,14 @@ namespace system_models
 using namespace tudat::guidance_navigation_control;
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Matrix< double, 16, 1 > onboardSystemModel( const double currentTime,
-                                                   const Eigen::Matrix< double, 16, 1 >& currentStateVector,
-                                                   const Eigen::VectorXd& currentControlVector,
-                                                   const Eigen::Vector3d& currentTranslationalAccelerationVector,
-                                                   const Eigen::Vector3d& currentRotationalVelocityVector )
+Eigen::Vector16d onboardSystemModel( const double currentTime,
+                                     const Eigen::Vector16d& currentStateVector,
+                                     const Eigen::VectorXd& currentControlVector,
+                                     const Eigen::Vector3d& currentTranslationalAccelerationVector,
+                                     const Eigen::Vector3d& currentRotationalVelocityVector )
 {
     // Declare state derivative vector
-    Eigen::Matrix< double, 16, 1 > currentStateDerivative = Eigen::Matrix< double, 16, 1 >::Zero( );
+    Eigen::Vector16d currentStateDerivative = Eigen::Vector16d::Zero( );
 
     // Translational kinematics
     currentStateDerivative.segment( 0, 3 ) = currentStateVector.segment( 3, 3 );
@@ -35,6 +35,13 @@ Eigen::Matrix< double, 16, 1 > onboardSystemModel( const double currentTime,
 
     // Give output
     return currentStateDerivative;
+}
+
+//! Function to model the onboard measurements based on the simplified onboard model.
+Eigen::Vector4d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentStateVector )
+{
+    // Return quaternion vector
+    return currentStateVector.segment( 6, 4 );
 }
 
 } // namespace thesis

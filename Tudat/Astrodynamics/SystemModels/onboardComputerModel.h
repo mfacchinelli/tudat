@@ -20,20 +20,24 @@
 
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
+//! Typedefs and using statements to simplify code.
+typedef Eigen::Matrix< double, 16, 1 > Eigen::Vector16d;
+using namespace tudat::guidance_navigation_control;
+
 namespace tudat
 {
 
 namespace system_models
 {
 
-using namespace tudat::guidance_navigation_control;
-
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Matrix< double, 16, 1 > onboardSystemModel( const double currentTime,
-                                                   const Eigen::Matrix< double, 16, 1 >& currentStateVector,
-                                                   const Eigen::VectorXd& currentControlVector,
-                                                   const Eigen::Vector3d& currentTranslationalAccelerationVector,
-                                                   const Eigen::Vector3d& currentRotationalVelocityVector );
+Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vector16d& currentStateVector,
+                                     const Eigen::VectorXd& currentControlVector,
+                                     const Eigen::Vector3d& currentTranslationalAccelerationVector,
+                                     const Eigen::Vector3d& currentRotationalVelocityVector );
+
+//! Function to model the onboard measurements based on the simplified onboard model.
+Eigen::Vector4d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentStateVector );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
@@ -59,8 +63,7 @@ public:
                                  boost::bind( &ControlSystem::getCurrentAttitudeControlVector, controlSystem_ ),
                                  boost::bind( &NavigationSystem::getCurrentEstimatedAcceleration, navigationSystem_ ),
                                  boost::bind( &NavigationInstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) ),
-                    boost::bind( &onboardMeasurementModel, _1, _2,
-                                 boost::bind( &NavigationInstrumentsModel::getCurrentStarTrackerMeasurement, instrumentsModel_ ) ) );
+                    boost::bind( &onboardMeasurementModel, _1, _2 ) );
     }
 
     //! Destructor.
@@ -82,11 +85,11 @@ public:
 
         // Update current time
         previousTime_ = navigationSystem_->getCurrentTime( );
-        navigationSystem_->setCurrentTime( currentTime );
+        navigationSystem_->updateBodyAndAccelerationMaps( currentTime ); // set time and update onboard models
 
         // Update filter from previous time to next time
-        instrumentsModel_->updateInstruments( currentTime );
-        navigationSystem_->runStateEstimator( previousTime_ );
+        instrumentsModel_->updateInstruments( currentTime ); // update instrument models
+        navigationSystem_->runStateEstimator( previousTime_, instrumentsModel_->getCurrentStarTrackerMeasurement( ) );
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );

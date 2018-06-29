@@ -32,16 +32,35 @@ double areaBisectionFunction( const double currentTrueAnomalyGuess, const std::v
     return upperSliceQuadratureResult - lowerSliceQuadratureResult;
 }
 
-//! State estimator (SE).
-void NavigationSystem::runStateEstimator( const double previousTime )
+//! Function to run the State Estimator (SE).
+void NavigationSystem::runStateEstimator( const double previousTime, const Eigen::Vector4d& currentExternalMeasurementVector )
 {
+    // Save old true anomaly estimate
+    double oldEstimatedTrueAnomaly = currentEstimatedKeplerianState_[ 5 ];
+
+    // Update filter
+    navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
+
+    // Extract estimated state and update navigation estimates
+    Eigen::Vector16d updatedEstimatedState = navigationFilter->getCurrentStateEstimate( );
+    setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
+    currentEstimatedRotationalState_ = updatedEstimatedState.segment( 6, 4 );
+    storeCurrentTimeAndStateEstimates( );
+
+    // Check if new orbit and store new state estimate
+    if ( ( oldEstimatedTrueAnomaly < 2.0 * mathematical_constants::PI ) &&
+         ( currentEstimatedKeplerianState_[ 5 ] > 0 ) )
+    {
+        currentOrbitCounter_++;
+    }
+
 
     // Store initial time and state and update body and acceleration maps
     storeCurrentTimeAndTranslationalStateEstimates( );
-    updateBodyAndAccelerationMaps( currentTime_ );
+//    updateBodyAndAccelerationMaps( currentTime_ ); // done in onboard computer model
 }
 
-//! Periapse time estimator (PTE).
+//! Function to run the Periapse Time Estimator (PTE).
 void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::Vector3d >& mapOfEstimatedAerodynamicAcceleration )
 {
     // Extract aerodynamic accelerations of when the spacecraft is below the atmospheric interface altitude
@@ -149,6 +168,21 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     // Update navigation system state estimates
     setCurrentEstimatedKeplerianState( updatedCurrentEstimatedKeplerianState );
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
+
+    // Update navigation filter state and covariance
+    Eigen::Vector16d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+    updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
+    navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+                                                                 Eigen::Matrix16d::Identity( ) );
+    // the covariance matrix is reset to the identity, since the new state is improved in accuracy
+}
+
+//! Function to run the Atmosphere Estimator (AE).
+void NavigationSystem::runAtmosphereEstimator( const std::map< double, Eigen::Vector3d >& mapOfEstimatedAerodynamicAcceleration )
+{
+
+    // Update atmosphere settings of onboard body map
+//    onboardBodyMap_.at( planetName_ )->setAtmosphereModel( );
 }
 
 //! Function to create navigation filter object for onboard state estimation.
