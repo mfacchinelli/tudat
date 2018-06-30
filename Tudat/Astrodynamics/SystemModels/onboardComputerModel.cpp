@@ -17,6 +17,8 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
                                      const Eigen::Vector3d& currentTranslationalAccelerationVector,
                                      const Eigen::Vector3d& currentMeasuredRotationalVelocityVector )
 {
+    TUDAT_UNUSED_PARAMETER( currentTime );
+
     // Declare state derivative vector
     Eigen::Vector16d currentStateDerivative = Eigen::Vector16d::Zero( );
 
@@ -28,8 +30,8 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
 
     // Rotational kinematics
     Eigen::Vector3d uncorruptedCurrentRotationalVelocityVector =
-            ( Eigen::Matrix3d::Identity( ) - currentStateVector.segment( 13, 3 ).asDiagonal( ) ) *
-            ( currentMeasuredRotationalVelocityVector - currentStateVector.segment( 10, 3 ) );
+            ( Eigen::Matrix3d::Identity( ) - currentStateVector.segment( 13, 3 ).asDiagonal( ) ) * // binomial approximation
+            ( currentMeasuredRotationalVelocityVector - currentStateVector.segment( 10, 3 ) ) + currentControlVector;
     currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionsDerivative( currentStateVector.segment( 6, 4 ),
                                                                                           uncorruptedCurrentRotationalVelocityVector );
 
@@ -41,11 +43,13 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
 Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentStateVector,
                                          const Eigen::Vector3d& currentTranslationalAccelerationVector )
 {
+    TUDAT_UNUSED_PARAMETER( currentTime );
+
     // Declare output vector
     Eigen::Vector7d currentMeasurementVector;
 
     // Add translational acceleration
-    currentMeasurementVector.segment( 0, 3 ) = currentMeasuredTranslationalAccelerationVector;
+    currentMeasurementVector.segment( 0, 3 ) = currentTranslationalAccelerationVector;
 
     // Add rotational attitude
     currentMeasurementVector.segment( 3, 4 ) = currentStateVector.segment( 6, 4 );

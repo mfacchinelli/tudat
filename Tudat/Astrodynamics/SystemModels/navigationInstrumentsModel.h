@@ -102,10 +102,8 @@ public:
             // Update inertial measurement unit
             if ( inertialMeasurementUnitAdded_ )
             {
-                // Translational accelerations
+                // Translational accelerations and rotational velocity
                 inertialMeasurementUnitTranslationalAccelerationFunction_( );
-
-                // Rotational velocity
                 inertialMeasurementUnitRotationalVelocityFunction_( );
 
                 // Save inertial measurement unit measurements
@@ -116,7 +114,7 @@ public:
             // Update star tracker
             if ( starTrackerAdded_ )
             {
-                // Compute and output orientation
+                // Update and save attitude measurement
                 starTrackerOrientationFunction_( );
                 currentOrbitHistoryOfStarTrackerMeasurements_[ currentTime_ ] = currentQuaternionToBaseFrame_;
             }
@@ -415,7 +413,7 @@ private:
     boost::function< void( const Eigen::Vector3d&, const Eigen::Matrix3d& ) > inertialMeasurementUnitRotationalVelocityFunction_;
 
     //! Function to compute the rotational velocity measured by the inertial measurement unit.
-    boost::function< void( const Eigen::Vector3d& ) > starTrackerOrientationFunction_;
+    boost::function< void( ) > starTrackerOrientationFunction_;
 
     //! Map of translational accelerations and rotational velocities measured by the inertial measurment unit
     //! during the current orbit.

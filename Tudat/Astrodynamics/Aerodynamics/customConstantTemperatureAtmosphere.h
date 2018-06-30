@@ -7,10 +7,13 @@
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
  *
- *    Notes
- *      The accuracy of this model could be increased by implementing different values for the
- *      scale height and temperature for different altitudes (e.g., lower, middle and upper
- *      atmosphere).
+ *    References:
+ *      Justus, C., Duvall, A., and Keller, V., “Atmospheric Models for Aerocapture,” in
+ *          40th AIAA/ASME/SAE/ASEE Joint Propulsion Conference, Fort Lauderdale, Florida,
+ *          United States, July 2004.
+ *      Jah, M., Lisano, M., Born, G., and Axelrad, P., “Mars Aerobraking Spacecraft State
+ *          Estimation By Processing Inertial Measurement Unit Data,” Journal of Guidance,
+ *          Control, and Dynamics, vol. 31, no. 6, pp. 1802–1812, November–December 2008.
  *
  */
 
@@ -43,17 +46,58 @@ enum AvailableConstantTemperatureAtmosphereModels
 };
 
 //! First atmosphere model, based on exponential atmosphere.
+/*!
+ *  First atmosphere model, based on exponential atmosphere.
+ *  \param altitude Current altitude.
+ *  \param longitude Current longitude (unused).
+ *  \param latitude Current latitude (unused).
+ *  \param time Current time (unused).
+ *  \param densityAtReferenceAltitude Density at reference altitude condition.
+ *  \param referenceAltitude Reference altitude.
+ *  \param scaleHeight Scale height of the atmosphere.
+ *  \return Density at current conditions, based on the exponential model with given characteristics.
+ */
 double exponentialAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                   const double densityAtReferenceHeight, const double referenceAltitude, const double scaleHeight );
+                                   const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight );
 
 //! Second atmosphere model, based on a three longitudinal waves model.
+/*!
+ *  Second atmosphere model, based on a three longitudinal waves model. The parameters for the three
+ *  longitudinal waves are hard coded in the function. Based on (Justus, et al., 2004).
+ *  \param altitude Current altitude.
+ *  \param longitude Current longitude.
+ *  \param latitude Current latitude (unused).
+ *  \param time Current time (unused).
+ *  \param densityAtReferenceAltitude Density at reference altitude condition.
+ *  \param referenceAltitude Reference altitude.
+ *  \param scaleHeight Scale height of the atmosphere.
+ *  \param uncertaintyFactor Factor representing uncertainty in the atmosphere. Can be a
+ *      random variable.
+ *  \param dustStormFactor Factor representing presence of planet-wide dust storm (particularly
+ *      useful for Mars applications).
+ *  \return Density at current conditions, based on the three-waves model with given characteristics.
+ */
 double threeWaveAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                 const double densityAtReferenceHeight, const double referenceAltitude, const double scaleHeight,
+                                 const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight,
                                  const double uncertaintyFactor, const double dustStormFactor );
 
 //! Third atmosphere model, based on three constant scale height atmospheres.
+/*!
+ *  Third atmosphere model, based on three constant scale height atmospheres. The first term is
+ *  the same as for the exponential model, whereas the other two are a sine and a cosine term.
+ *  Based on (Jah, et al., 2008).
+ *  \param altitude Current altitude.
+ *  \param longitude Current longitude (unused).
+ *  \param latitude Current latitude (unused).
+ *  \param time Current time (unused).
+ *  \param densityAtReferenceAltitude Density at reference altitude condition.
+ *  \param referenceAltitude Reference altitude.
+ *  \param scaleHeight Scale height of the atmosphere.
+ *  \param modelWeights Weights for each of the three models.
+ *  \return Density at current conditions, based on the exponential model with given characteristics.
+ */
 double threeTermAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                 const double densityAtReferenceHeight, const double referenceAltitude, const double scaleHeight,
+                                 const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight,
                                  const std::vector< double >& modelWeights );
 
 //! Custom constant temperature atmosphere class.
@@ -257,7 +301,7 @@ private:
 };
 
 //! Typedef for shared-pointer to CustomConstantTemperatureAtmosphere object.
-typedef boost::shared_ptr< CustomConstantTemperatureAtmosphere > ExponentialAtmospherePointer;
+typedef boost::shared_ptr< CustomConstantTemperatureAtmosphere > CustomConstantTemperatureAtmospherePointer;
 
 } // namespace aerodynamics
 

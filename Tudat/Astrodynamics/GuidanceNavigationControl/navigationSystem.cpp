@@ -182,8 +182,8 @@ void NavigationSystem::runAtmosphereEstimator( const std::map< double, Eigen::Ve
     // Retrieve some physical parameters of the spacecraft
     double spacecraftMass = onboardBodyMap_.at( spacecraftName_ )->getBodyMass( );
     double referenceAerodynamicArea = onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getReferenceArea( );
-    Eigen::Vector3d aerodynamicCoefficients =
-            onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getCurrentForceCoefficients( );
+    double aerodynamicCoefficientsNorm =
+            onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getCurrentForceCoefficients( ).norm( );
 
     // Convert estimated aerodynamic acceleration to estimated atmospheric density
     std::vector< double > vectorOfEstimatedAtmosphericDensities;
@@ -192,8 +192,8 @@ void NavigationSystem::runAtmosphereEstimator( const std::map< double, Eigen::Ve
     {
         vectorOfEstimatedAtmosphericDensities.push_back(
                     2.0 * spacecraftMass / referenceAerodynamicArea /
-                    currentOrbitHistoryOfEstimatedTranslationalStates_[ accelerationIterator->first ].first.segment( 3, 3 ).norm( ) /
-                aerodynamicCoefficients.norm( ) * accelerationIterator->second.norm( ) );
+                    currentOrbitHistoryOfEstimatedTranslationalStates_[ accelerationIterator->first ].first.segment( 3, 3 ).squaredNorm( ) /
+                aerodynamicCoefficientsNorm * accelerationIterator->second.norm( ) );
     }
 
     // Run least squares estimation process based on selected atmosphere model
