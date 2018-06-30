@@ -31,11 +31,11 @@ namespace numerical_quadrature
 
 //! Function to perform numerical quadrature using the trapezoidal method.
 /*!
- * Function to perform numerical quadrature using the trapezoidal method.
- * \param independentVariables Values of independent variables at which dependentVariables are given.
- * \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
- * independentVariables.
- * \return Numerical quadrature (integral) of the data provided as input.
+ *  Function to perform numerical quadrature using the trapezoidal method.
+ *  \param independentVariables Values of independent variables at which dependentVariables are given.
+ *  \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
+ *      independentVariables.
+ *  \return Numerical quadrature (integral) of the data provided as input.
  */
 template< typename IndependentVariableType, typename DependentVariableType >
 DependentVariableType performTrapezoidalQuadrature(
@@ -54,12 +54,12 @@ DependentVariableType performTrapezoidalQuadrature(
 
 //! Function to perform numerical quadrature using the extended Simpson's method.
 /*!
- * Function to perform numerical quadrature using the extended Simpson's method (Press et al., 1992). Note
- * that the spacing of the (in)dependent needs to be constant.
- * \param constantIndependentVariableStep Constant independent variable step size.
- * \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
- * independentVariables.
- * \return Numerical quadrature (integral) of the data provided as input.
+ *  Function to perform numerical quadrature using the extended Simpson's method (Press et al., 1992). Note
+ *  that the spacing of the (in)dependent needs to be constant.
+ *  \param constantIndependentVariableStep Constant independent variable step size.
+ *  \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
+ *      independentVariables.
+ *  \return Numerical quadrature (integral) of the data provided as input.
  */
 template< typename IndependentVariableType, typename DependentVariableType >
 DependentVariableType performExtendedSimpsonsQuadrature(
@@ -70,7 +70,7 @@ DependentVariableType performExtendedSimpsonsQuadrature(
     DependentVariableType integral = dependentVariables.at( 0 ) - dependentVariables.at( 0 );
     unsigned int numberOfVariables = dependentVariables.size( );
 
-    // Create weight vector
+    // Create vector of weights
     std::vector< IndependentVariableType > vectorOfWeights = std::vector< IndependentVariableType >( numberOfVariables,
                                                                                                      constantIndependentVariableStep );
 
@@ -102,10 +102,10 @@ public:
 
     //! Constructor.
     /*!
-     * Constructor
-     * \param independentVariables Values of independent variables at which dependentVariables are given
-     * \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
-     * independentVariables.
+     *  Constructor
+     *  \param independentVariables Values of independent variables at which dependentVariables are given
+     *  \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
+     *      independentVariables.
      */
     TrapezoidNumericalQuadrature( const std::vector< IndependentVariableType >& independentVariables,
                                   const std::vector< DependentVariableType >& dependentVariables )
@@ -117,10 +117,10 @@ public:
 
     //! Function to reset the (in)dependent variable values.
     /*!
-     * Function to reset the (in)dependent variable values.
-     * \param independentVariables Values of independent variables at which dependentVariables are given
-     * \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
-     * independentVariables.
+     *  Function to reset the (in)dependent variable values.
+     *  \param independentVariables Values of independent variables at which dependentVariables are given
+     *  \param dependentVariables Values of function for which the numerical quadrature is to be computed, given at
+     *      independentVariables.
      */
     void resetData( const std::vector< IndependentVariableType >& independentVariables,
                     const std::vector< DependentVariableType >& dependentVariables)
@@ -144,8 +144,8 @@ protected:
 
     //! Function that is called to perform the numerical quadrature
     /*!
-     * Function that is called to perform the numerical quadrature. Sets the result in the quadratureResult_ local
-     * variable.
+     *  Function that is called to perform the numerical quadrature. Sets the result in the quadratureResult_ local
+     *  variable.
      */
     void performQuadrature( )
     {

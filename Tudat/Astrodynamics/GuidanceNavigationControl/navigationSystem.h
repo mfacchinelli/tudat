@@ -123,14 +123,14 @@ public:
 
             // Update accelerations
             basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
-            for ( accelerationIterator_ = accelerationsOnBody.begin( ); accelerationIterator_ != accelerationsOnBody.end( );
-                  accelerationIterator_++ )
+            for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+                  accelerationMapIterator_++ )
             {
                 // Loop over each acceleration
-                for ( unsigned int i = 0; i < accelerationIterator_->second.size( ); i++ )
+                for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
                 {
                     // Calculate acceleration and add to state derivative
-                    accelerationIterator_->second[ i ]->updateMembers( );
+                    accelerationMapIterator_->second[ i ]->updateMembers( );
                 }
             }
         }
@@ -149,15 +149,15 @@ public:
 
         // Iterate over all accelerations acting on body
         basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
-        for ( accelerationIterator_ = accelerationsOnBody.begin( ); accelerationIterator_ != accelerationsOnBody.end( );
-              accelerationIterator_++ )
+        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+              accelerationMapIterator_++ )
         {
             // Loop over each acceleration and disregard the central gravitational accelerations,
             // since IMUs do not measure them
-            for ( unsigned int i = 1; i < accelerationIterator_->second.size( ); i++ )
+            for ( unsigned int i = 1; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Calculate acceleration and add to state derivative
-                currentTranslationalAcceleration += accelerationIterator_->second[ i ]->getAcceleration( );
+                currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
             }
         }
 
@@ -313,7 +313,7 @@ private:
     std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > > currentOrbitHistoryOfEstimatedTranslationalStates_;
 
     //! Predefined iterator to save (de)allocation time.
-    basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationIterator_;
+    basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationMapIterator_;
 
 };
 

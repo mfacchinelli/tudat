@@ -239,15 +239,15 @@ private:
 
         // Iterate over all accelerations acting on body
         basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = accelerationModelMap_.at( spacecraftName_ );
-        for ( accelerationIterator_ = accelerationsOnBody.begin( ); accelerationIterator_ != accelerationsOnBody.end( );
-              accelerationIterator_++ )
+        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+              accelerationMapIterator_++ )
         {
             // Loop over each acceleration and disregard the central gravitational accelerations,
             // since IMUs do not measure them
-            for ( unsigned int i = 1; i < accelerationIterator_->second.size( ); i++ )
+            for ( unsigned int i = 1; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Calculate acceleration and add to state derivative
-                currentTranslationalAcceleration_ += accelerationIterator_->second[ i ]->getAcceleration( );
+                currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
             }
         }
 
@@ -396,7 +396,7 @@ private:
     std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > starTrackerNoiseDistribution_;
 
     //! Predefined iterator to save (de)allocation time.
-    basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationIterator_;
+    basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationMapIterator_;
 
     //! Vector denoting current translational accelerations as measured by the accelerometer.
     Eigen::Vector3d currentTranslationalAcceleration_;
