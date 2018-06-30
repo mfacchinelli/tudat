@@ -16,6 +16,7 @@
 #include "Tudat/Basics/basicTypedefs.h"
 #include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
+#include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
 
 //! Typedefs and using statements to simplify code.
 typedef Eigen::Matrix< double, 16, 1 > Eigen::Vector16d;
@@ -71,11 +72,11 @@ public:
         historyOfQuaternionStateErrors_.push_back( currentErrorInEstimatedQuaternionState );
 
         // Compute control vector based on control gains and error
-        currentControlVector_ = proportionalGain_ * currentErrorInEstimatedQuaternionState +
-                integralGain_ * numerical_quadrature::performExtendedSimpsonsQuadrature( navigationRefreshStepSize,
-                                                                                         historyOfQuaternionStateErrors_ ) +
-                derivativeGain_ * propagators::calculateQuaternionsDerivative( currentEstimatedState.segment( 0, 4 ),
-                                                                               currentMeasuredRotationalVelocityVector );
+        currentControlVector_ = ( proportionalGain_ * currentErrorInEstimatedQuaternionState +
+                                  integralGain_ * numerical_quadrature::performExtendedSimpsonsQuadrature( navigationRefreshStepSize,
+                                                                                                           historyOfQuaternionStateErrors_ ) +
+                                  derivativeGain_ * propagators::calculateQuaternionsDerivative(
+                                      currentEstimatedState.segment( 0, 4 ), currentMeasuredRotationalVelocityVector ) ).segment( 1, 3 );
     }
 
     //! Function to update the orbit controller with the scheduled apoapsis maneuver, computed by the guidance system.
@@ -94,9 +95,39 @@ public:
 private:
 
     //! Function to compute the current commanded quaternion to base frame.
-    Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::Vector16d& currentEstimatedState )
+    /*!
+     *  Function to compute the current commanded quaternion to base frame. The commanded quaternion is assumed to
+     *  represent the inverse rotation from trajectory to inertial frame. Thus, the direction cosine matrix can be found
+     *  by using the velocity and radial distance vector. The velocity (unit) vector corresponds directly to the x-axis
+     *  of the trajectory frame, whereas the z-axis is computed by subtracting from the radial distance (unit) vector
+     *  its projection on the x-axis. Then, the y-axis is determined via the right-hand rule (i.e., with the cross product).
+     *  Note that since the estimated state is used, the actual transformation is different. The commanded state thus corresponds
+     *  to a state with zero angle of attack, angle of side-slip and bank angle.
+     *  \param currentEstimatedStateVector Current estimated state as provided by the navigation system.
+     *  \return Quaternion representing the estimated inverse rotation from trajectory to inertial frame. Thus the commanded
+     *      quaternion corresponds to a state with zero angle of attack, angle of side-slip and bank angle.
+     */
+    Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::Vector16d& currentEstimatedStateVector )
     {
-        return Eigen::Vector4d::UnitX( );
+        // Declare direction cosine matrix
+        Eigen::Matrix3d transformationFromTrajectoryToInertialFrame = Eigen::Matrix3d::Zero( );
+
+        // Find the x-axis unit vector
+        Eigen::Vector3d xUnitVector = currentEstimatedStateVector.segment( 3, 3 ).normalized( );
+        transformationFromTrajectoryToInertialFrame.block( 0, 0, 3, 1 ) = xUnitVector;
+
+        // Find z-axis unit vector
+        Eigen::Vector3d zUnitVector = currentEstimatedStateVector.segment( 0, 3 ).normalized( );
+        zUnitVector -= zUnitVector.dot( zUnitVector ) * xUnitVector;
+        transformationFromTrajectoryToInertialFrame.block( 0, 1, 3, 1 ) = zUnitVector;
+
+        // Find y-axis unit vector
+        transformationFromTrajectoryToInertialFrame.block( 0, 1, 3, 1 ) = zUnitVector.cross( xUnitVector );
+
+        // Transform DCM to quaternion and give output
+        return linear_algebra::convertQuaternionToVectorFormat(
+                    Eigen::Quaterniond( transformationFromTrajectoryToInertialFrame.transposeInPlace( ) ) );
+        // the transpose is taken to return the inverse rotation from trajectory to inertial frame
     }
 
     //! Double denoting the proportional gain for the PID attitude controller.
@@ -113,6 +144,9 @@ private:
 
     //! Vector denoting the velocity change scheduled to be applied at apoapsis.
     Eigen::Vector3d scheduledApsoapsisManeuver_;
+
+    //! History of errors in the estimated quaternion state.
+    std::vector< Eigen::Vector4d > historyOfQuaternionStateErrors_;
 
 };
 

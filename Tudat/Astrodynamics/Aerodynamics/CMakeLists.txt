@@ -34,6 +34,7 @@ set(AERODYNAMICS_HEADERS
   "${SRCROOT}${AERODYNAMICSDIR}/aerodynamicForce.h"
   "${SRCROOT}${AERODYNAMICSDIR}/aerodynamics.h"
   "${SRCROOT}${AERODYNAMICSDIR}/atmosphereModel.h"
+  "${SRCROOT}${AERODYNAMICSDIR}/customConstantTemperatureAtmosphere.h"
   "${SRCROOT}${AERODYNAMICSDIR}/exponentialAtmosphere.h"
   "${SRCROOT}${AERODYNAMICSDIR}/hypersonicLocalInclinationAnalysis.h"
   "${SRCROOT}${AERODYNAMICSDIR}/rarefiedFlowAnalysis.h"

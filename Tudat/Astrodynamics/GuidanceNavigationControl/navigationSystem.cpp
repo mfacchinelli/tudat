@@ -66,7 +66,7 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     double currentIterationTime;
     std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
     std::vector< double > vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
-    for ( std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > >::iterator stateIterator =
+    for ( std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > >::const_iterator stateIterator =
           currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
           stateIterator != currentOrbitHistoryOfEstimatedTranslationalStates_.end( ); stateIterator++ )
     {
@@ -178,10 +178,44 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
 
 //! Function to run the Atmosphere Estimator (AE).
 void NavigationSystem::runAtmosphereEstimator( const std::map< double, Eigen::Vector3d >& mapOfEstimatedAerodynamicAcceleration )
-{
+{   
+    // Retrieve some physical parameters of the spacecraft
+    double spacecraftMass = onboardBodyMap_.at( spacecraftName_ )->getBodyMass( );
+    double referenceAerodynamicArea = onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getReferenceArea( );
+    Eigen::Vector3d aerodynamicCoefficients =
+            onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getCurrentForceCoefficients( );
+
+    // Convert estimated aerodynamic acceleration to estimated atmospheric density
+    std::vector< double > vectorOfEstimatedAtmosphericDensities;
+    for ( std::map< double, Eigen::Vector3d >::const_iterator accelerationIterator = mapOfEstimatedAerodynamicAcceleration.begin( );
+          accelerationIterator != mapOfEstimatedAerodynamicAcceleration.end( ); accelerationIterator++ )
+    {
+        vectorOfEstimatedAtmosphericDensities.push_back(
+                    2.0 * spacecraftMass / referenceAerodynamicArea /
+                    currentOrbitHistoryOfEstimatedTranslationalStates_[ accelerationIterator->first ].first.segment( 3, 3 ).norm( ) /
+                aerodynamicCoefficients.norm( ) * accelerationIterator->second.norm( ) );
+    }
+
+    // Run least squares estimation process based on selected atmosphere model
+    std::vector< double > vectorOfModelSpecificParameters;
+    switch ( selectedOnboardAtmosphereModel_ )
+    {
+    case aerodynamics::exponential_atmosphere_model:
+    case aerodynamics::three_wave_atmosphere_model:
+    {
+        break;
+    }
+    case aerodynamics::three_term_atmosphere_model:
+    {
+        break;
+    }
+    }
 
     // Update atmosphere settings of onboard body map
-//    onboardBodyMap_.at( planetName_ )->setAtmosphereModel( );
+    onboardBodyMap_.at( planetName_ )->setAtmosphereModel(
+                boost::make_shared< aerodynamics::CustomConstantTemperatureAtmosphere >( selectedOnboardAtmosphereModel_,
+                                                                                         215.0, 197.0, 1.3,
+                                                                                         vectorOfModelSpecificParameters ) );
 }
 
 //! Function to create navigation filter object for onboard state estimation.

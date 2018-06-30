@@ -30,6 +30,7 @@
 
 namespace tudat
 {
+
 namespace aerodynamics
 {
 
@@ -50,7 +51,11 @@ public:
     /*!
      *  Bodies with predefined exponential atmospheres.
      */
-    enum BodiesWithPredefinedExponentialAtmospheres { earth };
+    enum BodiesWithPredefinedExponentialAtmospheres
+    {
+        earth = 0,
+        mars = 1
+    };
 
     //! Default constructor.
     /*!
@@ -58,8 +63,8 @@ public:
      *  \param scaleHeight Scale height of atmosphere model.
      *  \param constantTemperature Constant atmospheric temperature.
      *  \param densityAtZeroAltitude Atmospheric density at zero altitude.
-     *  \param specificGasConstant The constant specific gas constant of the air
-     *  \param ratioOfSpecificHeats The constant ratio of specific heats of the air
+     *  \param specificGasConstant The constant specific gas constant of the atmosphere.
+     *  \param ratioOfSpecificHeats The constant ratio of specific heats of the atmosphere.
      */
     ExponentialAtmosphere(
             const double scaleHeight,
@@ -107,7 +112,7 @@ public:
 
     //! Get specific gas constant.
     /*!
-     * Returns the specific gas constant of the air in J/(kg K), its value is assumed constant,
+     * Returns the specific gas constant of the atmosphere in J/(kg K), its value is assumed constant,
      * due to the assumption of constant atmospheric composition.
      * \return Specific gas constant in exponential atmosphere.
      */
@@ -115,7 +120,7 @@ public:
 
     //! Get ratio of specific heats.
     /*!
-     * Returns the ratio of specific hears of the air, its value is assumed constant,
+     * Returns the ratio of specific hears of the atmosphere, its value is assumed constant,
      * due to the assumption of constant atmospheric composition.
      * \return Ratio of specific heats exponential atmosphere.
      */
@@ -166,7 +171,8 @@ public:
     //! Get local temperature.
     /*!
      * Returns the local temperature of the atmosphere in Kelvin.
-     * \param altitude Altitude at which temperature is to be computed
+     * \param altitude Altitude at which temperature is to be computed (not used since
+     * temperature is assumed to be constant).
      * \param longitude Longitude at which temperature is to be computed (not used but included for
      * consistency with base class interface).
      * \param latitude Latitude at which temperature is to be computed (not used but included for
@@ -200,10 +206,6 @@ public:
     double getSpeedOfSound( const double altitude, const double longitude = 0.0,
                             const double latitude = 0.0, const double time = 0.0 )
     {
-        TUDAT_UNUSED_PARAMETER( altitude );
-        TUDAT_UNUSED_PARAMETER( longitude );
-        TUDAT_UNUSED_PARAMETER( latitude );
-        TUDAT_UNUSED_PARAMETER( time );
         return computeSpeedOfSound(
                     getTemperature( altitude, longitude, latitude, time ), ratioOfSpecificHeats_,
                     specificGasConstant_ );
@@ -233,14 +235,14 @@ private:
 
     //! Specific gas constant.
     /*!
-     * Specific gas constant of the air, its value is assumed constant, due to the assumption of
+     * Specific gas constant of the atmosphere, its value is assumed constant, due to the assumption of
      * constant atmospheric composition.    
      */
     double specificGasConstant_;
 
     //! Ratio of specific heats at constant pressure and constant volume.
     /*!
-     *  Ratio of specific heats of the atmosphrer at constant pressure and constant volume.
+     *  Ratio of specific heats of the atmosphere at constant pressure and constant volume.
      *  This value is set to a constant, implying constant atmospheric composition.
      */
     double ratioOfSpecificHeats_;
@@ -251,6 +253,7 @@ private:
 typedef boost::shared_ptr< ExponentialAtmosphere > ExponentialAtmospherePointer;
 
 } // namespace aerodynamics
+
 } // namespace tudat
 
 #endif // TUDAT_EXPONENTIAL_ATMOSPHERE_H

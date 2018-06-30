@@ -11,9 +11,9 @@
 #ifndef TUDAT_NAVIGATION_SYSTEM_H
 #define TUDAT_NAVIGATION_SYSTEM_H
 
+#include "Tudat/Astrodynamics/Aerodynamics/customConstantTemperatureAtmosphere.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
-
 #include "Tudat/Mathematics/Filters/createFilter.h"
 
 //! Typedefs and using statements to simplify code.
@@ -60,10 +60,11 @@ public:
                       const basic_astrodynamics::AccelerationMap& onboardAccelerationModelMap,
                       const std::string& spacecraftName, const std::string& planetName,
                       const boost::shared_ptr< filters::FilterSettings< > > navigationFilterSettings,
+                      const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel,
                       const double atmosphericInterfaceAltitude ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
-        spacecraftName_( spacecraftName ), planetName_( planetName ),
-        navigationFilterSettings_( navigationFilterSettings )
+        spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
+        selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel )
     {
         // Set planetary conditions
         planetaryGravitationalParameter_ = onboardBodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( );
@@ -252,6 +253,9 @@ private:
 
     //! Pointer to the filter settings to be used to create the navigation filter for state estimation.
     const boost::shared_ptr< filters::FilterSettings< > > navigationFilterSettings_;
+
+    //! Enumeration denoting atmosphere model being used for onboard applications.
+    const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel_;
 
     //! Standard gravitational parameter of body being orbited.
     const double planetaryGravitationalParameter_;
