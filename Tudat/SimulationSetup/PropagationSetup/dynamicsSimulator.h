@@ -298,7 +298,6 @@ protected:
 template< typename StateScalarType = double, typename TimeType = double >
 class SingleArcDynamicsSimulator: public DynamicsSimulator< StateScalarType, TimeType >
 {
-
 public:
 
     using DynamicsSimulator< StateScalarType, TimeType >::bodyMap_;

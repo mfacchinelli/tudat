@@ -33,7 +33,7 @@ double areaBisectionFunction( const double currentTrueAnomalyGuess, const std::v
 }
 
 //! Function to run the State Estimator (SE).
-void NavigationSystem::runStateEstimator( const double previousTime, const Eigen::Vector4d& currentExternalMeasurementVector )
+void NavigationSystem::runStateEstimator( const double previousTime, const Eigen::Vector7d& currentExternalMeasurementVector )
 {
     // Save old true anomaly estimate
     double oldEstimatedTrueAnomaly = currentEstimatedKeplerianState_[ 5 ];
@@ -53,7 +53,6 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
     {
         currentOrbitCounter_++;
     }
-
 
     // Store initial time and state and update body and acceleration maps
     storeCurrentTimeAndTranslationalStateEstimates( );

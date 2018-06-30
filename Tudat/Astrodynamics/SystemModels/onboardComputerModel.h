@@ -63,7 +63,8 @@ public:
                                  boost::bind( &ControlSystem::getCurrentAttitudeControlVector, controlSystem_ ),
                                  boost::bind( &NavigationSystem::getCurrentEstimatedAcceleration, navigationSystem_ ),
                                  boost::bind( &NavigationInstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) ),
-                    boost::bind( &onboardMeasurementModel, _1, _2 ) );
+                    boost::bind( &onboardMeasurementModel, _1, _2,
+                                 boost::bind( &NavigationSystem::getCurrentEstimatedAcceleration, navigationSystem_ ) ) );
     }
 
     //! Destructor.
@@ -83,13 +84,23 @@ public:
         // Define output value
         isPropagationToBeStopped = false;
 
-        // Update current time
+        // Update current time and onboard models
         previousTime_ = navigationSystem_->getCurrentTime( );
-        navigationSystem_->updateBodyAndAccelerationMaps( currentTime ); // set time and update onboard models
+        navigationSystem_->updateBodyAndAccelerationMaps( currentTime );
+
+        // Update measurement model and extract measurements
+        instrumentsModel_->updateInstruments( currentTime );
+        Eigen::Vector7d currentExternalMeasurementVector;
+        currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
+        currentExternalMeasurementVector.segment( 3, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
 
         // Update filter from previous time to next time
-        instrumentsModel_->updateInstruments( currentTime ); // update instrument models
-        navigationSystem_->runStateEstimator( previousTime_, instrumentsModel_->getCurrentStarTrackerMeasurement( ) );
+        navigationSystem_->runStateEstimator( previousTime_, currentExternalMeasurementVector );
+
+        // Update attitude controller
+        controlSystem_->updateAttitudeController( navigationSystem_->getCurrentEstimatedState( ),
+                                                  instrumentsModel_->getCurrentGyroscopeMeasurement( ),
+                                                  navigationSystem_->getNavigationRefreshStepSize( ) );
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );

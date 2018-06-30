@@ -85,7 +85,7 @@ public:
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel );
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const double previousTime, const Eigen::Vector4d& currentExternalMeasurementVector );
+    void runStateEstimator( const double previousTime, const Eigen::Vector7d& currentExternalMeasurementVector );
 
     //! Function to run the Periapse Time Estimator (PTE).
     /*!
@@ -168,6 +168,12 @@ public:
     double getCurrentTime( ) { return currentTime_; }
 
     //! Function to retireve current state.
+    Eigen::Vector16d getCurrentEstimatedState( )
+    {
+        return navigationFilter_->getCurrentStateEstimate( );
+    }
+
+    //! Function to retireve current state.
     std::pair< Eigen::Vector6d, Eigen::Vector6d > getCurrentEstimatedTranslationalState( )
     {
         return std::make_pair( currentEstimatedCartesianState_, currentEstimatedKeplerianState_ );
@@ -201,6 +207,9 @@ public:
     {
         return historyOfEstimatedStates_;
     }
+
+    //! Function to retireve refresh step size of navigation system.
+    double getNavigationRefreshStepSize( ) { return navigationRefreshStepSize_; }
 
     //! Function to retireve the standard gravitational parameter of the body being orbited.
     double getStandardGravitationalParameter( ) { return planetaryGravitationalParameter_; }

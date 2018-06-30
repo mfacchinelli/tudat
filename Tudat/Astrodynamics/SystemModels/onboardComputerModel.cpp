@@ -15,7 +15,7 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
                                      const Eigen::Vector16d& currentStateVector,
                                      const Eigen::VectorXd& currentControlVector,
                                      const Eigen::Vector3d& currentTranslationalAccelerationVector,
-                                     const Eigen::Vector3d& currentRotationalVelocityVector )
+                                     const Eigen::Vector3d& currentMeasuredRotationalVelocityVector )
 {
     // Declare state derivative vector
     Eigen::Vector16d currentStateDerivative = Eigen::Vector16d::Zero( );
@@ -29,7 +29,7 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
     // Rotational kinematics
     Eigen::Vector3d uncorruptedCurrentRotationalVelocityVector =
             ( Eigen::Matrix3d::Identity( ) - currentStateVector.segment( 13, 3 ).asDiagonal( ) ) *
-            ( currentRotationalVelocityVector - currentStateVector.segment( 10, 3 ) );
+            ( currentMeasuredRotationalVelocityVector - currentStateVector.segment( 10, 3 ) );
     currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionsDerivative( currentStateVector.segment( 6, 4 ),
                                                                                           uncorruptedCurrentRotationalVelocityVector );
 
@@ -38,10 +38,20 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
 }
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector4d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentStateVector )
+Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentStateVector,
+                                         const Eigen::Vector3d& currentTranslationalAccelerationVector )
 {
+    // Declare output vector
+    Eigen::Vector7d currentMeasurementVector;
+
+    // Add translational acceleration
+    currentMeasurementVector.segment( 0, 3 ) = currentMeasuredTranslationalAccelerationVector;
+
+    // Add rotational attitude
+    currentMeasurementVector.segment( 3, 4 ) = currentStateVector.segment( 6, 4 );
+
     // Return quaternion vector
-    return currentStateVector.segment( 6, 4 );
+    return currentMeasurementVector;
 }
 
 } // namespace thesis

@@ -75,8 +75,7 @@ void NavigationInstrumentsModel::addStarTracker( const unsigned int numberOfStar
             generateStarTrackerRandomNoiseDistribution( starTrackerAccuracy );
 
             // Create function for computing corrupted spacecraft orientation
-            starTrackerOrientationFunction_ = boost::bind(
-                        &NavigationInstrumentsModel::getCurrentAttitude, this );
+            starTrackerOrientationFunction_ = boost::bind( &NavigationInstrumentsModel::getCurrentAttitude, this );
         }
         else
         {

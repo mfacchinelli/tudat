@@ -23,6 +23,9 @@ Eigen::Vector4d computeErrorInEstimatedQuaternionState( const Eigen::Vector4d& c
 
     // Compute error quaternion
     currentErrorQuaternion.segment( 1, 3 ) = auxiliaryMatrix * currentQuaternionToBaseFrame;
+
+    // Give output
+    return currentErrorQuaternion;
 }
 
 } // namespace navigation

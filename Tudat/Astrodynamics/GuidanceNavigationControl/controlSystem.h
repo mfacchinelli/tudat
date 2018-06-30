@@ -13,6 +13,13 @@
 
 #include <Eigen/Core>
 
+#include "Tudat/Basics/basicTypedefs.h"
+#include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
+#include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
+
+//! Typedefs and using statements to simplify code.
+typedef Eigen::Matrix< double, 16, 1 > Eigen::Vector16d;
+
 //! Function to compute the error in the current quaternion state, based on the commanded quaternion.
 /*!
  *  Function to compute the error in the current quaternion state, based on the commanded quaternion. The
@@ -40,22 +47,41 @@ class ControlSystem
 public:
 
     //! Constructor.
-    ControlSystem( const double proportionalGain, const double integralGain, const double derivativeGain ) :
-        proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain )
-    { }
+    ControlSystem( const double proportionalGain, const double integralGain, const double derivativeGain,
+                   const double  ) :
+        proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain ),
+        navigationRefreshStepSize_( TUDAT_NAN )
+    {
+        // Initialize control vector to zero
+        currentControlVector_ = Eigen::Vector3d::Zero( );
+    }
 
     //! Destructor.
     ~ControlSystem( ) { }
 
     //! Attitude control system.
-    void updateAttitudeController( )
+    void updateAttitudeController( const Eigen::Vector16d& currentEstimatedState,
+                                   const Eigen::Vector3d& currentMeasuredRotationalVelocityVector,
+                                   const double navigationRefreshStepSize )
     {
-        currentControlVector_ = Eigen::Vector3d::Zero( );
+        // Compute difference between current and commanded state
+        Eigen::Vector4d currentErrorInEstimatedQuaternionState =
+                computeErrorInEstimatedQuaternionState( currentEstimatedState.segment( 0, 4 ),
+                                                        computeCurrentCommandedQuaternionState( currentEstimatedState ) );
+        historyOfQuaternionStateErrors_.push_back( currentErrorInEstimatedQuaternionState );
+
+        // Compute control vector based on control gains and error
+        currentControlVector_ = proportionalGain_ * currentErrorInEstimatedQuaternionState +
+                integralGain_ * numerical_quadrature::performExtendedSimpsonsQuadrature( navigationRefreshStepSize,
+                                                                                         historyOfQuaternionStateErrors_ ) +
+                derivativeGain_ * propagators::calculateQuaternionsDerivative( currentEstimatedState.segment( 0, 4 ),
+                                                                               currentMeasuredRotationalVelocityVector );
     }
 
     //! Function to update the orbit controller with the scheduled apoapsis maneuver, computed by the guidance system.
     void updateOrbitController( const Eigen::Vector3d& scheduledApsoapsisManeuver )
     {
+        // Set apoapsis maneuver magnitude and direction
         scheduledApsoapsisManeuver_ = scheduledApsoapsisManeuver;
     }
 
@@ -68,13 +94,10 @@ public:
 private:
 
     //! Function to compute the current commanded quaternion to base frame.
-    Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::VectorXd& currentEstimatedState )
+    Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::Vector16d& currentEstimatedState )
     {
         return Eigen::Vector4d::UnitX( );
     }
-
-    //! Vector denoting the current quaternion attitude correction.
-    Eigen::Vector3d currentControlVector_;
 
     //! Double denoting the proportional gain for the PID attitude controller.
     const double proportionalGain_;
@@ -84,6 +107,9 @@ private:
 
     //! Double denoting the derivative gain for the PID attitude controller.
     const double derivativeGain_;
+
+    //! Vector denoting the current quaternion attitude correction.
+    Eigen::Vector3d currentControlVector_;
 
     //! Vector denoting the velocity change scheduled to be applied at apoapsis.
     Eigen::Vector3d scheduledApsoapsisManeuver_;
