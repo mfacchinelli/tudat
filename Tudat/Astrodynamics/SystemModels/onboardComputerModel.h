@@ -83,14 +83,14 @@ public:
      *  \param currentTime Current time in propagation.
      *  \return Boolean denoting whether the propagation has to be stopped.
      */
-    bool checkStoppingCondition( const double currentTime )
+    bool checkStopCondition( const double currentTime )
     {
         // Define output value
         bool isPropagationToBeStopped = false;
 
         // Update current time and onboard models
         previousTime_ = navigationSystem_->getCurrentTime( );
-        navigationSystem_->updateBodyAndAccelerationMaps( currentTime );
+        navigationSystem_->updateOnboardModel( currentTime );
 
         // Update measurement model and extract measurements
         instrumentsModel_->updateInstruments( currentTime );

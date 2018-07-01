@@ -320,6 +320,10 @@ void getFinalStateForExactTerminationCondition(
                     secondToLastState, lastState, endTime, endState );
         break;
     }
+    case custom_stopping_condition:
+        endTime = lastTime;
+        endState = lastState;
+        break;
     default:
         throw std::runtime_error( "Error when propagating to exact final condition, did not recognize termination time" );
     }

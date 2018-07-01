@@ -16,6 +16,7 @@
 
 #include "Tudat/Astrodynamics/Aerodynamics/customConstantTemperatureAtmosphere.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
+#include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 #include "Tudat/Mathematics/Filters/createFilter.h"
 
@@ -75,6 +76,9 @@ public:
         planetaryRadius_( onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( ) ),
         atmosphericInterfaceRadius_( planetaryRadius_ + atmosphericInterfaceAltitude )
     {
+        // Create environment updater
+        createOnboardEnvironmentUpdater( );
+
         // Create root-finder object for bisection of aerodynamic acceleration curve
         // The values inserted are the tolerance in independent value (i.e., one arcminute of true anomaly) and
         // the maximum number of interations (i.e., 10 iterations)
@@ -114,9 +118,9 @@ public:
     //! Function to update the body and acceleration map with the current time and state information.
     /*!
      *  Function to update the body and acceleration map with the current time and state information.
-     *  \param currentTime Time at which the measurement needs to be taken.
+     *  \param currentTime Time at which the update needs to be done.
      */
-    void updateBodyAndAccelerationMaps( const double currentTime )
+    void updateOnboardModel( const double currentTime )
     {
         // If instruments have not been already updated for the current time
         if ( currentTime_ != currentTime )
@@ -124,9 +128,15 @@ public:
             // Update current time
             currentTime_ = currentTime;
 
-            // Update body settings
-            onboardBodyMap_.at( spacecraftName_ )->setState( currentEstimatedCartesianState_ );
-            onboardBodyMap_.at( spacecraftName_ )->setCurrentRotationalStateToLocalFrame( currentEstimatedRotationalState_ );
+            // Update environment
+            std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
+            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
+            mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
+            onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
+
+//            // Update body settings
+//            onboardBodyMap_.at( spacecraftName_ )->setState( currentEstimatedCartesianState_ );
+//            onboardBodyMap_.at( spacecraftName_ )->setCurrentRotationalStateToLocalFrame( currentEstimatedRotationalState_ );
 
             // Update accelerations
             basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
@@ -236,6 +246,9 @@ public:
 
 private:
 
+    //! Function to create the onboard environment updater.
+    void createOnboardEnvironmentUpdater( );
+
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
     {
@@ -272,6 +285,14 @@ private:
 
     //! Double denoting the atmospheric interface altitude.
     const double atmosphericInterfaceRadius_;
+
+    //! Pointer to the onboard environment updater.
+    /*!
+     *  Pointer to the onboard environment updater. The environment is updated based on the current state and time.
+     *  Calling the updateEnvironment function automatically updates all dependent variables that are needed to calulate
+     *  the state derivative.
+     */
+    boost::shared_ptr< propagators::EnvironmentUpdater< double, double > > onboardEnvironmentUpdater_;
 
     //! Double denoting the current time in the estimation process.
     double currentTime_;

@@ -5,6 +5,7 @@
 #include "Tudat/Basics/utilities.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
+#include "Tudat/SimulationSetup/PropagationSetup/createEnvironmentUpdater.h"
 
 namespace tudat
 {
@@ -44,7 +45,7 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
     // Extract estimated state and update navigation estimates
     Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
     setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
-    currentEstimatedRotationalState_ = updatedEstimatedState.segment( 6, 4 );
+    currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 );
     storeCurrentTimeAndStateEstimates( );
 
     // Check if new orbit and store new state estimate
@@ -56,7 +57,7 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
 
     // Store initial time and state and update body and acceleration maps
     storeCurrentTimeAndStateEstimates( );
-//    updateBodyAndAccelerationMaps( currentTime_ ); // done in onboard computer model
+//    updateOnboardModel( currentTime_ ); // done in onboard computer model
 }
 
 //! Function to run the Periapse Time Estimator (PTE).
@@ -246,8 +247,25 @@ void NavigationSystem::createNavigationFilter(
 
     // Store initial time and state and update body and acceleration maps
     storeCurrentTimeAndStateEstimates( );
-    updateBodyAndAccelerationMaps( -1.0 ); // force update
+    updateOnboardModel( -1.0 ); // force update
     currentTime_ = navigationFilter_->getInitialTime( );
+}
+
+//! Function to create the onboard environment updater.
+void NavigationSystem::createOnboardEnvironmentUpdater( )
+{
+    // Set integrated type and body list
+    std::map< propagators::IntegratedStateType, std::vector< std::pair< std::string, std::string > > > integratedTypeAndBodyList;
+    integratedTypeAndBodyList[ propagators::translational_state ] = { std::make_pair( spacecraftName_, "" ) };
+    integratedTypeAndBodyList[ propagators::rotational_state ] = { std::make_pair( spacecraftName_, "" ) };
+
+    // Create environment settings
+    std::map< propagators::EnvironmentModelsToUpdate, std::vector< std::string > > environmentModelsToUpdate =
+    propagators::createTranslationalEquationsOfMotionEnvironmentUpdaterSettings( onboardAccelerationModelMap_, onboardBodyMap_ );
+
+    // Create environment updater
+    onboardEnvironmentUpdater_ = boost::make_shared< propagators::EnvironmentUpdater< double, double > >(
+                onboardBodyMap_, environmentModelsToUpdate, integratedTypeAndBodyList );
 }
 
 } // namespace navigation

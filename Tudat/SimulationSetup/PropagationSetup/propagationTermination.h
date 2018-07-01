@@ -469,7 +469,7 @@ public:
     CustomTerminationCondition(
             boost::function< bool( const double ) >& checkStopCondition,
             const bool terminateExactlyOnFinalCondition = false ):
-        PropagationTerminationCondition( time_stopping_condition, terminateExactlyOnFinalCondition ),
+        PropagationTerminationCondition( custom_stopping_condition, terminateExactlyOnFinalCondition ),
         checkStopCondition_( checkStopCondition )
     { }
 

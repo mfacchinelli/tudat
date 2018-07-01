@@ -193,12 +193,12 @@ boost::shared_ptr< PropagationTerminationCondition > createPropagationTerminatio
         propagationTerminationCondition = boost::make_shared< CustomTerminationCondition >(
                     customTerminationSettings->checkStopCondition_,
                     customTerminationSettings->terminateExactlyOnFinalCondition_ );
+        break;
     }
     default:
         std::string errorMessage = "Error, stopping condition type " + std::to_string(
-                    terminationSettings->terminationType_ ) + "not recognized when making stopping conditions object";
+                    terminationSettings->terminationType_ ) + " not recognized when making stopping conditions object";
         throw std::runtime_error( errorMessage );
-        break;
     }
     return propagationTerminationCondition;
 

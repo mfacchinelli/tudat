@@ -28,11 +28,11 @@ class SingleDependentVariableSaveSettings;
 //! Enum listing the available types of propagation termination settings.
 enum PropagationTerminationTypes
 {
-    time_stopping_condition,
-    cpu_time_stopping_condition,
-    dependent_variable_stopping_condition,
-    hybrid_stopping_condition,
-    custom_stopping_condition
+    time_stopping_condition = 0,
+    cpu_time_stopping_condition = 1,
+    dependent_variable_stopping_condition = 2,
+    hybrid_stopping_condition = 3,
+    custom_stopping_condition = 4
 };
 
 

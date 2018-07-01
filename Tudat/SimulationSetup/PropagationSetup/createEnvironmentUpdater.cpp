@@ -788,6 +788,8 @@ std::map< propagators::EnvironmentModelsToUpdate, std::vector< std::string > > c
         }
         break;
     }
+    case custom_stopping_condition:
+        break;
     default:
         throw std::runtime_error( "Error when creating environment updater settings for termination conditions, type not found" );
     }
