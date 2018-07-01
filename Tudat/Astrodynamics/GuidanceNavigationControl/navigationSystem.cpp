@@ -42,7 +42,7 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
     navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
 
     // Extract estimated state and update navigation estimates
-    Eigen::Vector16d updatedEstimatedState = navigationFilter->getCurrentStateEstimate( );
+    Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
     setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
     currentEstimatedRotationalState_ = updatedEstimatedState.segment( 6, 4 );
     storeCurrentTimeAndStateEstimates( );
@@ -55,7 +55,7 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
     }
 
     // Store initial time and state and update body and acceleration maps
-    storeCurrentTimeAndTranslationalStateEstimates( );
+    storeCurrentTimeAndStateEstimates( );
 //    updateBodyAndAccelerationMaps( currentTime_ ); // done in onboard computer model
 }
 
@@ -66,7 +66,7 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     double currentIterationTime;
     std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
     std::vector< double > vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
-    for ( std::map< double, std::pair< Eigen::VectorXd, Eigen::VectorXd > >::const_iterator stateIterator =
+    for ( std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > >::const_iterator stateIterator =
           currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
           stateIterator != currentOrbitHistoryOfEstimatedTranslationalStates_.end( ); stateIterator++ )
     {
@@ -77,7 +77,7 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
             mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ] =
                     stateIterator->second.second;
             vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back(
-                        mapOfEstimatedAerodynamicAcceleration[ currentIterationTime ].norm( ) );
+                        mapOfEstimatedAerodynamicAcceleration.at( currentIterationTime ).norm( ) );
 
             // Modify the true anomaly such that it is negative where it is above PI radians (before estimated periapsis)
             if ( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] >= mathematical_constants::PI )
@@ -89,13 +89,13 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
 
     // Separate time and accelerations
     std::pair< Eigen::VectorXd, Eigen::MatrixXd > pairOfEstimatedKeplerianStateBelowAtmosphericInterface =
-            utilities::extractKeyAndValuesFromMap( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface );
+            utilities::extractKeyAndValuesFromMap< double, double, 6 >( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface );
     Eigen::VectorXd timeBelowAtmosphericInterface = pairOfEstimatedKeplerianStateBelowAtmosphericInterface.first;
     Eigen::MatrixXd estimatedKeplerianStateBelowAtmosphericInterface = pairOfEstimatedKeplerianStateBelowAtmosphericInterface.second;
     Eigen::VectorXd estimatedTrueAnomalyBelowAtmosphericInterface = estimatedKeplerianStateBelowAtmosphericInterface.row( 5 ).transpose( );
 
     // Check that true anomaly and aerodynamic acceleration have the same length
-    if ( estimatedTrueAnomalyBelowAtmosphericInterface.rows( ) !=
+    if ( static_cast< unsigned int >( estimatedTrueAnomalyBelowAtmosphericInterface.rows( ) ) !=
          vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.size( ) )
     {
         throw std::runtime_error( "Error in periapse time estimator. The sizes of the true anomaly and aerodynamic accelerations "
@@ -112,7 +112,7 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
 
     // Set root-finder function as the area below the acceleration curve
     double estimatedErrorInTrueAnomaly = areaBisectionRootFinder_->execute(
-                basic_mathematics::FunctionProxy(
+                boost::make_shared< basic_mathematics::FunctionProxy< > >(
                     boost::bind( &areaBisectionFunction, _1,
                                  utilities::convertEigenVectorToStlVector( estimatedTrueAnomalyBelowAtmosphericInterface ),
                                  vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ) ) );
@@ -123,12 +123,12 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
 
     // Find nearest lower index to error in true anomaly
     int estimatedPeriapsisIndex = basic_mathematics::computeNearestLeftNeighborUsingBinarySearch(
-                estimatedErrorInTrueAnomaly, estimatedTrueAnomalyBelowAtmosphericInterface );
+                estimatedTrueAnomalyBelowAtmosphericInterface, estimatedErrorInTrueAnomaly );
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
-    double esimatedChangeInVelocity = - numerical_quadrature::performExtendedSimpsonsQuadrature(
+    double estimatedChangeInVelocity = - numerical_quadrature::performExtendedSimpsonsQuadrature(
                 navigationRefreshStepSize_, vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-    std::cout << "Estimated Change in Velocity: " << esimatedChangeInVelocity << " m/s" << std::endl;
+    std::cout << "Estimated Change in Velocity: " << estimatedChangeInVelocity << " m/s" << std::endl;
 
     // Compute estimated mean motion by using the semi-major axis at beginning of atmospheric phase
     double currentEstimatedMeanMotion = std::sqrt( planetaryGravitationalParameter_ /
@@ -140,7 +140,8 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     double estimatedChangeInSemiMajorAxisDueToChangeInVelocity = 2.0 / currentEstimatedMeanMotion * std::sqrt(
                 ( 1.0 + initialEstimatedKeplerianState[ 1 ] ) /
                 ( 1.0 - initialEstimatedKeplerianState[ 1 ] ) ) * estimatedChangeInVelocity;
-    std::cout << "Estimated Change in Semi-major Axis: " << estimatedChangeInSemiMajorAxis << " m" << std::endl;
+    std::cout << "Estimated Change in Semi-major Axis: " <<
+                 estimatedChangeInSemiMajorAxisDueToChangeInVelocity << " m" << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
     double estimatedChangeInSemiMajorAxisFromKeplerianStateHistory = initialEstimatedKeplerianState[ 0 ] -
@@ -225,7 +226,7 @@ void NavigationSystem::createNavigationFilter(
         const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
 {
     // Create filter object
-    navigationFilter_ = filters::createFilter( navigationFilterSettings_, &onboardSystemModel, &onboardMeasurementModel );
+    navigationFilter_ = filters::createFilter< >( navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel );
 
     // Set initial time
     currentTime_ = navigationFilter_->getInitialTime( );
@@ -234,15 +235,19 @@ void NavigationSystem::createNavigationFilter(
     // Retrieve navigation filter step size
     navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
 
-    // Set initial state
+    // Set initial translational state
     currentEstimatedCartesianState_ = navigationFilter_->getCurrentStateEstimate( );
     currentEstimatedKeplerianState_ =
             orbital_element_conversions::convertCartesianToKeplerianElements( currentEstimatedCartesianState_,
                                                                               planetaryGravitationalParameter_ );
 
+    // Set initial rotational state
+    currentEstimatedRotationalState_ = onboardBodyMap_.at( spacecraftName_ )->getCurrentRotationalState( );
+
     // Store initial time and state and update body and acceleration maps
-    storeCurrentTimeAndTranslationalStateEstimates( );
-    updateBodyAndAccelerationMaps( currentTime_ );
+    storeCurrentTimeAndStateEstimates( );
+    updateBodyAndAccelerationMaps( -1.0 ); // force update
+    currentTime_ = navigationFilter_->getInitialTime( );
 }
 
 } // namespace navigation

@@ -17,6 +17,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include "Tudat/Astrodynamics/Aerodynamics/atmosphereModel.h"
+#include "Tudat/Astrodynamics/Aerodynamics/exponentialAtmosphere.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/physicalConstants.h"
 #include "Tudat/Mathematics/Interpolators/interpolator.h"
 #include "Tudat/Basics/identityElements.h"
@@ -75,6 +76,7 @@ protected:
 
     //! Type of wind model that is to be created
     WindModelTypes windModelType_;
+
 };
 
 //! Class to define settings for a custom, user-defined, wind model
@@ -120,6 +122,7 @@ protected:
 
     //! Function that returns wind vector as a function of altitude, longitude, latitude and time (in that order).
     boost::function< Eigen::Vector3d( const double, const double, const double, const double ) > windFunction_;
+
 };
 
 //! List of atmosphere models available in simulations
@@ -197,9 +200,10 @@ private:
 class ExponentialAtmosphereSettings: public AtmosphereSettings
 {
 public:
-    //! Constructor.
+
+    //! Default constructor.
     /*!
-     *  Constructor.
+     *  Default constructor, taking full atmosphere model parameters.
      *  \param densityScaleHeight Scale height for density profile of atmosphere.
      *  \param constantTemperature Constant atmospheric temperature.
      *  \param densityAtZeroAltitude Atmospheric density at ground level.
@@ -208,7 +212,6 @@ public:
      *  \param ratioOfSpecificHeats Ratio of specific heats for (constant) atmospheric chemical
      *  composition.
      */
-
     ExponentialAtmosphereSettings(
             const double densityScaleHeight, const double constantTemperature,
             const double densityAtZeroAltitude,
@@ -217,8 +220,34 @@ public:
         AtmosphereSettings( exponential_atmosphere ),
         densityScaleHeight_( densityScaleHeight ), constantTemperature_( constantTemperature ),
         densityAtZeroAltitude_( densityAtZeroAltitude ), specificGasConstant_( specificGasConstant ),
-        ratioOfSpecificHeats_( ratioOfSpecificHeats )
+        ratioOfSpecificHeats_( ratioOfSpecificHeats ), bodyWithPredefinedExponentialAtmosphere_( undefined_body )
     { }
+
+    //! Default constructor.
+    /*!
+     *  Default constructor, taking only the name of the body for which to load the predefined
+     *  exponential atmosphere model parameters.
+     *  \param densityScaleHeight Enumeration denoting the name of the body for which to load the
+     *  predefined atmosphere model.
+     */
+    ExponentialAtmosphereSettings(
+            const BodiesWithPredefinedExponentialAtmospheres bodyWithPredefinedExponentialAtmosphere ):
+        AtmosphereSettings( exponential_atmosphere ),
+        bodyWithPredefinedExponentialAtmosphere_( bodyWithPredefinedExponentialAtmosphere )
+    {
+        // Check that the body name inserted is available
+        switch ( bodyWithPredefinedExponentialAtmosphere )
+        {
+        case earth:
+        case mars:
+            // all is good
+            break;
+        default:
+            throw std::runtime_error( "Error while creating exponential atmosphere. The body name provided "
+                                      "does not match any predefined atmosphere model. Available models for: "
+                                      "Earth, Mars." );
+        }
+    }
 
     //! Function to return scale heigh for density profile of atmosphere.
     /*!
@@ -255,6 +284,13 @@ public:
      */
     double getRatioOfSpecificHeats( ){ return ratioOfSpecificHeats_; }
 
+    //! Function to return the name of the body for which to load the predefined
+    //! atmosphere model parameters.
+    BodiesWithPredefinedExponentialAtmospheres getBodyName( )
+    {
+        return bodyWithPredefinedExponentialAtmosphere_;
+    }
+
 private:
 
     //! Scale heigh for density profile of atmosphere.
@@ -271,6 +307,11 @@ private:
 
     //! Ratio of specific heats for (constant) atmospheric chemical
     double ratioOfSpecificHeats_;
+
+    //! Enumeration denoting the name of the body for which to load the predefined
+    //! atmosphere model.
+    BodiesWithPredefinedExponentialAtmospheres bodyWithPredefinedExponentialAtmosphere_;
+
 };
 
 

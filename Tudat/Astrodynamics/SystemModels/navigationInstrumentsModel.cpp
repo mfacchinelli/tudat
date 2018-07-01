@@ -20,7 +20,7 @@ Eigen::Matrix3d computeScaleMisalignmentMatrix( const Eigen::Vector3d& scaleFact
     misalignmentMatrix( 2, 1 ) = misalignmentVector[ 5 ];
 
     // Give output
-    return Eigen::Matrix3d::Identity( ) + scaleFactorVector.asDiagonal( ) + misalignmentMatrix;
+    return Eigen::Matrix3d::Identity( ) + Eigen::Matrix3d( scaleFactorVector.asDiagonal( ) ) + misalignmentMatrix;
 }
 
 //! Function to add an inertial measurement unit to the spacecraft set of instruments.
@@ -131,7 +131,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
 
 //! Function to generate the noise distributions for the star trackers.
 void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution(
-        const Eigen::Vector4d& starTrackerAccuracy )
+        const Eigen::Vector3d& starTrackerAccuracy )
 {
     using namespace tudat::statistics;
 

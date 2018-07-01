@@ -83,13 +83,21 @@ boost::shared_ptr< aerodynamics::AtmosphereModel > createAtmosphereModel(
         else
         {
             // Create and initialize exponential atmosphere model.
-            boost::shared_ptr< ExponentialAtmosphere > exponentialAtmosphereModel =
-                    boost::make_shared< ExponentialAtmosphere >(
-                        exponentialAtmosphereSettings->getDensityScaleHeight( ) ,
-                        exponentialAtmosphereSettings->getConstantTemperature( ),
-                        exponentialAtmosphereSettings->getDensityAtZeroAltitude( ),
-                        exponentialAtmosphereSettings->getSpecificGasConstant( ),
-                        exponentialAtmosphereSettings->getRatioOfSpecificHeats( ) );
+            boost::shared_ptr< ExponentialAtmosphere > exponentialAtmosphereModel;
+            if ( exponentialAtmosphereSettings->getBodyName( ) == undefined_body )
+            {
+                exponentialAtmosphereModel = boost::make_shared< ExponentialAtmosphere >(
+                            exponentialAtmosphereSettings->getDensityScaleHeight( ) ,
+                            exponentialAtmosphereSettings->getConstantTemperature( ),
+                            exponentialAtmosphereSettings->getDensityAtZeroAltitude( ),
+                            exponentialAtmosphereSettings->getSpecificGasConstant( ),
+                            exponentialAtmosphereSettings->getRatioOfSpecificHeats( ) );
+            }
+            else
+            {
+                exponentialAtmosphereModel = boost::make_shared< ExponentialAtmosphere >(
+                            exponentialAtmosphereSettings->getBodyName( ) );
+            }
             atmosphereModel = exponentialAtmosphereModel;
         }
         break;

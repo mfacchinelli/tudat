@@ -16,7 +16,6 @@
 #define BOOST_TEST_MAIN
 
 #include <limits>
-#include <iostream>
 
 #include <boost/test/unit_test.hpp>
 
@@ -137,7 +136,7 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereAt10km )
         modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
         modelSpecificParameters.push_back( 0.0 ); // reference altitude
         modelSpecificParameters.push_back( 7.050e3 ); // scale height
-        modelSpecificParameters.push_back( 0.0 ); // uncertainty factor
+        modelSpecificParameters.push_back( 1.0 ); // uncertainty factor
         modelSpecificParameters.push_back( 0.0 ); // dust storm factor
         const double altitude = 10.0e3;
 
@@ -163,7 +162,6 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereAt10km )
                                           unit_conversions::convertDegreesToRadians( 55.0 ) ) ) ); // third longitudinal wave
         const double expectedPressure = expectedDensity *
                 physical_constants::SPECIFIC_GAS_CONSTANT_AIR * constantTemperature;
-        std::cout << expectedDensity << std::endl << expectedPressure << std::endl;
 
         // Declare tolerance used for Boost tests.
         const double tolerance = std::numeric_limits< double >::epsilon( );

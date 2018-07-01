@@ -584,13 +584,14 @@ std::vector< T > sliceStlVector( const std::vector< T >& vectorToBeSliced, const
     std::vector< T > slicedVector;
 
     // Give value to end index
+    unsigned int actualEndIndex = endIndex;
     if ( endIndex == std::numeric_limits< unsigned int >::signaling_NaN( ) )
     {
-        endIndex = vectorToBeSliced.size( ) - 1;
+        actualEndIndex = vectorToBeSliced.size( ) - 1;
     }
 
     // Transfer values to sliced array
-    for ( unsigned int i = startIndex; i < endIndex; i++ )
+    for ( unsigned int i = startIndex; i < actualEndIndex; i++ )
     {
         slicedVector.push_back( vectorToBeSliced.at( i ) );
     }

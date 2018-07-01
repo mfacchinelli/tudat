@@ -34,6 +34,17 @@ namespace tudat
 namespace aerodynamics
 {
 
+//! Bodies with predefined exponential atmospheres.
+/*!
+ *  Bodies with predefined exponential atmospheres.
+ */
+enum BodiesWithPredefinedExponentialAtmospheres
+{
+    undefined_body = -1,
+    earth = 0,
+    mars = 1
+};
+
 //! Exponential atmosphere class.
 /*!
  * Class with an exponential atmosphere. The user has to initialize this class
@@ -46,16 +57,6 @@ namespace aerodynamics
 class ExponentialAtmosphere : public StandardAtmosphere
 {
 public:
-
-    //! Bodies with predefined exponential atmospheres.
-    /*!
-     *  Bodies with predefined exponential atmospheres.
-     */
-    enum BodiesWithPredefinedExponentialAtmospheres
-    {
-        earth = 0,
-        mars = 1
-    };
 
     //! Default constructor.
     /*!

@@ -21,7 +21,10 @@
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
 //! Typedefs and using statements to simplify code.
-typedef Eigen::Matrix< double, 16, 1 > Eigen::Vector16d;
+namespace Eigen
+{
+typedef Eigen::Matrix< double, 16, 1 > Vector16d;
+}
 using namespace tudat::guidance_navigation_control;
 
 namespace tudat
@@ -31,14 +34,14 @@ namespace system_models
 {
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vector16d& currentStateVector,
+Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
                                      const Eigen::VectorXd& currentControlVector,
-                                     const Eigen::Vector3d& currentTranslationalAccelerationVector,
-                                     const Eigen::Vector3d& currentRotationalVelocityVector );
+                                     const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector,
+                                     const Eigen::Vector3d& currentMeasuredRotationalVelocityVector );
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentStateVector,
-                                         const Eigen::Vector3d& currentTranslationalAccelerationVector );
+Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
+                                         const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
@@ -62,10 +65,10 @@ public:
         navigationSystem_->createNavigationFilter(
                     boost::bind( &onboardSystemModel, _1, _2,
                                  boost::bind( &ControlSystem::getCurrentAttitudeControlVector, controlSystem_ ),
-                                 boost::bind( &NavigationSystem::getCurrentEstimatedAcceleration, navigationSystem_ ),
+                                 boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_ ),
                                  boost::bind( &NavigationInstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) ),
                     boost::bind( &onboardMeasurementModel, _1, _2,
-                                 boost::bind( &NavigationSystem::getCurrentEstimatedAcceleration, navigationSystem_ ) ) );
+                                 boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_ ) ) );
     }
 
     //! Destructor.
@@ -83,7 +86,7 @@ public:
     bool checkStoppingCondition( const double currentTime )
     {
         // Define output value
-        isPropagationToBeStopped = false;
+        bool isPropagationToBeStopped = false;
 
         // Update current time and onboard models
         previousTime_ = navigationSystem_->getCurrentTime( );
@@ -130,11 +133,12 @@ public:
 
             // Extract measured translational accelerations
             std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedAccelerations;
-            for ( measurementConstantIterator_ measurementIterator = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
-                  measurementIterator != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
-                  measurementIterator++ )
+            for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
+                  measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
+                  measurementConstantIterator_++ )
             {
-                currentOrbitHistoryOfEstimatedAccelerations[ measurementIterator->first ] = measurementIterator->second.segment( 0, 3 );
+                currentOrbitHistoryOfEstimatedAccelerations[ measurementConstantIterator_->first ] =
+                        measurementConstantIterator_->second.segment( 0, 3 );
             }
 
             // Perform periapse time and atmosphere estimations

@@ -18,6 +18,7 @@
 #include "Tudat/Mathematics/Statistics/randomVariableGenerator.h"
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModel.h"
+#include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
 #include "Tudat/SimulationSetup/EnvironmentSetup/body.h"
 
 namespace tudat
@@ -107,8 +108,9 @@ public:
                 inertialMeasurementUnitRotationalVelocityFunction_( );
 
                 // Save inertial measurement unit measurements
+
                 currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_[ currentTime_ ] =
-                        ( Eigen::Vector6d << currentTranslationalAcceleration_, currentRotationalVelocity_ ).finished( );
+                        ( Eigen::VectorXd( 6 ) << currentTranslationalAcceleration_, currentRotationalVelocity_ ).finished( );
             }
 
             // Update star tracker
@@ -132,7 +134,7 @@ public:
     Eigen::Vector6d getCurrentInertialMeasurementUnitMeasurement( )
     {
         // Merge translational and rotational accelerations and give result
-        return ( Eigen::Vector6d << getCurrentAccelerometerMeasurement( ),
+        return ( Eigen::VectorXd( 6 ) << getCurrentAccelerometerMeasurement( ),
                  getCurrentGyroscopeMeasurement( ) ).finished( );
     }
 
@@ -269,7 +271,8 @@ private:
     void getCurrentAttitude( )
     {
         // Iterate over all accelerations acting on body
-        currentQuaternionToBaseFrame_ = bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( );
+        currentQuaternionToBaseFrame_ = linear_algebra::convertQuaternionToVectorFormat(
+                    bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( ) );
 
         // Add errors to acceleration value
         currentQuaternionToBaseFrame_ += produceStarTrackerNoise( );
@@ -292,7 +295,7 @@ private:
      *  with zero mean and standard deviation given by the accuracy of the star tracker.
      *  \param starTrackerAccuracy Accuracy of star tracker along each axis (3 sigma).
      */
-    void generateStarTrackerRandomNoiseDistribution( const Eigen::Vector4d& starTrackerAccuracy );
+    void generateStarTrackerRandomNoiseDistribution( const Eigen::Vector3d& starTrackerAccuracy );
 
     //! Function to produce accelerometer noise.
     /*!
@@ -333,7 +336,7 @@ private:
         {
             if ( gyroscopeNoiseDistribution_.at( i ) != NULL )
             {
-                gyroscopeNoise.second[ i ] = gyroscopeNoiseDistribution_.at( i )->getRandomVariableValue( );
+                gyroscopeNoise[ i ] = gyroscopeNoiseDistribution_.at( i )->getRandomVariableValue( );
             }
         }
 
@@ -406,11 +409,10 @@ private:
     Eigen::Vector4d currentQuaternionToBaseFrame_;
 
     //! Function to compute the translational acceleration measured by the inertial measurement unit.
-    boost::function< void( const Eigen::Vector3d&, const Eigen::Matrix3d& ) >
-    inertialMeasurementUnitTranslationalAccelerationFunction_;
+    boost::function< void( ) > inertialMeasurementUnitTranslationalAccelerationFunction_;
 
     //! Function to compute the rotational velocity measured by the inertial measurement unit.
-    boost::function< void( const Eigen::Vector3d&, const Eigen::Matrix3d& ) > inertialMeasurementUnitRotationalVelocityFunction_;
+    boost::function< void( ) > inertialMeasurementUnitRotationalVelocityFunction_;
 
     //! Function to compute the rotational velocity measured by the inertial measurement unit.
     boost::function< void( ) > starTrackerOrientationFunction_;

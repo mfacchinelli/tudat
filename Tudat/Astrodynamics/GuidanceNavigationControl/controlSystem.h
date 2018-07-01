@@ -19,7 +19,16 @@
 #include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
 
 //! Typedefs and using statements to simplify code.
-typedef Eigen::Matrix< double, 16, 1 > Eigen::Vector16d;
+namespace Eigen
+{
+typedef Eigen::Matrix< double, 16, 1 > Vector16d;
+}
+
+namespace tudat
+{
+
+namespace guidance_navigation_control
+{
 
 //! Function to compute the error in the current quaternion state, based on the commanded quaternion.
 /*!
@@ -35,12 +44,6 @@ typedef Eigen::Matrix< double, 16, 1 > Eigen::Vector16d;
  */
 Eigen::Vector4d computeErrorInEstimatedQuaternionState( const Eigen::Vector4d& currentQuaternionToBaseFrame,
                                                         const Eigen::Vector4d& currentCommandedQuaternionToBaseFrame );
-
-namespace tudat
-{
-
-namespace guidance_navigation_control
-{
 
 //! Class for control system of an aerobraking maneuver.
 class ControlSystem
@@ -74,15 +77,15 @@ public:
         Eigen::Vector4d currentErrorInEstimatedQuaternionState =
                 computeErrorInEstimatedQuaternionState( currentEstimatedState.segment( 0, 4 ),
                                                         computeCurrentCommandedQuaternionState( currentEstimatedState ) );
-        historyOfQuaternionStateErrors_.push_back( currentErrorInEstimatedQuaternionState );
+        historyOfQuaternionStateErrors_.push_back( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) );
 
         // Compute control vector based on control gains and error
-        currentControlVector_ = ( proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState ) +
-                                  integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
-                                                                  navigationRefreshStepSize, historyOfQuaternionStateErrors_ ) ) +
-                                  derivativeGain_.cwiseProduct( propagators::calculateQuaternionsDerivative(
-                                                                    currentEstimatedState.segment( 0, 4 ),
-                                                                    currentMeasuredRotationalVelocityVector ) ) ).segment( 1, 3 );
+        currentControlVector_ = proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) ) +
+                integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
+                                                navigationRefreshStepSize, historyOfQuaternionStateErrors_ ) ) +
+                derivativeGain_.cwiseProduct( ( propagators::calculateQuaternionsDerivative(
+                                                    currentEstimatedState.segment( 0, 4 ),
+                                                    currentMeasuredRotationalVelocityVector ) ).segment( 1, 3 ) );
         // only the imaginary part of the quaternion is used, since only three terms are needed to fully control the spacecraft
     }
 
@@ -135,7 +138,7 @@ private:
 
         // Transform DCM to quaternion and give output
         return linear_algebra::convertQuaternionToVectorFormat(
-                    Eigen::Quaterniond( transformationFromTrajectoryToInertialFrame.transposeInPlace( ) ) );
+                    Eigen::Quaterniond( transformationFromTrajectoryToInertialFrame.transpose( ) ) );
         // the transpose is taken to return the inverse rotation from trajectory to inertial frame
     }
 
@@ -155,7 +158,7 @@ private:
     Eigen::Vector3d scheduledApsoapsisManeuver_;
 
     //! History of errors in the estimated quaternion state.
-    std::vector< Eigen::Vector4d > historyOfQuaternionStateErrors_;
+    std::vector< Eigen::Vector3d > historyOfQuaternionStateErrors_;
 
 };
 

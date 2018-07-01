@@ -560,7 +560,7 @@ public:
      * \param currentRotationalStateFromLocalToGlobalFrame Quaternion from body-fixed to propagation frame
      * (in vector form) and the body's angular velocity vector in body-fixed frame.
      */
-    void setCurrentRotationalStateToLocalFrame( const Eigen::Matrix< double, 7, 1 > currentRotationalStateFromLocalToGlobalFrame )
+    void setCurrentRotationalStateToLocalFrame( const Eigen::Vector7d currentRotationalStateFromLocalToGlobalFrame )
     {
         Eigen::Quaterniond currentRotationToGlobalFrame =
                 Eigen::Quaterniond( currentRotationalStateFromLocalToGlobalFrame( 0 ),
@@ -584,7 +584,7 @@ public:
      *  by the setCurrentRotationalStateToLocalFrameFromEphemeris or
      *  setCurrentRotationToLocalFrameFromEphemeris function.  If body has no rotational ephemeris,
      *  an identity quaternion (no rotation) is returned.
-     *  \return Current rotation from body-fixed to inertial frame
+     *  \return Current rotation from body-fixed to inertial frame.
      */
     Eigen::Quaterniond getCurrentRotationToGlobalFrame( )
     {
@@ -597,11 +597,23 @@ public:
      *  by the setCurrentRotationalStateToLocalFrameFromEphemeris or
      *  setCurrentRotationToLocalFrameFromEphemeris function.  If body has no rotational ephemeris,
      *  an identity quaternion (no rotation) is returned.
-     *  \return Current rotation from inertial to body-fixed frame
+     *  \return Current rotation from inertial to body-fixed frame.
      */
     Eigen::Quaterniond getCurrentRotationToLocalFrame( )
     {
         return currentRotationToLocalFrame_;
+    }
+
+    //! Get current rotational state.
+    /*!
+     *  Get current rotational state, expressed as a quaternion from global to body-fixed frame
+     *  (in vector form) and the body's angular velocity vector in inertial frame.
+     *  \return Current rotational state in quaternions and rotational velocity.
+     */
+    Eigen::Vector7d getCurrentRotationalState( )
+    {
+        return ( Eigen::VectorXd( 7 ) << linear_algebra::convertQuaternionToVectorFormat( getCurrentRotationToGlobalFrame( ) ),
+                 getCurrentAngularVelocityVectorInGlobalFrame( ) ).finished( );
     }
 
     //! Get current rotation matrix derivative from body-fixed to global frame.

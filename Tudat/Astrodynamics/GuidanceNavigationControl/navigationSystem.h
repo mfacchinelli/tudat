@@ -11,14 +11,20 @@
 #ifndef TUDAT_NAVIGATION_SYSTEM_H
 #define TUDAT_NAVIGATION_SYSTEM_H
 
+#include <boost/function.hpp>
+#include <boost/lambda/lambda.hpp>
+
 #include "Tudat/Astrodynamics/Aerodynamics/customConstantTemperatureAtmosphere.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 #include "Tudat/Mathematics/Filters/createFilter.h"
 
 //! Typedefs and using statements to simplify code.
-typedef Eigen::Matrix< double, 16, 1 > Eigen::Vector16d;
-typedef Eigen::Matrix< double, 16, 16 > Eigen::Matrix16d;
+namespace Eigen
+{
+typedef Eigen::Matrix< double, 16, 1 > Vector16d;
+typedef Eigen::Matrix< double, 16, 16 > Matrix16d;
+}
 
 namespace tudat
 {
@@ -64,17 +70,18 @@ public:
                       const double atmosphericInterfaceAltitude ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
-        selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel )
+        selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel ),
+        planetaryGravitationalParameter_( onboardBodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( ) ),
+        planetaryRadius_( onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( ) ),
+        atmosphericInterfaceRadius_( planetaryRadius_ + atmosphericInterfaceAltitude )
     {
-        // Set planetary conditions
-        planetaryGravitationalParameter_ = onboardBodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( );
-        planetaryRadius_ = onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( );
-        atmosphericInterfaceRadius_ = planetaryRadius_ + atmosphericInterfaceAltitude;
-
         // Create root-finder object for bisection of aerodynamic acceleration curve
         // The values inserted are the tolerance in independent value (i.e., one arcminute of true anomaly) and
         // the maximum number of interations (i.e., 10 iterations)
         areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( 1.7e-3, 10 );
+
+        // State transition matrix function
+        stateTransitionMatrixFunction_ = boost::lambda::constant( Eigen::Matrix6d::Zero( ) );
     }
 
     //! Destructor.
@@ -285,10 +292,10 @@ private:
     Eigen::Vector7d currentEstimatedRotationalState_;
 
     //! Filter object to be used for estimation of state.
-    const boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
+    boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
 
     //! Function to propagate estimated state error.
-    const boost::function< Eigen::Matrix6d( const Eigen::Vector6d& ) > stateTransitionMatrixFunction_;
+    boost::function< Eigen::Matrix6d( const Eigen::Vector6d& ) > stateTransitionMatrixFunction_;
 
     //! Pointer to root-finder used to esimated the time of periapsis.
     boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;

@@ -132,6 +132,7 @@ public:
 template< typename IndependentVariableType = double, typename DependentVariableType = double >
 class UnscentedKalmanFilterSettings : public FilterSettings< IndependentVariableType, DependentVariableType >
 {
+public:
 
     //! Inherit typedefs from base class.
     typedef typename FilterSettings< IndependentVariableType, DependentVariableType >::DependentVector DependentVector;
@@ -142,39 +143,6 @@ class UnscentedKalmanFilterSettings : public FilterSettings< IndependentVariable
     /*!
      *  Default constructor. This constructor takes the system and measurement functions as models for the simulation.
      *  These functions can be a function of time, state and (for system) control vector.
-     *  \param systemUncertainty Matrix defining the uncertainty in modeling of the system.
-     *  \param measurementUncertainty Matrix defining the uncertainty in modeling of the measurements.
-     *  \param initialTime Scalar representing the value of the initial time.
-     *  \param initialStateVector Vector representing the initial (estimated) state of the system. It is used as first
-     *      a-priori estimate of the state vector.
-     *  \param initialCovarianceMatrix Matrix representing the initial (estimated) covariance of the system. It is used as first
-     *      a-priori estimate of the covariance matrix.
-     *  \param integratorSettings Pointer to integration settings defining the integrator to be used to propagate the state.
-     *  \param constantValueReference Reference to be used for the values of the \f$ \alpha \f$ and \f$ \kappa \f$ parameters. This
-     *      variable has to be part of the ConstantParameterReferences enumeration (custom parameters are supported).
-     *  \param customConstantParameters Values of the constant parameters \f$ \alpha \f$ and \f$ \kappa \f$, in case the custom_parameters
-     *      enumeration is used in the previous field.
-     */
-    UnscentedKalmanFilterSettings( const DependentMatrix& systemUncertainty,
-                                   const DependentMatrix& measurementUncertainty,
-                                   const IndependentVariableType initialTime,
-                                   const DependentVector& initialStateVector,
-                                   const DependentMatrix& initialCovarianceMatrix,
-                                   const boost::shared_ptr< IntegratorSettings > integratorSettings = NULL,
-                                   const ConstantParameterReferences constantValueReference = reference_Wan_and_Van_der_Merwe,
-                                   const std::pair< DependentVariableType, DependentVariableType > customConstantParameters =
-            std::make_pair( static_cast< DependentVariableType >( TUDAT_NAN ),
-                            static_cast< DependentVariableType >( TUDAT_NAN ) ) ) :
-        FilterSettings< IndependentVariableType, DependentVariableType >( systemUncertainty, measurementUncertainty,
-                                                                          initialTime, initialStateVector,
-                                                                          initialCovarianceMatrix, integratorSettings ),
-        constantValueReference_( constantValueReference ), customConstantParameters_( customConstantParameters )
-    { }
-
-    //! Constructor.
-    /*!
-     *  Constructor. This constructor does not take the system and measurement functions, but the user is supposed to set them
-     *  at a later time via the setSystemAndMeasurementFunctions command.
      *  \param systemUncertainty Matrix defining the uncertainty in modeling of the system.
      *  \param measurementUncertainty Matrix defining the uncertainty in modeling of the measurements.
      *  \param initialTime Scalar representing the value of the initial time.
@@ -218,9 +186,9 @@ template< typename IndependentVariableType = double, typename DependentVariableT
 boost::shared_ptr< filters::FilterBase< IndependentVariableType, DependentVariableType > >
 createFilter( const boost::shared_ptr< FilterSettings< IndependentVariableType, DependentVariableType > > filterSettings,
               const boost::function< Eigen::Matrix< DependentVariableType, Eigen::Dynamic, 1 >(
-                  const IndependentVariableType, const Eigen::Matrix< DependentVariableType, Eigen::Dynamic, 1 >& ) > systemFunction,
+                  const IndependentVariableType, const Eigen::Matrix< DependentVariableType, Eigen::Dynamic, 1 >& ) >& systemFunction,
               const boost::function< Eigen::Matrix< DependentVariableType, Eigen::Dynamic, 1 >(
-                  const IndependentVariableType, const Eigen::Matrix< DependentVariableType, Eigen::Dynamic, 1 >& ) > measurementFunction )
+                  const IndependentVariableType, const Eigen::Matrix< DependentVariableType, Eigen::Dynamic, 1 >& ) >& measurementFunction )
 {
     // Create an empty filter object
     boost::shared_ptr< filters::FilterBase< IndependentVariableType, DependentVariableType > > createdFilter;
@@ -231,8 +199,10 @@ createFilter( const boost::shared_ptr< FilterSettings< IndependentVariableType, 
     case unscented_kalman_filter:
     {
         // Cast filter settings to unscented Kalman filter
-        boost::shared_ptr< UnscentedKalmanFilterSettings > unscentedKalmanFilterSettings =
-                boost::dynamic_pointer_cast< UnscentedKalmanFilterSettings >( interpolatorSettings );
+        boost::shared_ptr< UnscentedKalmanFilterSettings< IndependentVariableType, DependentVariableType > >
+                unscentedKalmanFilterSettings =
+                boost::dynamic_pointer_cast< UnscentedKalmanFilterSettings< IndependentVariableType, DependentVariableType > >(
+                    filterSettings );
         if ( unscentedKalmanFilterSettings == NULL )
         {
             throw std::runtime_error( "Error while creating unscented Kalman filter object. Type of filter "
@@ -241,21 +211,13 @@ createFilter( const boost::shared_ptr< FilterSettings< IndependentVariableType, 
                                       "UnscentedKalmanFilterSettings for this type)." );
         }
 
-        // Check that user gave value to system and measurement functions
-        if ( ( unscentedKalmanFilterSettings->inputSystemFunction_ == 0 ) ||
-             ( unscentedKalmanFilterSettings->inputMeasurementFunction_ == 0 ) )
-        {
-            throw std::runtime_error( "Error while creating unscented Kalman filter object. The system and "
-                                      "measurement functions have not been set." );
-        }
-
         // Create filter
         createdFilter = boost::make_shared< UnscentedKalmanFilter< IndependentVariableType, DependentVariableType > >(
-                    &systemFunction, &measurementFunction,
+                    systemFunction, measurementFunction,
                     unscentedKalmanFilterSettings->systemUncertainty_, unscentedKalmanFilterSettings->measurementUncertainty_,
                     unscentedKalmanFilterSettings->initialTime_, unscentedKalmanFilterSettings->initialStateEstimate_,
-                    unscentedKalmanFilterSettings->initialCovarianceEstimate_, unscentedKalmanFilterSettings->constantValueReference_,
-                    unscentedKalmanFilterSettings->customConstantParameters_ );
+                    unscentedKalmanFilterSettings->initialCovarianceEstimate_, unscentedKalmanFilterSettings->integratorSettings_,
+                    unscentedKalmanFilterSettings->constantValueReference_, unscentedKalmanFilterSettings->customConstantParameters_ );
         break;
     }
     default:

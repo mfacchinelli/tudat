@@ -30,10 +30,10 @@ public:
     //! Destructor.
     ~GuidanceSystem( ) { }
 
-    //! Corridor estimator (CE).
+    //! Function to run corridor estimator (CE).
     void runCorridorEstimator( );
 
-    //! Maneuver estimator (ME).
+    //! Function to run maneuver estimator (ME).
     void runManeuverEstimator( )
     {
         scheduledApsoapsisManeuver_ = Eigen::Vector3d::Zero( );

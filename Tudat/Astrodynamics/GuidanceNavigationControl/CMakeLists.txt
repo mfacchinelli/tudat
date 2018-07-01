@@ -23,5 +23,5 @@ set(GUIDANCENAVIGATIONCONTROL_HEADERS
 )
 
 # Add static libraries.
-add_library(tudat_michele_gnc STATIC ${GUIDANCENAVIGATIONCONTROL_SOURCES} ${GUIDANCENAVIGATIONCONTROL_HEADERS})
-setup_tudat_library_target(tudat_michele_gnc "${SRCROOT}{GUIDANCENAVIGATIONCONTROLDIR}")
+add_library(tudat_guidance_navigation_control STATIC ${GUIDANCENAVIGATIONCONTROL_SOURCES} ${GUIDANCENAVIGATIONCONTROL_HEADERS})
+setup_tudat_library_target(tudat_guidance_navigation_control "${SRCROOT}{GUIDANCENAVIGATIONCONTROLDIR}")
