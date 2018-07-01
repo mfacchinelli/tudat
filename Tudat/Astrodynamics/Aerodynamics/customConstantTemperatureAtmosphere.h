@@ -138,8 +138,7 @@ public:
     //! Constructor.
     /*!
      *  Constructor which uses one of the built-in density functions as input.
-     *  \param densityFunctionIdentifier Enumeration denoting which density function to
-     *      implement.
+     *  \param densityFunctionType Enumeration denoting which density function to implement.
      *  \param constantTemperature Constant atmospheric temperature.
      *  \param specificGasConstant The constant specific gas constant of the atmosphere.
      *  \param ratioOfSpecificHeats The constant ratio of specific heats of the atmosphere.
@@ -147,7 +146,7 @@ public:
      *      function. Both meaning and number of parameters depends on the model.
      */
     CustomConstantTemperatureAtmosphere(
-            const AvailableConstantTemperatureAtmosphereModels densityFunctionIdentifier,
+            const AvailableConstantTemperatureAtmosphereModels densityFunctionType,
             const double constantTemperature,
             const double specificGasConstant,
             const double ratioOfSpecificHeats,

@@ -1121,7 +1121,7 @@ Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > createCombinedInitialState(
 }
 
 //! Class for defining settings for propagating multiple types of dynamics concurrently.
-template< typename StateScalarType >
+template< typename StateScalarType = double >
 class MultiTypePropagatorSettings: public SingleArcPropagatorSettings< StateScalarType >
 {
 public:

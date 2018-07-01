@@ -367,13 +367,13 @@ private:
     }
 
     //! Body map of the simulation.
-    simulation_setup::NamedBodyMap bodyMap_;
+    const simulation_setup::NamedBodyMap bodyMap_;
 
     //! Pointer to accelerations exerted on the spacecraft.
-    basic_astrodynamics::AccelerationMap accelerationModelMap_;
+    const basic_astrodynamics::AccelerationMap accelerationModelMap_;
 
     //! String denoting the name of the spacecraft body.
-    std::string spacecraftName_;
+    const std::string spacecraftName_;
 
     //! Double denoting current time.
     double currentTime_;

@@ -20,6 +20,7 @@
 
 namespace tudat
 {
+
 namespace numerical_integrators
 {
 
@@ -244,6 +245,7 @@ protected:
      * Last state as computed by performIntegrationStep().
      */
     StateType lastState_;
+
 };
 
 //! Typedef of RK4 integrator (state/state derivative = VectorXd, independent variable = double).
@@ -275,6 +277,7 @@ typedef boost::shared_ptr< RungeKutta4IntegratorXd > RungeKutta4IntegratorXdPoin
 typedef boost::shared_ptr< RungeKutta4Integratord > RungeKutta4IntegratordPointer;
 
 } // namespace numerical_integrators
+
 } // namespace tudat
 
 #endif // TUDAT_RUNGE_KUTTA_4_INTEGRATOR_H

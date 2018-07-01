@@ -37,7 +37,8 @@ Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vect
                                      const Eigen::Vector3d& currentRotationalVelocityVector );
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector4d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentStateVector );
+Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentStateVector,
+                                         const Eigen::Vector3d& currentTranslationalAccelerationVector );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel

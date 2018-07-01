@@ -120,7 +120,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
             gyroscopeNoiseDistribution_.push_back(
                         createBoostContinuousRandomVariableGenerator(
                             normal_boost_distribution, { 0.0, gyroscopeAccuracy[ i ] / 3.0 },
-                            accelerometerAccuracy.rows( ) + i ) );
+                            3 + i ) );
         }
         else
         {
@@ -135,14 +135,15 @@ void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution(
 {
     using namespace tudat::statistics;
 
-    // Create accelerometer noise distribution
+    // Create star tracker noise distribution
     for ( unsigned int i = 0; i < 4; i++ )
     {
         if ( starTrackerAccuracy[ i ] != 0.0 )
         {
             starTrackerNoiseDistribution_.push_back(
                         createBoostContinuousRandomVariableGenerator(
-                            normal_boost_distribution, { 0.0, starTrackerAccuracy[ i ] / 3.0 }, i ) );
+                            normal_boost_distribution, { 0.0, starTrackerAccuracy[ i ] / 3.0 },
+                            6 + i ) );
         }
         else
         {

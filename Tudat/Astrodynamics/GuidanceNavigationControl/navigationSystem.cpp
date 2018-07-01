@@ -126,9 +126,8 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
                 estimatedErrorInTrueAnomaly, estimatedTrueAnomalyBelowAtmosphericInterface );
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
-    double esimatedChangeInVelocity = - numerical_quadrature::performTrapezoidalQuadrature(
-                utilities::convertEigenVectorToStlVector( timeBelowAtmosphericInterface ),
-                vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+    double esimatedChangeInVelocity = - numerical_quadrature::performExtendedSimpsonsQuadrature(
+                navigationRefreshStepSize_, vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
     std::cout << "Estimated Change in Velocity: " << esimatedChangeInVelocity << " m/s" << std::endl;
 
     // Compute estimated mean motion by using the semi-major axis at beginning of atmospheric phase
@@ -209,6 +208,8 @@ void NavigationSystem::runAtmosphereEstimator( const std::map< double, Eigen::Ve
     {
         break;
     }
+    default:
+        throw std::runtime_error( "Error in atmoshere estimation of navigation system. Atmosphere model not recognized." );
     }
 
     // Update atmosphere settings of onboard body map

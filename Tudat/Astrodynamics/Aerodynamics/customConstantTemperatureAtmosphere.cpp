@@ -25,12 +25,12 @@ double threeWaveAtmosphereModel( const double altitude, const double longitude, 
                                  const double uncertaintyFactor, const double dustStormFactor )
 {
     // Compute density
-    double waveModelVariation = uncertaintyFactor + dustStormFactor +
-            0.1 * std::sin( longitude ) + // first longitudinal wave
-            0.2 * std::sin( longitude - unit_conversions::convertDegreesToRadians( 50.0 ) ) + // second longitudinal wave
-            0.1 * std::sin( longitude - unit_conversions::convertDegreesToRadians( 55.0 ) ); // third longitudinal wave
+    double waveModelTerm = uncertaintyFactor + dustStormFactor +
+            0.1 * std::sin( 1.0 * longitude ) + // first longitudinal wave
+            0.2 * std::sin( 2.0 * ( longitude - unit_conversions::convertDegreesToRadians( 50.0 ) ) ) + // second longitudinal wave
+            0.1 * std::sin( 3.0 * ( longitude - unit_conversions::convertDegreesToRadians( 55.0 ) ) ); // third longitudinal wave
     return exponentialAtmosphereModel( altitude, longitude, latitude, time, densityAtReferenceAltitude,
-                                       referenceAltitude, scaleHeight ) * waveModelVariation;
+                                       referenceAltitude, scaleHeight ) * waveModelTerm;
 }
 
 //! Third atmosphere model, based on three constant scale height atmospheres.
@@ -52,7 +52,7 @@ double threeTermAtmosphereModel( const double altitude, const double longitude, 
 
 //! Constructor which uses one of the built-in density functions as input.
 CustomConstantTemperatureAtmosphere::CustomConstantTemperatureAtmosphere(
-        const AvailableConstantTemperatureAtmosphereModels densityFunctionIdentifier,
+        const AvailableConstantTemperatureAtmosphereModels densityFunctionType,
         const double constantTemperature,
         const double specificGasConstant,
         const double ratioOfSpecificHeats,
@@ -62,7 +62,7 @@ CustomConstantTemperatureAtmosphere::CustomConstantTemperatureAtmosphere(
     ratioOfSpecificHeats_( ratioOfSpecificHeats )
 {
     // Set density function based on user-provided data
-    switch ( densityFunctionIdentifier )
+    switch ( densityFunctionType )
     {
     case exponential_atmosphere_model:
     {
@@ -71,7 +71,8 @@ CustomConstantTemperatureAtmosphere::CustomConstantTemperatureAtmosphere(
         {
             throw std::runtime_error( "Error while creating custom constant temperature atmosphere model. The "
                                       "number of input model-dependent parameters is incorrect. Number of "
-                                      "parameters given " + modelSpecificParameters.size( ) + ". Number required: 3." );
+                                      "parameters given " + std::to_string( modelSpecificParameters.size( ) ) +
+                                      ". Number required: 3." );
         }
 
         // Set density function
@@ -87,7 +88,8 @@ CustomConstantTemperatureAtmosphere::CustomConstantTemperatureAtmosphere(
         {
             throw std::runtime_error( "Error while creating custom constant temperature atmosphere model. The "
                                       "number of input model-dependent parameters is incorrect. Number of "
-                                      "parameters given " + modelSpecificParameters.size( ) + ". Number required: 5." );
+                                      "parameters given " + std::to_string( modelSpecificParameters.size( ) ) +
+                                      ". Number required: 5." );
         }
 
         // Set density function
@@ -100,23 +102,24 @@ CustomConstantTemperatureAtmosphere::CustomConstantTemperatureAtmosphere(
     case three_term_atmosphere_model:
     {
         // Check that the number of input parameters is correct
-        if ( modelSpecificParameters.size( ) != 4 )
+        if ( modelSpecificParameters.size( ) != 6 )
         {
             throw std::runtime_error( "Error while creating custom constant temperature atmosphere model. The "
                                       "number of input model-dependent parameters is incorrect. Number of "
-                                      "parameters given " + modelSpecificParameters.size( ) + ". Number required: 4." );
+                                      "parameters given " + std::to_string( modelSpecificParameters.size( ) ) +
+                                      ". Number required: 6." );
         }
-        if ( modelSpecificParameters.at( 3 ).size( ) != 3 )
-        {
-            throw std::runtime_error( "Error while creating custom constant temperature atmosphere model. The "
-                                      "number of input weights for the three-term model is incorrect. Number of "
-                                      "weights given " + modelSpecificParameters.at( 3 ).size( ) + ". Number required: 3." );
-        }
+
+        // Combine last three elements in one vector
+        std::vector< double > modelWeights;
+        modelWeights.push_back( modelSpecificParameters.at( 3 ) );
+        modelWeights.push_back( modelSpecificParameters.at( 4 ) );
+        modelWeights.push_back( modelSpecificParameters.at( 5 ) );
 
         // Set density function
         densityFunction_ = boost::bind( &threeTermAtmosphereModel, _1, _2, _3, _4,
                                         modelSpecificParameters.at( 0 ), modelSpecificParameters.at( 1 ),
-                                        modelSpecificParameters.at( 2 ), modelSpecificParameters.at( 3 ) );
+                                        modelSpecificParameters.at( 2 ), modelWeights );
         break;
     }
     default:

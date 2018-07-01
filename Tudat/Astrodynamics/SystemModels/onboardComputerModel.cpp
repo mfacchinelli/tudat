@@ -31,7 +31,7 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
     // Rotational kinematics
     Eigen::Vector3d uncorruptedCurrentRotationalVelocityVector =
             ( Eigen::Matrix3d::Identity( ) - currentStateVector.segment( 13, 3 ).asDiagonal( ) ) * // binomial approximation
-            ( currentMeasuredRotationalVelocityVector - currentStateVector.segment( 10, 3 ) ) + currentControlVector;
+            ( currentMeasuredRotationalVelocityVector - currentStateVector.segment( 10, 3 ) ); // + currentControlVector
     currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionsDerivative( currentStateVector.segment( 6, 4 ),
                                                                                           uncorruptedCurrentRotationalVelocityVector );
 

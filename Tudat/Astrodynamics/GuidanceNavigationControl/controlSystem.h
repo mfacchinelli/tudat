@@ -48,10 +48,15 @@ class ControlSystem
 public:
 
     //! Constructor.
+    /*!
+     *  Constructor.
+     *  \param proportionalGain
+     *  \param integralGain
+     *  \param derivativeGain
+     */
     ControlSystem( const Eigen::Vector3d& proportionalGain, const Eigen::Vector3d& integralGain,
                    const Eigen::Vector3d& derivativeGain ) :
-        proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain ),
-        navigationRefreshStepSize_( TUDAT_NAN )
+        proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain )
     {
         // Initialize control vector to zero
         currentControlVector_ = Eigen::Vector3d::Zero( );
