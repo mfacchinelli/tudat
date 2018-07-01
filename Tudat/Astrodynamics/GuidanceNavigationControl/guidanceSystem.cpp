@@ -1,4 +1,4 @@
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/guidance.h"
+#include "Tudat/Astrodynamics/GuidanceNavigationControl/guidanceSystem.h"
 
 namespace tudat
 {
