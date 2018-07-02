@@ -440,8 +440,6 @@ bool checkMultiArcPropagatorSettingsAndParameterEstimationConsistency(
 
                 }
             }
-
-
             break;
         }
         default:
@@ -1081,7 +1079,8 @@ public:
 
         if( currentIndex != concatenatedInitialStates.rows( ) )
         {
-            throw std::runtime_error( "Error when doing multi-arc variational equation integration, input state vector size is incompatible with settings" );
+            throw std::runtime_error( "Error when doing multi-arc variational equation integration, "
+                                      "input state vector size is incompatible with settings." );
         }
 
         integrateVariationalAndDynamicalEquations( splitInitialState, integrateEquationsConcurrently );
@@ -1224,7 +1223,8 @@ public:
                 // previous arc
                 if( ( i == 0 ) || ( !linear_algebra::doesMatrixHaveNanEntries( initialStateEstimate.at( i ) ) ) )
                 {
-                    throw std::runtime_error( "Error, arc information transferral not yet supported for separate dynamics and variational euations propagation" );
+                    throw std::runtime_error( "Error, arc information transferral not yet supported for separate "
+                                              "dynamics and variational euations propagation." );
                     updateInitialStates = true;
                 }
                 else

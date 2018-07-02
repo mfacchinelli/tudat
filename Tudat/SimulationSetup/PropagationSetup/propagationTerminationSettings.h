@@ -199,7 +199,7 @@ public:
      */
     PropagationHybridTerminationSettings(
             const std::vector< boost::shared_ptr< PropagationTerminationSettings > > terminationSettings,
-            const bool fulFillSingleCondition = 0 ):
+            const bool fulFillSingleCondition = false ):
         PropagationTerminationSettings( hybrid_stopping_condition ),
         terminationSettings_( terminationSettings ),
         fulFillSingleCondition_( fulFillSingleCondition )

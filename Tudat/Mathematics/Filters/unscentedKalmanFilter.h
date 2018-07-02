@@ -307,8 +307,7 @@ private:
         {
             // Check if matrix is diagonal
             DependentVector augmentedCovarianceMatrixDiagonal = augmentedCovarianceMatrix_.diagonal( );
-            DependentMatrix diagonalMatrix = augmentedCovarianceMatrixDiagonal.asDiagonal( );
-            if ( augmentedCovarianceMatrix_.isApprox( diagonalMatrix ) )
+            if ( augmentedCovarianceMatrix_.isApprox( DependentMatrix( augmentedCovarianceMatrixDiagonal.asDiagonal( ) ) ) )
             {
                 augmentedCovarianceMatrixDiagonal = augmentedCovarianceMatrixDiagonal.array( ).sqrt( );
                 augmentedCovarianceMatrixSquareRoot = augmentedCovarianceMatrixDiagonal.asDiagonal( );

@@ -31,6 +31,10 @@ namespace system_models
 Eigen::Matrix3d computeScaleMisalignmentMatrix( const Eigen::Vector3d& scaleFactorVector,
                                                 const Eigen::Vector6d& misalignmentVector );
 
+//! Function to add a small angle uncertainty to a quaternion vector.
+Eigen::Vector4d sumQuaternionUncertainty( const Eigen::Vector4d& quaternionVector,
+                                          const Eigen::Vector3d& equivalentVectorUncertainty );
+
 //! Class for guidance system of an aerobraking maneuver.
 class NavigationInstrumentsModel
 {
@@ -275,7 +279,7 @@ private:
                     bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( ) );
 
         // Add errors to acceleration value
-        currentQuaternionToBaseFrame_ += produceStarTrackerNoise( );
+        sumQuaternionUncertainty( currentQuaternionToBaseFrame_, produceStarTrackerNoise( ) );
     }
 
     //! Function to generate the noise distributions for the inertial measurement unit.
@@ -305,7 +309,7 @@ private:
     Eigen::Vector3d produceAccelerometerNoise( )
     {
         // Declare noise vector
-        Eigen::Vector3d accelerometerNoise;
+        Eigen::Vector3d accelerometerNoise = Eigen::Vector3d::Zero( );
 
         // Loop over dimensions and add noise
         for ( int i = 0; i < 3; i++ )
@@ -329,7 +333,7 @@ private:
     Eigen::Vector3d produceGyroscopeNoise( )
     {
         // Declare noise vector
-        Eigen::Vector3d gyroscopeNoise;
+        Eigen::Vector3d gyroscopeNoise = Eigen::Vector3d::Zero( );
 
         // Loop over dimensions and add noise
         for ( int i = 0; i < 3; i++ )
@@ -350,13 +354,13 @@ private:
      *  Function to produce star tracker noise.
      *  \return Vector where the noise for the star tracker is stored.
      */
-    Eigen::Vector4d produceStarTrackerNoise( )
+    Eigen::Vector3d produceStarTrackerNoise( )
     {
         // Declare noise vector
-        Eigen::Vector4d starTrackerNoise;
+        Eigen::Vector3d starTrackerNoise = Eigen::Vector3d::Zero( );
 
         // Loop over dimensions and add noise
-        for ( int i = 0; i < 4; i++ )
+        for ( int i = 0; i < 3; i++ )
         {
             if ( starTrackerNoiseDistribution_.at( i ) != NULL )
             {

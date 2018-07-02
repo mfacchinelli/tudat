@@ -23,6 +23,20 @@ Eigen::Matrix3d computeScaleMisalignmentMatrix( const Eigen::Vector3d& scaleFact
     return Eigen::Matrix3d::Identity( ) + Eigen::Matrix3d( scaleFactorVector.asDiagonal( ) ) + misalignmentMatrix;
 }
 
+//! Function to add a small angle uncertainty to a quaternion vector.
+Eigen::Vector4d sumQuaternionUncertainty( const Eigen::Vector4d& quaternionVector,
+                                          const Eigen::Vector3d& equivalentVectorUncertainty )
+{
+    // Find quaternion representing the uncertainty in the angle vector
+    // Here the small angle approximation is used, such that the transformation can be simplified
+    Eigen::Vector4d quaternionUncertainty;
+    quaternionUncertainty[ 0 ] = 1.0;
+    quaternionUncertainty.segment( 1, 3 ) = 0.5 * equivalentVectorUncertainty;
+
+    // Add the two vectors with the conventional quaternion product function
+    return linear_algebra::quaternionProduct( quaternionVector, quaternionUncertainty );
+}
+
 //! Function to add an inertial measurement unit to the spacecraft set of instruments.
 void NavigationInstrumentsModel::addInertialMeasurementUnit( const Eigen::Vector3d& accelerometerBias,
                                                              const Eigen::Vector3d& accelerometerScaleFactor,
@@ -136,7 +150,7 @@ void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution(
     using namespace tudat::statistics;
 
     // Create star tracker noise distribution
-    for ( unsigned int i = 0; i < 4; i++ )
+    for ( unsigned int i = 0; i < 3; i++ )
     {
         if ( starTrackerAccuracy[ i ] != 0.0 )
         {

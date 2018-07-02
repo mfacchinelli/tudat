@@ -33,9 +33,13 @@ namespace tudat
 namespace system_models
 {
 
+//! Function to remove the error in gyroscope measurement based on the estimated bias and scale factors.
+Eigen::Vector3d removeErrorsFromGyroscopeMeasurement( const Eigen::Vector3d& currentGyroscopeMeasurement,
+                                                      const Eigen::Vector16d& currentEstimatedStateVector );
+
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
-                                     const Eigen::VectorXd& currentControlVector,
+                                     const Eigen::Vector3d& currentControlVector,
                                      const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector,
                                      const Eigen::Vector3d& currentMeasuredRotationalVelocityVector );
 
@@ -92,19 +96,31 @@ public:
         previousTime_ = navigationSystem_->getCurrentTime( );
         navigationSystem_->updateOnboardModel( currentTime );
 
+        std::cout << "Updated onboard model." << std::endl;
+
         // Update measurement model and extract measurements
         instrumentsModel_->updateInstruments( currentTime );
         Eigen::Vector7d currentExternalMeasurementVector;
         currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
         currentExternalMeasurementVector.segment( 3, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
 
+        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
+
         // Update filter from previous time to next time
-        navigationSystem_->runStateEstimator( previousTime_, currentExternalMeasurementVector );
+        navigationSystem_->runStateEstimator( previousTime_, currentExternalMeasurementVector,
+                                              boost::bind( &removeErrorsFromGyroscopeMeasurement,
+                                                           instrumentsModel_->getCurrentGyroscopeMeasurement( ), _1 ) );
+
+        std::cout << "Ran state estimator." << std::endl;
 
         // Update attitude controller
         controlSystem_->updateAttitudeController( navigationSystem_->getCurrentEstimatedState( ),
-                                                  instrumentsModel_->getCurrentGyroscopeMeasurement( ),
+                                                  removeErrorsFromGyroscopeMeasurement(
+                                                      instrumentsModel_->getCurrentGyroscopeMeasurement( ),
+                                                      navigationSystem_->getCurrentEstimatedState( ) ),
                                                   navigationSystem_->getNavigationRefreshStepSize( ) );
+
+        std::cout << "Updated attitude controller." << std::endl;
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
@@ -153,6 +169,8 @@ public:
             maneuveringPhaseComplete_ = false;
             atmosphericPhaseComplete_ = true;
         }
+
+        std::cout << "Checked conditions." << std::endl;
 
         // Give output
         return isPropagationToBeStopped;

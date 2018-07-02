@@ -34,18 +34,22 @@ double areaBisectionFunction( const double currentTrueAnomalyGuess, const std::v
 }
 
 //! Function to run the State Estimator (SE).
-void NavigationSystem::runStateEstimator( const double previousTime, const Eigen::Vector7d& currentExternalMeasurementVector )
+void NavigationSystem::runStateEstimator( const double previousTime, const Eigen::Vector7d& currentExternalMeasurementVector,
+                                          const boost::function< Eigen::Vector3d( const Eigen::Vector16d& ) >& gyroscopeMeasurementFunction )
 {
     // Save old true anomaly estimate
     double oldEstimatedTrueAnomaly = currentEstimatedKeplerianState_[ 5 ];
+    std::cout << "Cartesian state before: " << currentEstimatedCartesianState_.transpose( ) << std::endl;
 
     // Update filter
     navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
+    std::cout << "Full state after: " << navigationFilter_->getCurrentStateEstimate( ).transpose( ) << std::endl;
 
     // Extract estimated state and update navigation estimates
     Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
     setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
     currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 );
+    currentEstimatedRotationalState_.segment( 3, 3 ) = gyroscopeMeasurementFunction( updatedEstimatedState );
     storeCurrentTimeAndStateEstimates( );
 
     // Check if new orbit and store new state estimate
@@ -151,9 +155,25 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
             estimatedChangeInSemiMajorAxisDueToChangeInVelocity;
     std::cout << "Estimated Error in Semi-major Axis: " << estimatedErrorInSemiMajorAxis << " m" << std::endl;
 
+    // Compute estimated change in eccentricity due to change in velocity
+    // The same assumption as for the case above holds
+    double estimatedChangeInEccentricityDueToChangeInVelocity = 2.0 * std::sqrt( initialEstimatedKeplerianState[ 0 ] *
+            ( 1 - std::pow( initialEstimatedKeplerianState[ 1 ], 2 ) ) / planetaryGravitationalParameter_ ) *
+            estimatedChangeInVelocity;
+    std::cout << "Estimated Change in Eccentricity: " <<
+                 estimatedChangeInEccentricityDueToChangeInVelocity << std::endl;
+
+    // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
+    double estimatedChangeInEccentricityFromKeplerianStateHistory = initialEstimatedKeplerianState[ 1 ] -
+            estimatedKeplerianStateBelowAtmosphericInterface( 1, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) );
+    double estimatedErrorInEccentricity = estimatedChangeInEccentricityFromKeplerianStateHistory -
+            estimatedChangeInEccentricityDueToChangeInVelocity;
+    std::cout << "Estimated Error in Eccentricity: " << estimatedErrorInEccentricity << std::endl;
+
     // Combine errors to produce a vector of estimated error in Keplerian state
     Eigen::Vector6d estimatedErrorInKeplerianState = Eigen::Vector6d::Zero( );
     estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
+    estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
     estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
 
     // Correct latest estimated Keplerian state with new information from PTE
@@ -247,8 +267,7 @@ void NavigationSystem::createNavigationFilter(
 
     // Store initial time and state and update body and acceleration maps
     storeCurrentTimeAndStateEstimates( );
-    updateOnboardModel( -1.0 ); // force update
-    currentTime_ = navigationFilter_->getInitialTime( );
+    updateOnboardModel( currentTime_, true ); // force update
 }
 
 //! Function to create the onboard environment updater.

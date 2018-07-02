@@ -577,21 +577,33 @@ std::map< MapKey, Eigen::Array< ScalarType, Eigen::Dynamic, 1 > > convertStlVect
 
 //! Function to slice standard library vector, given an optional initial and final slicing values.
 template< typename T >
-std::vector< T > sliceStlVector( const std::vector< T >& vectorToBeSliced, const unsigned int startIndex = 0,
-                                 const unsigned int endIndex = std::numeric_limits< unsigned int >::signaling_NaN( ) )
+std::vector< T > sliceStlVector( const std::vector< T >& vectorToBeSliced, unsigned int startIndex = 0,
+                                 unsigned int endIndex = std::numeric_limits< unsigned int >::signaling_NaN( ) )
 {
     // Declare output vector
     std::vector< T > slicedVector;
 
     // Give value to end index
-    unsigned int actualEndIndex = endIndex;
     if ( endIndex == std::numeric_limits< unsigned int >::signaling_NaN( ) )
     {
-        actualEndIndex = vectorToBeSliced.size( ) - 1;
+        endIndex = vectorToBeSliced.size( ) - 1;
+    }
+
+    // Check that boundaries make sense
+    if ( startIndex > endIndex )
+    {
+        // Warn user of inconsistency
+        std::cerr << "Warning in slicing of std::vector. The starting index is greater than the end index. "
+                     "The indices will be swapped." << std::endl;
+
+        // Swap indices
+        unsigned int temporaryIndex = startIndex;
+        startIndex = endIndex;
+        endIndex = temporaryIndex;
     }
 
     // Transfer values to sliced array
-    for ( unsigned int i = startIndex; i < actualEndIndex; i++ )
+    for ( unsigned int i = startIndex; i < endIndex; i++ )
     {
         slicedVector.push_back( vectorToBeSliced.at( i ) );
     }

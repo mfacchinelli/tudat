@@ -22,6 +22,7 @@
 #include <Eigen/Core>
 
 #include "Tudat/Mathematics/NumericalQuadrature/numericalQuadrature.h"
+#include "Tudat/Basics/identityElements.h"
 
 namespace tudat
 {
@@ -74,19 +75,37 @@ DependentVariableType performExtendedSimpsonsQuadrature(
     std::vector< IndependentVariableType > vectorOfWeights = std::vector< IndependentVariableType >( numberOfVariables,
                                                                                                      constantIndependentVariableStep );
 
-    vectorOfWeights.at( 0 ) *= 3.0 / 8.0;
-    vectorOfWeights.at( numberOfVariables - 1 ) *= 3.0 / 8.0;
-
-    vectorOfWeights.at( 1 ) *= 7.0 / 6.0;
-    vectorOfWeights.at( numberOfVariables - 2 ) *= 7.0 / 6.0;
-
-    vectorOfWeights.at( 2 ) *= 23.0 / 24.0;
-    vectorOfWeights.at( numberOfVariables - 3 ) *= 23.0 / 24.0;
-
-    // Loop over each time step and return result
-    for( unsigned int i = 0 ; i < numberOfVariables; i++ )
+    // Check that there are enough elements in the vector
+    if ( numberOfVariables > 6 )
     {
-        integral += vectorOfWeights[ i ] * dependentVariables[ i ];
+        // Add weights
+        vectorOfWeights.at( 0 ) *= 3.0 / 8.0;
+        vectorOfWeights.at( numberOfVariables - 1 ) *= 3.0 / 8.0;
+
+        vectorOfWeights.at( 1 ) *= 7.0 / 6.0;
+        vectorOfWeights.at( numberOfVariables - 2 ) *= 7.0 / 6.0;
+
+        vectorOfWeights.at( 2 ) *= 23.0 / 24.0;
+        vectorOfWeights.at( numberOfVariables - 3 ) *= 23.0 / 24.0;
+
+        // Loop over each time step and return result
+        for( unsigned int i = 0 ; i < numberOfVariables; i++ )
+        {
+            integral += vectorOfWeights[ i ] * dependentVariables[ i ];
+        }
+    }
+    else if ( numberOfVariables != 1 )
+    {
+        // Perform trapezoidal integration instead
+        for( unsigned int i = 0 ; i < ( numberOfVariables - 1 ); i++ )
+        {
+            integral += constantIndependentVariableStep * (
+                        dependentVariables[ i + 1 ] + dependentVariables[ i ] ) / 2.0 ;
+        }
+    }
+    else
+    {
+        integral = IdentityElement< DependentVariableType >::getAdditionIdentity( );
     }
     return integral;
 }

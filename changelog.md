@@ -1,5 +1,6 @@
 - **Aerodynamics** 
 	- added tabulated atmosphere that supports a variable number (1 to 4) of independent variables (see issue [#376](https://github.com/Tudat/tudat/issues/376))
+	- added custom constant temperature atmosphere where the density is computed with a user-provided function; three models are provided as default
 	- added function to compute aerodynamic (force and moment) coefficients from pressure and shear force distributions on body
 	- added MCD atmosphere tables
 - **Basics**
@@ -14,6 +15,10 @@
 	- added base class for filters
 	- added base class for Kalman filters
 	- added linear, extended and unscented Kalman filters (see issue [#390](https://github.com/Tudat/tudat/issues/390))
+	- added function to create filter object based on filter settings (only unscented Kalman filter is currently supported)
+- **Mathematics**
+	- added function to compute the numerical quadrature of a function with the extended Simpson's rule (to be used when independent data is spaced with a constant step)
+	- added function to compute quaternion product
 - **Numerical Integrators**
 	- added more input options in constructor for RK integrators with variable step size
 	- added another constructor to input vector of relative and absolute tolerances
@@ -32,5 +37,6 @@
 	- added interface for running SPARTA simulations and analyzing its results (see issue [#380](https://github.com/Tudat/tudat/issues/380))
 - **Utilities**
 	- added function to extract both key and mapped values from map
+	- added function to slice standard library vector (`std::vector< >`) with given initial and ending indices
 - **Unit Tests**: all new functions and classes have been included in unit tests, with the exception of: SPARTA
 - Various style, consistency and typo corrections; removed deprecated symbols and warnings

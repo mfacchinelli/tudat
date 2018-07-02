@@ -33,6 +33,17 @@ namespace tudat
 namespace guidance_navigation_control
 {
 
+//! Enumeration of indices for navigation state vector.
+enum NavigationStateIndices
+{
+    cartesian_position_index = 0,
+    cartesian_velocity_index = 3,
+    quaternion_real_index = 6,
+    quaternion_imaginary_index = 7,
+    gyroscope_bias_index = 10,
+    gyroscope_scale_factor_index = 13
+};
+
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
 /*!
  *  Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
@@ -97,7 +108,8 @@ public:
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel );
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const double previousTime, const Eigen::Vector7d& currentExternalMeasurementVector );
+    void runStateEstimator( const double previousTime, const Eigen::Vector7d& currentExternalMeasurementVector,
+                            const boost::function< Eigen::Vector3d( const Eigen::Vector16d& ) >& gyroscopeMeasurementFunction );
 
     //! Function to run the Periapse Time Estimator (PTE).
     /*!
@@ -119,11 +131,13 @@ public:
     /*!
      *  Function to update the body and acceleration map with the current time and state information.
      *  \param currentTime Time at which the update needs to be done.
+     *  \param forceModelUpdate Boolean to toggle forced update of the onboard model. Particulary useful in case the
+     *      update needs to be carried out for the second (or more) time at the same currentTime_.
      */
-    void updateOnboardModel( const double currentTime )
+    void updateOnboardModel( const double currentTime, const bool forceModelUpdate = false )
     {
         // If instruments have not been already updated for the current time
-        if ( currentTime_ != currentTime )
+        if ( ( currentTime_ != currentTime ) || forceModelUpdate )
         {
             // Update current time
             currentTime_ = currentTime;
@@ -198,6 +212,12 @@ public:
     }
 
     //! Function to set current Cartesian state to new value.
+    /*!
+     *  Function to set current Cartesian state to new value. The value of the Keplerian state is set
+     *  automatically by converting the Cartesian state to Keplerian elements. Also, the function updates the
+     *  history of translational (and rotational, although unchanged) to the new values.
+     *  \param newCurrentKeplerianState New Cartesian state at current time.
+     */
     void setCurrentEstimatedCartesianState( const Eigen::Vector6d& newCurrentCartesianState )
     {
         currentEstimatedCartesianState_ = newCurrentCartesianState;
@@ -207,6 +227,12 @@ public:
     }
 
     //! Function to set current Keplerian state to new value.
+    /*!
+     *  Function to set current Keplerian state to new value. The value of the Cartesian state is set
+     *  automatically by converting the Keplerian state to Cartesian elements. Also, the function updates the
+     *  history of translational (and rotational, although unchanged) to the new values.
+     *  \param newCurrentKeplerianState New Keplerian state at current time.
+     */
     void setCurrentEstimatedKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState )
     {
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
