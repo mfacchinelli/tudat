@@ -33,12 +33,41 @@ double areaBisectionFunction( const double currentTrueAnomalyGuess, const std::v
     return upperSliceQuadratureResult - lowerSliceQuadratureResult;
 }
 
+//! Function to create navigation filter object for onboard state estimation.
+void NavigationSystem::createNavigationFilter(
+        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
+        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
+{
+    // Create filter object
+    navigationFilter_ = filters::createFilter< >( navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel );
+
+    // Set initial time
+    currentTime_ = navigationFilter_->getInitialTime( );
+    currentOrbitCounter_ = 0;
+
+    // Retrieve navigation filter step size
+    navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
+
+    // Set initial rotational state
+    currentEstimatedRotationalState_ = onboardBodyMap_.at( spacecraftName_ )->getCurrentRotationalState( );
+
+    // Set initial translational state
+    setCurrentEstimatedCartesianState( navigationFilter_->getCurrentStateEstimate( ) );
+    // this function also automatically stores the estimates at the current time
+
+    // Update body and acceleration maps
+    updateOnboardModel( ); // force update
+}
+
 //! Function to run the State Estimator (SE).
-void NavigationSystem::runStateEstimator( const double previousTime, const Eigen::Vector7d& currentExternalMeasurementVector,
+void NavigationSystem::runStateEstimator( const double currentTime, const Eigen::Vector7d& currentExternalMeasurementVector,
                                           const boost::function< Eigen::Vector3d( const Eigen::Vector16d& ) >& gyroscopeMeasurementFunction )
 {
     // Save old true anomaly estimate
     double oldEstimatedTrueAnomaly = currentEstimatedKeplerianState_[ 5 ];
+
+    // Set time
+    currentTime_ = currentTime;
 
     // Update filter
     navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
@@ -48,7 +77,6 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
     setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
     currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 );
     currentEstimatedRotationalState_.segment( 3, 3 ) = gyroscopeMeasurementFunction( updatedEstimatedState );
-    storeCurrentTimeAndStateEstimates( );
 
     // Check if new orbit and store new state estimate
     if ( ( oldEstimatedTrueAnomaly < 2.0 * mathematical_constants::PI ) &&
@@ -59,7 +87,7 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
 
     // Store initial time and state and update body and acceleration maps
     storeCurrentTimeAndStateEstimates( );
-//    updateOnboardModel( currentTime_ ); // done in onboard computer model
+    updateOnboardModel( );
 }
 
 //! Function to run the Periapse Time Estimator (PTE).
@@ -240,35 +268,6 @@ void NavigationSystem::runAtmosphereEstimator( const std::map< double, Eigen::Ve
                 boost::make_shared< aerodynamics::CustomConstantTemperatureAtmosphere >( selectedOnboardAtmosphereModel_,
                                                                                          215.0, 197.0, 1.3,
                                                                                          vectorOfModelSpecificParameters ) );
-}
-
-//! Function to create navigation filter object for onboard state estimation.
-void NavigationSystem::createNavigationFilter(
-        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
-        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
-{
-    // Create filter object
-    navigationFilter_ = filters::createFilter< >( navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel );
-
-    // Set initial time
-    currentTime_ = navigationFilter_->getInitialTime( );
-    currentOrbitCounter_ = 0;
-
-    // Retrieve navigation filter step size
-    navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
-
-    // Set initial translational state
-    currentEstimatedCartesianState_ = navigationFilter_->getCurrentStateEstimate( );
-    currentEstimatedKeplerianState_ =
-            orbital_element_conversions::convertCartesianToKeplerianElements( currentEstimatedCartesianState_,
-                                                                              planetaryGravitationalParameter_ );
-
-    // Set initial rotational state
-    currentEstimatedRotationalState_ = onboardBodyMap_.at( spacecraftName_ )->getCurrentRotationalState( );
-
-    // Store initial time and state and update body and acceleration maps
-    storeCurrentTimeAndStateEstimates( );
-    updateOnboardModel( currentTime_, true ); // force update
 }
 
 //! Function to create the onboard environment updater.

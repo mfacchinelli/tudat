@@ -449,14 +449,14 @@ public:
         dynamicsStateDerivative_->convertNumericalStateSolutionsToOutputSolutions(
                     equationsOfMotionNumericalSolution_, equationsOfMotionNumericalSolutionRaw_ );
 
-        // Retrieve number of function evaluations
-        unsigned int numberOfFunctionEvaluations = dynamicsStateDerivative_->getNumberOfFunctionEvaluations( );
+        // Retrieve number of cumulative function evaluations
         cumulativeNumberOfFunctionEvaluations_ = dynamicsStateDerivative_->getCumulativeNumberOfFunctionEvaluations( );
 
-        // Print number of total function evaluations
+        // Retrieve and print number of total function evaluations
         if ( printNumberOfFunctionEvaluations_ )
         {
-            std::cout << "Total Number of Function Evaluations: " << numberOfFunctionEvaluations << std::endl;
+            std::cout << "Total Number of Function Evaluations: " <<
+                         dynamicsStateDerivative_->getNumberOfFunctionEvaluations( ) << std::endl;
         }
 
         if( this->setIntegratedResult_ )

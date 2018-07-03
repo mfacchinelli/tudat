@@ -128,7 +128,6 @@ private:
         Eigen::Matrix3d transformationFromTrajectoryToInertialFrame = Eigen::Matrix3d::Zero( );
 
         // Find the trajectory x-axis unit vector
-//        std::cout << "Estimated state: " << currentEstimatedStateVector.transpose( ) << std::endl;
         Eigen::Vector3d xUnitVector = currentEstimatedStateVector.segment( 3, 3 ).normalized( );
         transformationFromTrajectoryToInertialFrame.col( 0 ) = xUnitVector; // body-fixed (= trajectory)
 //        std::cout << "x: " << xUnitVector.transpose( ) << std::endl;

@@ -95,20 +95,21 @@ public:
         // Define output value
         bool isPropagationToBeStopped = false;
 
-        // Update current time and onboard models
-        previousTime_ = navigationSystem_->getCurrentTime( );
-        navigationSystem_->updateOnboardModel( currentTime );
-
         // Update measurement model and extract measurements
         instrumentsModel_->updateInstruments( currentTime );
         Eigen::Vector7d currentExternalMeasurementVector;
         currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
         currentExternalMeasurementVector.segment( 3, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
 
+        std::cout << "Full: " <<
+                     navigationSystem_->getCurrentEstimatedTranslationalAcceleration( ).transpose( ) << std::endl;
+        std::cout << "Non-grav.: " <<
+                     navigationSystem_->getCurrentEstimatedNonGravitationalTranslationalAcceleration( ).transpose( ) << std::endl;
+
 //        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
 
         // Update filter from previous time to next time
-        navigationSystem_->runStateEstimator( previousTime_, currentExternalMeasurementVector,
+        navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
                                               boost::bind( &removeErrorsFromGyroscopeMeasurement,
                                                            instrumentsModel_->getCurrentGyroscopeMeasurement( ), _1 ) );
 
@@ -188,9 +189,6 @@ private:
         navigationSystem_->clearCurrentOrbitEstimationHistory( );
         instrumentsModel_->clearCurrentOrbitMeasurementHistories( );
     }
-
-    //! Double denoting the previous time in the estimation process.
-    double previousTime_;
 
     //! Boolean denoting whether the maneuvering phase for this orbit has been complete.
     bool maneuveringPhaseComplete_;

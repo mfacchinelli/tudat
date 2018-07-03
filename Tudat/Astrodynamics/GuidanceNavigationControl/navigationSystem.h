@@ -127,46 +127,6 @@ public:
     //! Function to run the Atmosphere Estimator (AE).
     void runAtmosphereEstimator( const std::map< double, Eigen::Vector3d >& mapOfEstimatedAerodynamicAcceleration );
 
-    //! Function to update the body and acceleration map with the current time and state information.
-    /*!
-     *  Function to update the body and acceleration map with the current time and state information.
-     *  \param currentTime Time at which the update needs to be done.
-     *  \param forceModelUpdate Boolean to toggle forced update of the onboard model. Particulary useful in case the
-     *      update needs to be carried out for the second (or more) time at the same currentTime_.
-     */
-    void updateOnboardModel( const double currentTime, const bool forceModelUpdate = false )
-    {
-        // If instruments have not been already updated for the current time
-        if ( ( currentTime_ != currentTime ) || forceModelUpdate )
-        {
-            // Update current time
-            currentTime_ = currentTime;
-
-            // Update environment
-            std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
-            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
-            mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
-            onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
-
-//            // Update body settings
-//            onboardBodyMap_.at( spacecraftName_ )->setState( currentEstimatedCartesianState_ );
-//            onboardBodyMap_.at( spacecraftName_ )->setCurrentRotationalStateToLocalFrame( currentEstimatedRotationalState_ );
-
-            // Update accelerations
-            basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
-            for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
-                  accelerationMapIterator_++ )
-            {
-                // Loop over each acceleration
-                for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
-                {
-                    // Calculate acceleration and add to state derivative
-                    accelerationMapIterator_->second[ i ]->updateMembers( );
-                }
-            }
-        }
-    }
-
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
     /*!
      *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
@@ -303,6 +263,47 @@ private:
 
     //! Function to create the onboard environment updater.
     void createOnboardEnvironmentUpdater( );
+
+    //! Function to update the body and acceleration map with the current time and state information.
+    /*!
+     *  Function to update the body and acceleration map with the current time and state information.
+     *  \param currentTime Time at which the update needs to be done.
+     *  \param forceModelUpdate Boolean to toggle forced update of the onboard model. Particulary useful in case the
+     *      update needs to be carried out for the second (or more) time at the same currentTime_.
+     */
+//    void updateOnboardModel( const double currentTime, const bool forceModelUpdate = false )
+    void updateOnboardModel( )
+    {
+        // If instruments have not been already updated for the current time
+//        if ( ( currentTime_ != currentTime ) || forceModelUpdate )
+//        {
+            // Update current time
+//            currentTime_ = currentTime;
+
+            // Update environment
+            std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
+            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
+            mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
+            onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
+
+//            // Update body settings
+//            onboardBodyMap_.at( spacecraftName_ )->setState( currentEstimatedCartesianState_ );
+//            onboardBodyMap_.at( spacecraftName_ )->setCurrentRotationalStateToLocalFrame( currentEstimatedRotationalState_ );
+
+            // Update accelerations
+            basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
+            for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+                  accelerationMapIterator_++ )
+            {
+                // Loop over each acceleration
+                for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
+                {
+                    // Calculate acceleration and add to state derivative
+                    accelerationMapIterator_->second[ i ]->updateMembers( );
+                }
+            }
+//        }
+    }
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
