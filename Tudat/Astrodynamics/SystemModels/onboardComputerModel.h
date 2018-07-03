@@ -45,7 +45,7 @@ Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vect
 
 //! Function to model the onboard measurements based on the simplified onboard model.
 Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
-                                         const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector );
+                                         const Eigen::Vector3d& currentEstimatedNonGravitationalTranslationalAccelerationVector );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
@@ -72,7 +72,8 @@ public:
                                  boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_ ),
                                  boost::bind( &NavigationInstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) ),
                     boost::bind( &onboardMeasurementModel, _1, _2,
-                                 boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_ ) ) );
+                                 boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration,
+                                              navigationSystem_ ) ) );
     }
 
     //! Destructor.
@@ -89,6 +90,8 @@ public:
      */
     bool checkStopCondition( const double currentTime )
     {
+        using mathematical_constants::PI;
+
         // Define output value
         bool isPropagationToBeStopped = false;
 
@@ -96,22 +99,18 @@ public:
         previousTime_ = navigationSystem_->getCurrentTime( );
         navigationSystem_->updateOnboardModel( currentTime );
 
-        std::cout << "Updated onboard model." << std::endl;
-
         // Update measurement model and extract measurements
         instrumentsModel_->updateInstruments( currentTime );
         Eigen::Vector7d currentExternalMeasurementVector;
         currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
         currentExternalMeasurementVector.segment( 3, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
 
-        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
+//        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
 
         // Update filter from previous time to next time
         navigationSystem_->runStateEstimator( previousTime_, currentExternalMeasurementVector,
                                               boost::bind( &removeErrorsFromGyroscopeMeasurement,
                                                            instrumentsModel_->getCurrentGyroscopeMeasurement( ), _1 ) );
-
-        std::cout << "Ran state estimator." << std::endl;
 
         // Update attitude controller
         controlSystem_->updateAttitudeController( navigationSystem_->getCurrentEstimatedState( ),
@@ -120,13 +119,13 @@ public:
                                                       navigationSystem_->getCurrentEstimatedState( ) ),
                                                   navigationSystem_->getNavigationRefreshStepSize( ) );
 
-        std::cout << "Updated attitude controller." << std::endl;
-
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
         double currentEstimatedTrueAnomaly = currentEstimatedState.second[ orbital_element_conversions::trueAnomalyIndex ];
-        if ( ( currentEstimatedTrueAnomaly >= mathematical_constants::PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
+        if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
         {
+            std::cout << "Reached apoapsis. Preparing to perform maneuver." << std::endl;
+
             // Stop propagation to add Delta V to actual state
             isPropagationToBeStopped = true;
 
@@ -141,11 +140,16 @@ public:
             atmosphericPhaseComplete_ = false;
         }
         else if ( ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceRadius_ ) > 0.0 ) &&
-                    ( currentEstimatedTrueAnomaly >= 0.0 ) ) && !atmosphericPhaseComplete_ ) // check altitude
+                    ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.5 * PI ) ) ) ) &&
+                  !atmosphericPhaseComplete_ ) // check altitude
         {
+            std::cout << "Exited atmosphere. Running post-atmosphere processes." << std::endl;
+
             // Retireve history of inertial measurement unit measurements
             std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
                     instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
+
+//            utilities::printMapContents( currentOrbitHistoryOfInertialMeasurementUnitMeasurements );
 
             // Extract measured translational accelerations
             std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedAccelerations;
@@ -156,6 +160,8 @@ public:
                 currentOrbitHistoryOfEstimatedAccelerations[ measurementConstantIterator_->first ] =
                         measurementConstantIterator_->second.segment( 0, 3 );
             }
+
+//            utilities::printMapContents( currentOrbitHistoryOfEstimatedAccelerations );
 
             // Perform periapse time and atmosphere estimations
             navigationSystem_->runPeriapseTimeEstimator( currentOrbitHistoryOfEstimatedAccelerations );
@@ -169,8 +175,6 @@ public:
             maneuveringPhaseComplete_ = false;
             atmosphericPhaseComplete_ = true;
         }
-
-        std::cout << "Checked conditions." << std::endl;
 
         // Give output
         return isPropagationToBeStopped;

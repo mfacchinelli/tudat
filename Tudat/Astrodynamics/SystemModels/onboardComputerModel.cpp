@@ -36,6 +36,7 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
 
     // Translational dynamics
     currentStateDerivative.segment( 3, 3 ) = currentEstimatedTranslationalAccelerationVector;
+    std::cout << "Full: " << currentEstimatedTranslationalAccelerationVector.transpose( ) << std::endl;
 
     // Rotational kinematics
     Eigen::Vector3d actualCurrentRotationalVelocityVector = removeErrorsFromGyroscopeMeasurement(
@@ -49,7 +50,7 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
 
 //! Function to model the onboard measurements based on the simplified onboard model.
 Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
-                                         const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector )
+                                         const Eigen::Vector3d& currentEstimatedNonGravitationalTranslationalAccelerationVector )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -57,7 +58,8 @@ Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::
     Eigen::Vector7d currentMeasurementVector;
 
     // Add translational acceleration
-    currentMeasurementVector.segment( 0, 3 ) = currentEstimatedTranslationalAccelerationVector;
+    currentMeasurementVector.segment( 0, 3 ) = currentEstimatedNonGravitationalTranslationalAccelerationVector;
+    std::cout << "Non-grav.: " << currentEstimatedNonGravitationalTranslationalAccelerationVector.transpose( ) << std::endl;
 
     // Add rotational attitude
     currentMeasurementVector.segment( 3, 4 ) = currentEstimatedStateVector.segment( 6, 4 );

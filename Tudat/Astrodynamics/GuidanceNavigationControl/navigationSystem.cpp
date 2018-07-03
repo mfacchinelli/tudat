@@ -39,11 +39,9 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
 {
     // Save old true anomaly estimate
     double oldEstimatedTrueAnomaly = currentEstimatedKeplerianState_[ 5 ];
-    std::cout << "Cartesian state before: " << currentEstimatedCartesianState_.transpose( ) << std::endl;
 
     // Update filter
     navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
-    std::cout << "Full state after: " << navigationFilter_->getCurrentStateEstimate( ).transpose( ) << std::endl;
 
     // Extract estimated state and update navigation estimates
     Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
@@ -67,6 +65,9 @@ void NavigationSystem::runStateEstimator( const double previousTime, const Eigen
 //! Function to run the Periapse Time Estimator (PTE).
 void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::Vector3d >& mapOfEstimatedAerodynamicAcceleration )
 {
+    std::cout << "Running Periapse Time Estimator." << std::endl;
+    using mathematical_constants::PI;
+
     // Extract aerodynamic accelerations of when the spacecraft is below the atmospheric interface altitude
     double currentIterationTime;
     std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
@@ -85,9 +86,9 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
                         mapOfEstimatedAerodynamicAcceleration.at( currentIterationTime ).norm( ) );
 
             // Modify the true anomaly such that it is negative where it is above PI radians (before estimated periapsis)
-            if ( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] >= mathematical_constants::PI )
+            if ( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] >= PI )
             {
-                mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] -= 2.0 * mathematical_constants::PI;
+                mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] -= 2.0 * PI;
             }
         }
     }

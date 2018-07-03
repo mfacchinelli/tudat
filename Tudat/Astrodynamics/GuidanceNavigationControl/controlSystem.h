@@ -79,7 +79,7 @@ public:
                                                         computeCurrentCommandedQuaternionState( currentEstimatedStateVector ) );
         historyOfQuaternionStateErrors_.push_back( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) );
 
-        std::cout << "Current error in quaternion: " << currentErrorInEstimatedQuaternionState.transpose( ) << std::endl;
+//        std::cout << "Current error in quaternion: " << currentErrorInEstimatedQuaternionState.transpose( ) << std::endl;
 
         // Compute control vector based on control gains and error
         currentControlVector_ = proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) ) +
@@ -89,7 +89,7 @@ public:
                                                     currentEstimatedStateVector.segment( 6, 4 ),
                                                     currentMeasuredRotationalVelocityVector ) ).segment( 1, 3 ) );
         // only the imaginary part of the quaternion is used, since only three terms are needed to fully control the spacecraft
-        std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl;
+//        std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl;
     }
 
     //! Function to update the orbit controller with the scheduled apoapsis maneuver, computed by the guidance system.
@@ -128,20 +128,20 @@ private:
         Eigen::Matrix3d transformationFromTrajectoryToInertialFrame = Eigen::Matrix3d::Zero( );
 
         // Find the trajectory x-axis unit vector
-        std::cout << "Estimated state: " << currentEstimatedStateVector.transpose( ) << std::endl;
+//        std::cout << "Estimated state: " << currentEstimatedStateVector.transpose( ) << std::endl;
         Eigen::Vector3d xUnitVector = currentEstimatedStateVector.segment( 3, 3 ).normalized( );
         transformationFromTrajectoryToInertialFrame.col( 0 ) = xUnitVector; // body-fixed (= trajectory)
-        std::cout << "x: " << xUnitVector.transpose( ) << std::endl;
+//        std::cout << "x: " << xUnitVector.transpose( ) << std::endl;
 
         // Find trajectory z-axis unit vector
         Eigen::Vector3d zUnitVector = currentEstimatedStateVector.segment( 0, 3 ).normalized( );
         zUnitVector -= zUnitVector.dot( xUnitVector ) * xUnitVector;
         transformationFromTrajectoryToInertialFrame.col( 2 ) = - zUnitVector; // body-fixed (= -trajectory)
-        std::cout << "z: " << zUnitVector.transpose( ) << std::endl;
+//        std::cout << "z: " << zUnitVector.transpose( ) << std::endl;
 
         // Find body-fixed y-axis unit vector
         transformationFromTrajectoryToInertialFrame.col( 1 ) = xUnitVector.cross( zUnitVector ); // body-fixed (= -trajectory)
-        std::cout << "DCM: " << std::endl << transformationFromTrajectoryToInertialFrame.transpose( ) << std::endl;
+//        std::cout << "DCM: " << std::endl << transformationFromTrajectoryToInertialFrame.transpose( ) << std::endl;
 
         // Transform DCM to quaternion and give output
         return linear_algebra::convertQuaternionToVectorFormat(

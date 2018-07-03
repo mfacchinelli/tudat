@@ -498,7 +498,6 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
                     postProcessState( newState );
                     integrator->modifyCurrentState( newState );
                 }
-                std::cout << "Performed integration step." << std::endl;
 
                 // Check if the termination condition was reached during evaluation of integration sub-steps.
                 // If evaluation of the termination condition during integration sub-steps is disabled,
@@ -556,10 +555,8 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
                 }
             }
 
-            std::cout << "Checking stop condition." << std::endl;
             if( propagationTerminationCondition->checkStopCondition( static_cast< double >( currentTime ), currentCPUTime ) )
             {
-                std::cout << "Checked condition." << std::endl;
                 if( propagationTerminationCondition->getTerminateExactlyOnFinalCondition( ) )
                 {
                     propagateToExactTerminationCondition(
@@ -577,7 +574,6 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
                 }
                 else
                 {
-                    std::cout << "Checking hybrid termination conditions." << std::endl;
                     if( boost::dynamic_pointer_cast< HybridPropagationTerminationCondition >( propagationTerminationCondition )
                             == NULL )
                     {

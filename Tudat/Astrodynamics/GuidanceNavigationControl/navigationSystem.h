@@ -170,20 +170,49 @@ public:
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
     /*!
      *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
-     *  is computed by using the
-     *  \return
+     *  is computed by using the onboard accelerations model map.
+     *  \return Vector denoting the full acceleration vector experienced by the spacecraft.
      */
     Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( )
     {
-        // Clear translational accelerations vector
-        Eigen::Vector3d currentTranslationalAcceleration;
+        // Define output and set accelerations to zero
+        Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
 
         // Iterate over all accelerations acting on body
         basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
         for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
               accelerationMapIterator_++ )
         {
-            // Loop over each acceleration and disregard the central gravitational accelerations,
+            // Loop over each accelerations
+            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
+            {
+                // Calculate acceleration and add to state derivative
+                currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
+            }
+        }
+
+        // Add errors to acceleration value
+        return currentTranslationalAcceleration;
+    }
+
+    //! Function to retrieve current estimated non-gravitational translational accelerations exerted on the spacecraft.
+    /*!
+     *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
+     *  is computed by using the onboard accelerations model map. Note that this vector represents only the non-gravitational
+     *  accelerations (which are supposed to emulated the accelerations measured by the IMU).
+     *  \return Vector denoting only the non-gravitational accelerations.
+     */
+    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( )
+    {
+        // Define output and set accelerations to zero
+        Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
+
+        // Iterate over all accelerations acting on body
+        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
+        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+              accelerationMapIterator_++ )
+        {
+            // Loop over each accelerations and disregard the central gravitational accelerations,
             // since IMUs do not measure them
             for ( unsigned int i = 1; i < accelerationMapIterator_->second.size( ); i++ )
             {

@@ -276,7 +276,7 @@ private:
     {
         // Iterate over all accelerations acting on body
         currentQuaternionToBaseFrame_ = linear_algebra::convertQuaternionToVectorFormat(
-                    bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( ) );
+                    bodyMap_.at( spacecraftName_ )->getCurrentRotationToLocalFrame( ) );
 
         // Add errors to acceleration value
         sumQuaternionUncertainty( currentQuaternionToBaseFrame_, produceStarTrackerNoise( ) );

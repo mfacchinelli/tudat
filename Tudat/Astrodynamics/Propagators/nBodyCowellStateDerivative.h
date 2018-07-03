@@ -64,6 +64,7 @@ public:
     {
         stateDerivative.setZero( );
         this->sumStateDerivativeContributions( stateOfSystemToBeIntegrated, stateDerivative, true );
+        std::cout << "Actual acc.: " << stateDerivative.transpose( ) << std::endl;
     }
 
     //! Function to convert the state in the conventional form to the propagator-specific form.
