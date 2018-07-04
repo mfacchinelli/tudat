@@ -45,14 +45,16 @@ void NavigationSystem::createNavigationFilter(
     currentTime_ = navigationFilter_->getInitialTime( );
     currentOrbitCounter_ = 0;
 
-    // Retrieve navigation filter step size
+    // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
+    Eigen::Vector16d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial rotational state
-    currentEstimatedRotationalState_ = onboardBodyMap_.at( spacecraftName_ )->getCurrentRotationalState( );
+    currentEstimatedRotationalState_.setZero( );
+    currentEstimatedRotationalState_.segment( 0, 4 ) = initialEstimatedState.segment( 6, 4 ).normalized( );
 
     // Set initial translational state
-    setCurrentEstimatedCartesianState( navigationFilter_->getCurrentStateEstimate( ) );
+    setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
     // this function also automatically stores the full state estimates at the current time
 
     // Update body and acceleration maps
@@ -74,7 +76,7 @@ void NavigationSystem::runStateEstimator( const double currentTime, const Eigen:
 
     // Extract estimated state and update navigation estimates
     Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-    currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 );
+    currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 ).normalized( );
     currentEstimatedRotationalState_.segment( 4, 3 ) = gyroscopeMeasurementFunction( updatedEstimatedState );
     setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
     // this function also automatically stores the full state estimates at the current time

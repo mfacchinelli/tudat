@@ -9,33 +9,33 @@
  *
  */
 
-#ifndef TUDAT_CONTROL_TORQUE_H
-#define TUDAT_CONTROL_TORQUE_H
+#ifndef TUDAT_CUSTOM_TORQUE_H
+#define TUDAT_CUSTOM_TORQUE_H
 
+#include <boost/function.hpp>
 #include "Tudat/Astrodynamics/BasicAstrodynamics/torqueModel.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
 
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace basic_astrodynamics
 {
 
 //! Class to link the control system to the torque model.
 /*!
  *
  */
-class ControlTorque : public basic_astrodynamics::TorqueModel
+class CustomTorque : public TorqueModel
 {
 public:
 
     //! Constructor
-    ControlTorque( const boost::shared_ptr< ControlSystem > controlSystem ) :
-        controlSystem_( controlSystem )
+    CustomTorque( const boost::function< Eigen::Vector3d( ) >& customTorqueFunction ) :
+        customTorqueFunction_( customTorqueFunction )
     { }
 
     //! Destructor
-    ~ControlTorque( ) { }
+    ~CustomTorque( ) { }
 
     //! Function to retrieve the current value of the torque.
     /*!
@@ -46,7 +46,7 @@ public:
     Eigen::Vector3d getTorque( )
     {
         // Retrieve and return the control vector from the control system.
-        return controlSystem_->getCurrentAttitudeControlVector( );
+        return customTorqueFunction_( );
     }
 
     //! Update member variables used by the torque model.
@@ -64,12 +64,12 @@ protected:
 private:
 
     //! Pointer to the control system to be used to retrieve the torque.
-    const boost::shared_ptr< ControlSystem > controlSystem_;
+    const boost::function< Eigen::Vector3d( ) > customTorqueFunction_;
 
 };
 
-} // namespace guidance_navigation_control
+} // namespace basic_astrodynamics
 
 } // namespace tudat
 
-#endif // TUDAT_CONTROL_TORQUE_H
+#endif // TUDAT_CUSTOM_TORQUE_H

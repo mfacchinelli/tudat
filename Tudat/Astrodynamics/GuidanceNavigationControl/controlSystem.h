@@ -107,6 +107,7 @@ public:
 
         // Compute difference between current and commanded derivative
         Eigen::Vector4d currentCommandedQuaternionDerivative = computeCurrentCommandedQuaternionDerivative( currentEstimatedStateVector,
+                                                                                                            currentCommandedQuaternionState,
                                                                                                             currentMeanMotion );
         Eigen::Vector4d currentErrorInEstimatedQuaternionDerivative =
                 computeErrorInEstimatedQuaternion( currentEstimatedStateVector.segment( 6, 4 ),
@@ -171,27 +172,23 @@ private:
     Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::Vector16d& currentEstimatedStateVector )
     {
         // Declare direction cosine matrix
-        Eigen::Matrix3d transformationFromTrajectoryToInertialFrame;
+        Eigen::Matrix3d transformationFromInertialToTrajectoryFrame;
 
         // Find the trajectory x-axis unit vector
         Eigen::Vector3d xUnitVector = currentEstimatedStateVector.segment( 3, 3 ).normalized( );
-        transformationFromTrajectoryToInertialFrame.col( 0 ) = xUnitVector; // body-fixed (= trajectory)
-        //        std::cout << "x: " << xUnitVector.transpose( ) << std::endl;
+        transformationFromInertialToTrajectoryFrame.col( 0 ) = xUnitVector; // body-fixed (= trajectory)
 
         // Find trajectory z-axis unit vector
         Eigen::Vector3d zUnitVector = currentEstimatedStateVector.segment( 0, 3 ).normalized( );
         zUnitVector -= zUnitVector.dot( xUnitVector ) * xUnitVector;
-        transformationFromTrajectoryToInertialFrame.col( 2 ) = - zUnitVector; // body-fixed (= -trajectory)
-        //        std::cout << "z: " << zUnitVector.transpose( ) << std::endl;
+        transformationFromInertialToTrajectoryFrame.col( 2 ) = - zUnitVector; // body-fixed (= -trajectory)
 
         // Find body-fixed y-axis unit vector
-        transformationFromTrajectoryToInertialFrame.col( 1 ) = xUnitVector.cross( zUnitVector ); // body-fixed (= -trajectory)
-        //        std::cout << "DCM: " << std::endl << transformationFromTrajectoryToInertialFrame.transpose( ) << std::endl;
+        transformationFromInertialToTrajectoryFrame.col( 1 ) = xUnitVector.cross( zUnitVector ); // body-fixed (= -trajectory)
 
         // Transform DCM to quaternion and give output
         return linear_algebra::convertQuaternionToVectorFormat(
-                    Eigen::Quaterniond( transformationFromTrajectoryToInertialFrame.transpose( ) ) );
-        // the transpose is taken to return the inverse rotation from trajectory to inertial frame
+                    Eigen::Quaterniond( transformationFromInertialToTrajectoryFrame ) );
     }
 
     //! Function to compute the current commanded quaternion derivative to base frame.
@@ -201,19 +198,27 @@ private:
      *  With this assumption, the spacecraft attitude does not exactly match the commanded attitude (for elliptical orbits),
      *  but it gives a close approximation, especially for the regions near peri- and apoapsis.
      *  \param currentEstimatedStateVector Current estimated state as provided by the navigation system.
+     *  \param transformationFromTrajectoryToInertialFrame
      *  \param currentMeanMotion Current mean motion as provided by the navigation system.
      *  \return Quaternion derivative representing the rotational rate equal to the mean motion of the spacecraft, applied
      *      around the y-axis (body-fixed).
      */
     Eigen::Vector4d computeCurrentCommandedQuaternionDerivative( const Eigen::Vector16d& currentEstimatedStateVector,
+                                                                 const Eigen::Vector4d& transformationFromInertialToTrajectoryFrame,
                                                                  const double currentMeanMotion )
     {
-        // Compute the mean motion
-        Eigen::Vector3d expectedRotationalVelocity = Eigen::Vector3d::Zero( );
-        expectedRotationalVelocity[ 1 ] = currentMeanMotion;
+        // Compute the mean motion in trajectory frame
+        Eigen::Vector3d expectedRotationalVelocityVector = Eigen::Vector3d::Zero( );
+        expectedRotationalVelocityVector[ 1 ] = currentMeanMotion;
+
+        // Transform the rotational velocity vector
+        expectedRotationalVelocityVector = (
+                    linear_algebra::convertVectorToQuaternionFormat( currentEstimatedStateVector.segment( 6, 4 ) ).toRotationMatrix( ) *
+                    linear_algebra::convertVectorToQuaternionFormat( transformationFromInertialToTrajectoryFrame ).toRotationMatrix( ) ) *
+                expectedRotationalVelocityVector;
 
         // Compute the expected derivative
-        return calculateQuaternionDerivative( currentEstimatedStateVector.segment( 6, 4 ), expectedRotationalVelocity );
+        return calculateQuaternionDerivative( currentEstimatedStateVector.segment( 6, 4 ), expectedRotationalVelocityVector );
     }
 
     //! Double denoting the proportional gain for the PID attitude controller.

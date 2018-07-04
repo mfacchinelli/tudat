@@ -14,7 +14,7 @@
 #include "Tudat/Astrodynamics/BasicAstrodynamics/torqueModelTypes.h"
 #include "Tudat/Astrodynamics/Gravitation/secondDegreeGravitationalTorque.h"
 #include "Tudat/Astrodynamics/Aerodynamics/aerodynamicTorque.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlTorque.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/customTorque.h"
 
 namespace tudat
 {
@@ -35,7 +35,7 @@ AvailableTorque getTorqueModelType(
     {
         torqueType = aerodynamic_torque;
     }
-    else if( boost::dynamic_pointer_cast< guidance_navigation_control::ControlTorque >( torqueModel ) != NULL )
+    else if( boost::dynamic_pointer_cast< basic_astrodynamics::CustomTorque >( torqueModel ) != NULL )
     {
         torqueType = control_torque;
     }

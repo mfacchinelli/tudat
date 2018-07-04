@@ -18,7 +18,7 @@
 #include "Tudat/SimulationSetup/PropagationSetup/torqueSettings.h"
 #include "Tudat/Astrodynamics/Gravitation/secondDegreeGravitationalTorque.h"
 #include "Tudat/Astrodynamics/Aerodynamics/aerodynamicTorque.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlTorque.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/customTorque.h"
 
 namespace tudat
 {
@@ -67,7 +67,7 @@ boost::shared_ptr< gravitation::SecondDegreeGravitationalTorqueModel > createSec
  *  \param nameOfBodyUndergoingTorque Name of body that is being accelerated.
  *  \return Pointer to object for calculating control torque.
  */
-boost::shared_ptr< gravitation::SecondDegreeGravitationalTorqueModel > createSecondDegreeGravitationalTorqueModel(
+boost::shared_ptr< basic_astrodynamics::CustomTorque > createControlTorqueModel(
         const boost::shared_ptr< simulation_setup::Body > bodyUndergoingTorque,
         const std::string& nameOfBodyUndergoingTorque );
 
