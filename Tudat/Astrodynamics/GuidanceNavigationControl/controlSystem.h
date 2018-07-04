@@ -14,7 +14,6 @@
 #include <Eigen/Core>
 
 #include "Tudat/Basics/basicTypedefs.h"
-#include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 #include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
 
@@ -44,6 +43,17 @@ namespace guidance_navigation_control
  */
 Eigen::Vector4d computeErrorInEstimatedQuaternionState( const Eigen::Vector4d& currentQuaternionToBaseFrame,
                                                         const Eigen::Vector4d& currentCommandedQuaternionToBaseFrame );
+
+//! Function to obtain the time derivative of a quaternion (in vector representation) of body-fixed to inertial frame
+/*!
+ * Function to obtain the time derivative of a quaternion (in vector representation) of body-fixed to inertial frame
+ * \param currentQuaternionsToBaseFrame Quaternions (in vector representation) that defined the rotation from body-fixed to inertial
+ * frame.
+ * \param angularVelocityVectorInBodyFixedFrame Current angular velocity vector of body, expressed in its body-fixed frame
+ * \return Time derivative of a quaternion (in vector representation) of body-fixed to inertial frame
+ */
+Eigen::Vector4d calculateQuaternionsDerivative( const Eigen::Vector4d& currentQuaternionsToBaseFrame,
+                                                const Eigen::Vector3d& angularVelocityVectorInBodyFixedFrame );
 
 //! Class for control system of an aerobraking maneuver.
 class ControlSystem
@@ -85,7 +95,7 @@ public:
         currentControlVector_ = proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) ) +
                 integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
                                                 navigationRefreshStepSize, historyOfQuaternionStateErrors_ ) ) +
-                derivativeGain_.cwiseProduct( ( propagators::calculateQuaternionsDerivative(
+                derivativeGain_.cwiseProduct( ( calculateQuaternionsDerivative(
                                                     currentEstimatedStateVector.segment( 6, 4 ),
                                                     currentMeasuredRotationalVelocityVector ) ).segment( 1, 3 ) );
         // only the imaginary part of the quaternion is used, since only three terms are needed to fully control the spacecraft

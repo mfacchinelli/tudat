@@ -307,6 +307,7 @@ protected:
                 {
                     for( unsigned int j = 0; j < innerTorqueIterator->second.size( ); j++ )
                     {
+                        std::cout << "Getting torque " << bodiesToPropagate_.at( i ) << " " << innerTorqueIterator->first << std::endl;
                         torques[ i ] += ( innerTorqueIterator->second[ j ]->getTorque( ) );
                     }
                 }

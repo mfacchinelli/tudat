@@ -36,6 +36,8 @@
 #include "Tudat/Astrodynamics/Ephemerides/rotationalEphemeris.h"
 #include "Tudat/Astrodynamics/SystemModels/vehicleSystems.h"
 #include "Tudat/Mathematics/BasicMathematics/numericalDerivative.h"
+#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
+
 namespace tudat
 {
 
@@ -399,8 +401,6 @@ public:
             return currentBarycentricLongState_.template cast< StateScalarType >( );
         }
     }
-
-
 
     //! Get current state.
     /*!
@@ -957,7 +957,7 @@ public:
     //! Function to retrieve container object with hardware systems present on/in body
     /*!
      * Function to retrieve container object with hardware systems present on/in body.
-     * \return Container object with hardware systems present on/in body
+     * \return Container object with hardware systems present on/in body.
      */
     boost::shared_ptr< system_models::VehicleSystems > getVehicleSystems( )
     {
@@ -967,11 +967,31 @@ public:
     //! Function to set container object with hardware systems present on/in body
     /*!
      * Function to set container object with hardware systems present on/in body (typically only non-NULL for a vehicle).
-     * \param vehicleSystems Container object with hardware systems present on/in body
+     * \param vehicleSystems Container object with hardware systems present on/in body.
      */
     void setVehicleSystems( const boost::shared_ptr< system_models::VehicleSystems > vehicleSystems )
     {
         vehicleSystems_ = vehicleSystems;
+    }
+
+    //! Function to set the control system of the body.
+    /*!
+     *  Function to set the control system of the body.
+     *  \param controlSystem Control system of the body.
+     */
+    void setControlSystem( const boost::shared_ptr< guidance_navigation_control::ControlSystem > controlSystem )
+    {
+        controlSystem_ = controlSystem;
+    }
+
+    //! Function to retrieve the control system of the body.
+    /*!
+     *  Function to retrieve the control system of the body.
+     *  \return Control system of the body.
+     */
+    boost::shared_ptr< guidance_navigation_control::ControlSystem > getControlSystem( )
+    {
+        return controlSystem_;
     }
 
     //! Function to set the function returning body mass as a function of time
@@ -1223,6 +1243,9 @@ private:
 
     //! Container object with hardware systems present on/in body (typically only non-NULL for a vehicle).
     boost::shared_ptr< system_models::VehicleSystems > vehicleSystems_;
+
+    //! Pointer to the control system of the body (typically only non-NULL for a vehicle).
+    boost::shared_ptr< guidance_navigation_control::ControlSystem > controlSystem_;
 
 };
 

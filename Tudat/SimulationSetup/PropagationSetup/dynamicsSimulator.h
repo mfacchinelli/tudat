@@ -266,12 +266,6 @@ protected:
      */
     virtual void processNumericalEquationsOfMotionSolution( ) = 0;
 
-//    //! Function to retrieve concatenated control vectors for current time.
-//    Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > retrieveCurrentControlVectors( )
-//    {
-
-//    }
-
     //!  Map of bodies (with names) of all bodies in integration.
     simulation_setup::NamedBodyMap bodyMap_;
 
@@ -387,8 +381,7 @@ public:
 
         stateDerivativeFunction_ =
                 boost::bind( &DynamicsStateDerivativeModel< TimeType, StateScalarType >::computeStateDerivative,
-                             dynamicsStateDerivative_, _1, _2 );//,
-//                             boost::bind( &DynamicsSimulator< StateScalarType, TimeType >::retrieveCurrentControlVectors, this ) );
+                             dynamicsStateDerivative_, _1, _2 );
         doubleStateDerivativeFunction_ =
                 boost::bind( &DynamicsStateDerivativeModel< TimeType, StateScalarType >::computeStateDoubleDerivative,
                              dynamicsStateDerivative_, _1, _2 );

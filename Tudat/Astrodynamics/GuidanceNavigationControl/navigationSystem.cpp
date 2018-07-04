@@ -56,7 +56,7 @@ void NavigationSystem::createNavigationFilter(
     // this function also automatically stores the estimates at the current time
 
     // Update body and acceleration maps
-    updateOnboardModel( ); // force update
+    updateOnboardModel( );
 }
 
 //! Function to run the State Estimator (SE).

@@ -136,10 +136,27 @@ boost::shared_ptr< gravitation::SecondDegreeGravitationalTorqueModel > createSec
     boost::function< Eigen::Quaterniond( ) > rotationToBodyFixedFrameFunction =
             boost::bind( &simulation_setup::Body::getCurrentRotationToLocalFrame, bodyUndergoingTorque );
 
-    return boost::make_shared<gravitation::SecondDegreeGravitationalTorqueModel >(
+    return boost::make_shared< gravitation::SecondDegreeGravitationalTorqueModel >(
                 positionOfBodySubjectToTorqueFunction, gravitationalParameterOfAttractingBodyFunction,
                 inertiaTensorOfRotatingBodyFunction, positionOfBodyExertingTorqueFunction, rotationToBodyFixedFrameFunction );
 
+}
+
+//! Function to create a control torque.
+boost::shared_ptr< guidance_navigation_control::ControlTorque > createControlTorqueModel(
+        const boost::shared_ptr< simulation_setup::Body > bodyUndergoingTorque,
+        const std::string& nameOfBodyUndergoingTorque )
+{
+    // Check model availability
+    boost::shared_ptr< guidance_navigation_control::ControlSystem > controlSystem = bodyUndergoingTorque->getControlSystem( );
+    if ( controlSystem ==  NULL )
+    {
+        throw std::runtime_error( "Error when making control torque, " + nameOfBodyUndergoingTorque +
+                                  " does not possess a control system." );
+    }
+
+    // Pass control system to torque model and return it
+    return boost::make_shared< guidance_navigation_control::ControlTorque >( controlSystem );
 }
 
 //! Function to create torque model object.
@@ -164,6 +181,11 @@ boost::shared_ptr< basic_astrodynamics::TorqueModel > createTorqueModel(
     {
         torqueModel = createAerodynamicTorqueModel(
                     bodyUndergoingTorque, bodyExertingTorque, nameOfBodyUndergoingTorque, nameOfBodyExertingTorque );
+        break;
+    }
+    case basic_astrodynamics::control_torque:
+    {
+        torqueModel = createControlTorqueModel( bodyUndergoingTorque, nameOfBodyUndergoingTorque );
         break;
     }
     default:

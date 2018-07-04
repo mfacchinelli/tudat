@@ -28,6 +28,34 @@ Eigen::Vector4d computeErrorInEstimatedQuaternionState( const Eigen::Vector4d& c
     return currentErrorQuaternion;
 }
 
+//! Function to obtain the time derivative of quaternions of body-fixed to inertial frame
+Eigen::Vector4d calculateQuaternionsDerivative( const Eigen::Vector4d& currentQuaternionsToBaseFrame,
+                                                const Eigen::Vector3d& angularVelocityVectorInBodyFixedFrame )
+{
+    Eigen::Matrix4d conversionMatrix = Eigen::Matrix4d::Zero( );
+    conversionMatrix( 1, 0 ) = angularVelocityVectorInBodyFixedFrame( 0 );
+    conversionMatrix( 2, 0 ) = angularVelocityVectorInBodyFixedFrame( 1 );
+    conversionMatrix( 3, 0 ) = angularVelocityVectorInBodyFixedFrame( 2 );
+
+    conversionMatrix( 2, 1 ) = -angularVelocityVectorInBodyFixedFrame( 2 );
+    conversionMatrix( 3, 1 ) = angularVelocityVectorInBodyFixedFrame( 1 );
+
+    conversionMatrix( 3, 2 ) = -angularVelocityVectorInBodyFixedFrame( 0 );
+
+    conversionMatrix( 0, 1 ) = -angularVelocityVectorInBodyFixedFrame( 0 );
+    conversionMatrix( 0, 2 ) = -angularVelocityVectorInBodyFixedFrame( 1 );
+    conversionMatrix( 0, 3 ) = -angularVelocityVectorInBodyFixedFrame( 2 );
+
+    conversionMatrix( 1, 2 ) = angularVelocityVectorInBodyFixedFrame( 2 );
+    conversionMatrix( 1, 3 ) = -angularVelocityVectorInBodyFixedFrame( 1 );
+
+    conversionMatrix( 2, 3 ) = angularVelocityVectorInBodyFixedFrame( 0 );
+
+    conversionMatrix *= 0.5;
+
+    return conversionMatrix * currentQuaternionsToBaseFrame;
+}
+
 } // namespace navigation
 
 } // namespace tudat

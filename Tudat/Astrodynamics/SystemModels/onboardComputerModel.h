@@ -106,7 +106,7 @@ public:
         std::cout << "Non-grav.: " <<
                      navigationSystem_->getCurrentEstimatedNonGravitationalTranslationalAcceleration( ).transpose( ) << std::endl;
 
-//        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
+        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
 
         // Update filter from previous time to next time
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,

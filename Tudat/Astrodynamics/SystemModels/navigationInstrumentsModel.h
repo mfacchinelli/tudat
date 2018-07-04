@@ -112,7 +112,6 @@ public:
                 inertialMeasurementUnitRotationalVelocityFunction_( );
 
                 // Save inertial measurement unit measurements
-
                 currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_[ currentTime_ ] =
                         ( Eigen::VectorXd( 6 ) << currentTranslationalAcceleration_, currentRotationalVelocity_ ).finished( );
             }
