@@ -9,16 +9,16 @@ namespace guidance_navigation_control
 {
 
 //! Function to compute the error in the current quaternion state, based on the commanded quaternion.
-Eigen::Vector4d computeErrorInEstimatedQuaternionState( const Eigen::Vector4d& currentQuaternionToBaseFrame,
-                                                        const Eigen::Vector4d& currentCommandedQuaternionToBaseFrame )
+Eigen::Vector4d computeErrorInEstimatedQuaternion( const Eigen::Vector4d& currentQuaternionToBaseFrame,
+                                                   const Eigen::Vector4d& currentCommandedQuaternionToBaseFrame )
 {
     // Define output vector
     Eigen::Vector4d currentErrorQuaternion = Eigen::Vector4d::Zero( );
 
     // Compute auxiliary matrix
     Eigen::Matrix< double, 3, 4 > auxiliaryMatrix = Eigen::Matrix< double, 3, 4 >::Zero( );
-    auxiliaryMatrix.block( 0, 0, 3, 1 ) = - currentCommandedQuaternionToBaseFrame.segment( 1, 3 );
-    auxiliaryMatrix.block( 0, 1, 3, 3 ) = currentCommandedQuaternionToBaseFrame[ 0 ] * Eigen::Matrix3d::Identity( ) -
+    auxiliaryMatrix.col( 0 ) = - currentCommandedQuaternionToBaseFrame.segment( 1, 3 );
+    auxiliaryMatrix.rightCols( 3 ) = currentCommandedQuaternionToBaseFrame[ 0 ] * Eigen::Matrix3d::Identity( ) -
             linear_algebra::getCrossProductMatrix( currentCommandedQuaternionToBaseFrame.segment( 1, 3 ) );
 
     // Compute error quaternion
@@ -29,8 +29,8 @@ Eigen::Vector4d computeErrorInEstimatedQuaternionState( const Eigen::Vector4d& c
 }
 
 //! Function to obtain the time derivative of quaternions of body-fixed to inertial frame
-Eigen::Vector4d calculateQuaternionsDerivative( const Eigen::Vector4d& currentQuaternionsToBaseFrame,
-                                                const Eigen::Vector3d& angularVelocityVectorInBodyFixedFrame )
+Eigen::Vector4d calculateQuaternionDerivative( const Eigen::Vector4d& currentQuaternionsToBaseFrame,
+                                               const Eigen::Vector3d& angularVelocityVectorInBodyFixedFrame )
 {
     Eigen::Matrix4d conversionMatrix = Eigen::Matrix4d::Zero( );
     conversionMatrix( 1, 0 ) = angularVelocityVectorInBodyFixedFrame( 0 );

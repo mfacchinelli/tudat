@@ -56,6 +56,12 @@ Eigen::Vector4d quaternionProduct( const Eigen::Vector4d& firstQuaternion, const
     return resultantQuaternion;
 }
 
+//! Function to invert a quaternion.
+void invertQuaternion( Eigen::Vector4d& quaternionVector )
+{
+    quaternionVector.segment( 1, 3 ) *= -1.0;
+}
+
 //! Function that returns that 'cross-product matrix'
 Eigen::Matrix3d getCrossProductMatrix( const Eigen::Vector3d& vector )
 {

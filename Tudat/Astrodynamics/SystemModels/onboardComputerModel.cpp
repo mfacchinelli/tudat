@@ -11,12 +11,12 @@ namespace system_models
 using namespace tudat::guidance_navigation_control;
 
 //! Function to remove the error in gyroscope measurement based on the estimated bias and scale factors.
-Eigen::Vector3d removeErrorsFromGyroscopeMeasurement( const Eigen::Vector3d& currentGyroscopeMeasurement,
-                                                      const Eigen::Vector16d& currentEstimatedStateVector )
+Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
+                                                                    const Eigen::Vector16d& currentEstimatedStateVector )
 {
     return ( Eigen::Matrix3d::Identity( ) -
              Eigen::Matrix3d( currentEstimatedStateVector.segment( 13, 3 ).asDiagonal( ) ) ) * // binomial approximation
-           ( currentGyroscopeMeasurement - currentEstimatedStateVector.segment( 10, 3 ) );
+            ( currentInertialMeasurementUnitMeasurement - currentEstimatedStateVector.segment( 10, 3 ) );
 }
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
@@ -27,6 +27,7 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
                                      const Eigen::Vector3d& currentMeasuredRotationalVelocityVector )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
+    TUDAT_UNUSED_PARAMETER( currentControlVector );
 
     // Declare state derivative vector
     Eigen::Vector16d currentStateDerivative = Eigen::Vector16d::Zero( );
@@ -37,13 +38,15 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
     // Translational dynamics
     currentStateDerivative.segment( 3, 3 ) = currentEstimatedTranslationalAccelerationVector;
 
+    // Invert quaternion to get rotation to global (base) frame
+    Eigen::Vector4d currentQuaternionToGlobalFrame = currentEstimatedStateVector.segment( 6, 4 );
+    currentQuaternionToGlobalFrame.segment( 1, 3 ) *= -1.0;
+
     // Rotational kinematics
-    Eigen::Vector3d actualCurrentRotationalVelocityVector = removeErrorsFromGyroscopeMeasurement(
-                currentMeasuredRotationalVelocityVector, currentEstimatedStateVector ) + currentControlVector;
-    currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionsDerivative(
-                currentEstimatedStateVector.segment( 6, 4 ),
-                linear_algebra::convertVectorToQuaternionFormat( currentEstimatedStateVector.segment( 6, 4 ) ) *
-                actualCurrentRotationalVelocityVector );
+    Eigen::Vector3d currentActualRotationalVelocityVector = removeErrorsFromInertialMeasurementUnitMeasurement(
+                currentMeasuredRotationalVelocityVector, currentEstimatedStateVector );
+    currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionDerivative(
+                currentQuaternionToGlobalFrame, currentActualRotationalVelocityVector );
 
     // Give output
     return currentStateDerivative;

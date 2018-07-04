@@ -11,8 +11,8 @@
 #ifndef TUDAT_ONBOARD_COMPUTER_MODEL_H
 #define TUDAT_ONBOARD_COMPUTER_MODEL_H
 
-#include "Tudat/Astrodynamics/BasicAstrodynamics/stateVectorIndices.h"
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/navigationSystem.h"
@@ -34,8 +34,8 @@ namespace system_models
 {
 
 //! Function to remove the error in gyroscope measurement based on the estimated bias and scale factors.
-Eigen::Vector3d removeErrorsFromGyroscopeMeasurement( const Eigen::Vector3d& currentGyroscopeMeasurement,
-                                                      const Eigen::Vector16d& currentEstimatedStateVector );
+Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
+                                                                    const Eigen::Vector16d& currentEstimatedStateVector );
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
@@ -101,28 +101,29 @@ public:
         currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
         currentExternalMeasurementVector.segment( 3, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
 
-        std::cout << "Full: " <<
-                     navigationSystem_->getCurrentEstimatedTranslationalAcceleration( ).transpose( ) << std::endl;
-        std::cout << "Non-grav.: " <<
-                     navigationSystem_->getCurrentEstimatedNonGravitationalTranslationalAcceleration( ).transpose( ) << std::endl;
-
-        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
+//        std::cout << "Full: " <<
+//                     navigationSystem_->getCurrentEstimatedTranslationalAcceleration( ).transpose( ) << std::endl;
+//        std::cout << "Non-grav.: " <<
+//                     navigationSystem_->getCurrentEstimatedNonGravitationalTranslationalAcceleration( ).transpose( ) << std::endl;
+//        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
 
         // Update filter from previous time to next time
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
-                                              boost::bind( &removeErrorsFromGyroscopeMeasurement,
+                                              boost::bind( &removeErrorsFromInertialMeasurementUnitMeasurement,
                                                            instrumentsModel_->getCurrentGyroscopeMeasurement( ), _1 ) );
 
         // Update attitude controller
-        controlSystem_->updateAttitudeController( navigationSystem_->getCurrentEstimatedState( ),
-                                                  removeErrorsFromGyroscopeMeasurement(
-                                                      instrumentsModel_->getCurrentGyroscopeMeasurement( ),
-                                                      navigationSystem_->getCurrentEstimatedState( ) ),
-                                                  navigationSystem_->getNavigationRefreshStepSize( ) );
+        controlSystem_->updateAttitudeController(
+                    navigationSystem_->getCurrentEstimatedState( ),
+                    removeErrorsFromInertialMeasurementUnitMeasurement( instrumentsModel_->getCurrentGyroscopeMeasurement( ),
+                                                                        navigationSystem_->getCurrentEstimatedState( ) ),
+                    navigationSystem_->getNavigationRefreshStepSize( ),
+                    basic_astrodynamics::computeKeplerMeanMotion( navigationSystem_->getCurrentEstimatedTranslationalState( ).second[ 0 ],
+                                                                  navigationSystem_->getStandardGravitationalParameter( ) ) );
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
-        double currentEstimatedTrueAnomaly = currentEstimatedState.second[ orbital_element_conversions::trueAnomalyIndex ];
+        double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
         if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
         {
             std::cout << "Reached apoapsis. Preparing to perform maneuver." << std::endl;

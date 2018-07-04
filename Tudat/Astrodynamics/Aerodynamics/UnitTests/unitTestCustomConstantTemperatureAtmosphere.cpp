@@ -31,12 +31,6 @@ namespace unit_tests
 
 BOOST_AUTO_TEST_SUITE( test_custom_constant_temperature_atmosphere )
 
-// Summary of tests.
-// Test 1: Test set- and get-functions of constants.
-// Test 2: Test custom atmosphere at sea level.
-// Test 3: Test custom atmosphere at 10 km altitude.
-// Test 4: Test if the position-independent functions work.
-
 //! Test set- and get-functions of constants.
 BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereGetSet )
 {
@@ -239,16 +233,13 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmospherePositionIndependent
                 modelSpecificParameters );
 
     const double density1 = customAtmosphere.getDensity( altitude );
-    const double density2 = customAtmosphere.getDensity( altitude, longitude, latitude,
-                                                              time );
+    const double density2 = customAtmosphere.getDensity( altitude, longitude, latitude, time );
 
     const double pressure1 = customAtmosphere.getPressure( altitude );
-    const double pressure2 = customAtmosphere.getPressure( altitude, longitude, latitude,
-                                                                time );
+    const double pressure2 = customAtmosphere.getPressure( altitude, longitude, latitude, time );
 
     const double temperature1 = customAtmosphere.getTemperature( altitude );
-    const double temperature2 = customAtmosphere.getTemperature( altitude, longitude,
-                                                                      latitude, time );
+    const double temperature2 = customAtmosphere.getTemperature( altitude, longitude, latitude, time );
 
     BOOST_CHECK_EQUAL( density1, density2 );
     BOOST_CHECK_EQUAL( pressure1, pressure2 );

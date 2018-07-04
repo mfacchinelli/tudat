@@ -16,6 +16,7 @@
 
 #include "Tudat/Astrodynamics/Aerodynamics/customConstantTemperatureAtmosphere.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModelTypes.h"
 #include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 #include "Tudat/Mathematics/Filters/createFilter.h"
@@ -97,6 +98,23 @@ public:
 
         // State transition matrix function
         stateTransitionMatrixFunction_ = boost::lambda::constant( Eigen::Matrix6d::Zero( ) );
+
+        // Get index of central body acceleration (which is not measured by the IMUs)
+        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
+        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+              accelerationMapIterator_++ )
+        {
+            // Loop over each acceleration
+            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
+            {
+                if ( basic_astrodynamics::getAccelerationModelType( accelerationMapIterator_->second[ i ] ) ==
+                     basic_astrodynamics::spherical_harmonic_gravity )
+                {
+                    sphericalHarmonicsGravityIndex_ = i;
+                    break;
+                }
+            }
+        }
     }
 
     //! Destructor.
@@ -147,7 +165,7 @@ public:
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Calculate acceleration and add to state derivative
-                currentTranslationalAcceleration += ( accelerationMapIterator_->second[ i ]->getAcceleration( ) );
+                currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
             }
         }
 
@@ -172,12 +190,15 @@ public:
         for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
               accelerationMapIterator_++ )
         {
-            // Loop over each accelerations and disregard the central gravitational accelerations,
-            // since IMUs do not measure them
-            for ( unsigned int i = 1; i < accelerationMapIterator_->second.size( ); i++ )
+            // Loop over each accelerations
+            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
-                // Calculate acceleration and add to state derivative
-                currentTranslationalAcceleration += ( accelerationMapIterator_->second[ i ]->getAcceleration( ) );
+                // Disregard the central gravitational accelerations, since IMUs do not measure them
+                if ( i != sphericalHarmonicsGravityIndex_ )
+                {
+                    // Calculate acceleration and add to state derivative
+                    currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                }
             }
         }
 
@@ -358,16 +379,23 @@ private:
     Eigen::Vector6d currentEstimatedKeplerianState_;
 
     //! Vector denoting the current estimated rotational state.
+    /*!
+     *  Vector denoting the current estimated rotational state, where the quaternion expresses the rotation from
+     *  body-fixed (local) to inertial (global or base) frame, whereas the rotational velocity is expressed in the body frame.
+     */
     Eigen::Vector7d currentEstimatedRotationalState_;
 
     //! Filter object to be used for estimation of state.
     boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
 
+    //! Pointer to root-finder used to esimated the time of periapsis.
+    boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;
+
     //! Function to propagate estimated state error.
     boost::function< Eigen::Matrix6d( const Eigen::Vector6d& ) > stateTransitionMatrixFunction_;
 
-    //! Pointer to root-finder used to esimated the time of periapsis.
-    boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;
+    //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
+    unsigned int sphericalHarmonicsGravityIndex_;
 
     //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
     std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;

@@ -18,6 +18,7 @@
 #include "Tudat/Mathematics/Statistics/randomVariableGenerator.h"
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModel.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModelTypes.h"
 #include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
 #include "Tudat/SimulationSetup/EnvironmentSetup/body.h"
 
@@ -56,6 +57,23 @@ public:
         // Set instrument presence to false
         inertialMeasurementUnitAdded_ = false;
         starTrackerAdded_ = false;
+
+        // Get index of central body acceleration (which is not measured by the IMUs)
+        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = accelerationModelMap_.at( spacecraftName_ );
+        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+              accelerationMapIterator_++ )
+        {
+            // Loop over each acceleration
+            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
+            {
+                if ( basic_astrodynamics::getAccelerationModelType( accelerationMapIterator_->second[ i ] ) ==
+                     basic_astrodynamics::spherical_harmonic_gravity )
+                {
+                    sphericalHarmonicsGravityIndex_ = i;
+                    break;
+                }
+            }
+        }
     }
 
     //! Destructor.
@@ -245,12 +263,15 @@ private:
         for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
               accelerationMapIterator_++ )
         {
-            // Loop over each acceleration and disregard the central gravitational accelerations,
-            // since IMUs do not measure them
-            for ( unsigned int i = 1; i < accelerationMapIterator_->second.size( ); i++ )
+            // Loop over each acceleration
+            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
-                // Calculate acceleration and add to state derivative
-                currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                // Disregard the central gravitational accelerations, since IMUs do not measure them
+                if ( i != sphericalHarmonicsGravityIndex_ )
+                {
+                    // Calculate acceleration and add to state derivative
+                    currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                }
             }
         }
 
@@ -263,7 +284,7 @@ private:
     void getCurrentRotationalVelocity( const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
     {
         // Iterate over all accelerations acting on body
-        currentRotationalVelocity_ = bodyMap_.at( spacecraftName_ )->getCurrentAngularVelocityVectorInGlobalFrame( );
+        currentRotationalVelocity_ = bodyMap_.at( spacecraftName_ )->getCurrentAngularVelocityVectorInLocalFrame( );
 
         // Add errors to acceleration value
         currentRotationalVelocity_ = scaleMisalignmentMatrix * currentRotationalVelocity_;
@@ -275,7 +296,7 @@ private:
     {
         // Iterate over all accelerations acting on body
         currentQuaternionToBaseFrame_ = linear_algebra::convertQuaternionToVectorFormat(
-                    bodyMap_.at( spacecraftName_ )->getCurrentRotationToLocalFrame( ) );
+                    bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( ) );
 
         // Add errors to acceleration value
         sumQuaternionUncertainty( currentQuaternionToBaseFrame_, produceStarTrackerNoise( ) );
@@ -350,7 +371,9 @@ private:
 
     //! Function to produce star tracker noise.
     /*!
-     *  Function to produce star tracker noise.
+     *  Function to produce star tracker noise. Note that this noise is output in terms of angle-axis accuracy.
+     *  Before being added (via quaternion multiplication) to the quaternion state, it has to be converted to
+     *  quaternion. This is done via the sumQuaternionUncertainty function.
      *  \return Vector where the noise for the star tracker is stored.
      */
     Eigen::Vector3d produceStarTrackerNoise( )
@@ -389,6 +412,9 @@ private:
 
     //! Boolean denoting whether a star tracker is present in the spacecraft.
     bool starTrackerAdded_;
+
+    //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
+    unsigned int sphericalHarmonicsGravityIndex_;
 
     //! Vector where the noise generators for the translational accelerations are stored.
     std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > accelerometerNoiseDistribution_;

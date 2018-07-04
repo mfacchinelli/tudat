@@ -53,7 +53,7 @@ void NavigationSystem::createNavigationFilter(
 
     // Set initial translational state
     setCurrentEstimatedCartesianState( navigationFilter_->getCurrentStateEstimate( ) );
-    // this function also automatically stores the estimates at the current time
+    // this function also automatically stores the full state estimates at the current time
 
     // Update body and acceleration maps
     updateOnboardModel( );
@@ -74,9 +74,10 @@ void NavigationSystem::runStateEstimator( const double currentTime, const Eigen:
 
     // Extract estimated state and update navigation estimates
     Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-    setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
     currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 );
-    currentEstimatedRotationalState_.segment( 3, 3 ) = gyroscopeMeasurementFunction( updatedEstimatedState );
+    currentEstimatedRotationalState_.segment( 4, 3 ) = gyroscopeMeasurementFunction( updatedEstimatedState );
+    setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
+    // this function also automatically stores the full state estimates at the current time
 
     // Check if new orbit and store new state estimate
     if ( ( oldEstimatedTrueAnomaly < 2.0 * mathematical_constants::PI ) &&
@@ -85,8 +86,7 @@ void NavigationSystem::runStateEstimator( const double currentTime, const Eigen:
         currentOrbitCounter_++;
     }
 
-    // Store initial time and state and update body and acceleration maps
-    storeCurrentTimeAndStateEstimates( );
+    // Update body and acceleration maps
     updateOnboardModel( );
 }
 
