@@ -50,24 +50,26 @@ public:
      */
     NavigationInstrumentsModel( const simulation_setup::NamedBodyMap& bodyMap,
                                 const basic_astrodynamics::AccelerationMap& accelerationModelMap,
-                                const std::string& spacecraftName ) :
+                                const std::string& spacecraftName,
+                                const std::string& planetName ) :
         bodyMap_( bodyMap ), accelerationModelMap_( accelerationModelMap ),
-        spacecraftName_( spacecraftName ), currentTime_( 0.0 )
+        spacecraftName_( spacecraftName ), planetName_( planetName ), currentTime_( 0.0 )
     {
         // Set instrument presence to false
         inertialMeasurementUnitAdded_ = false;
         starTrackerAdded_ = false;
 
         // Get index of central body acceleration (which is not measured by the IMUs)
-        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = accelerationModelMap_.at( spacecraftName_ );
-        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+        for ( accelerationMapIterator_ = accelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapIterator_ != accelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapIterator_++ )
         {
             // Loop over each acceleration
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
-                if ( basic_astrodynamics::getAccelerationModelType( accelerationMapIterator_->second[ i ] ) ==
-                     basic_astrodynamics::spherical_harmonic_gravity )
+                if ( ( basic_astrodynamics::getAccelerationModelType( accelerationMapIterator_->second[ i ] ) ==
+                       basic_astrodynamics::spherical_harmonic_gravity ) &&
+                     ( accelerationMapIterator_->first == planetName_ ) )
                 {
                     sphericalHarmonicsGravityIndex_ = i;
                     break;
@@ -259,15 +261,15 @@ private:
         currentTranslationalAcceleration_.setZero( );
 
         // Iterate over all accelerations acting on body
-        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = accelerationModelMap_.at( spacecraftName_ );
-        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+        for ( accelerationMapIterator_ = accelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapIterator_ != accelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapIterator_++ )
         {
             // Loop over each acceleration
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( i != sphericalHarmonicsGravityIndex_ )
+                if ( ( i != sphericalHarmonicsGravityIndex_ ) || ( accelerationMapIterator_->first != planetName_ ) )
                 {
                     // Calculate acceleration and add to state derivative
                     currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
@@ -403,6 +405,9 @@ private:
 
     //! String denoting the name of the spacecraft body.
     const std::string spacecraftName_;
+
+    //! String denoting the name of the planet being orbited body.
+    const std::string planetName_;
 
     //! Double denoting current time.
     double currentTime_;

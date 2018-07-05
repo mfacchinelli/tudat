@@ -926,8 +926,6 @@ void checkTranslationalStatesFeasibility(
         const std::vector< std::string >& bodiesToIntegrate,
         const simulation_setup::NamedBodyMap& bodyMap );
 
-
-template< typename TimeType, typename StateScalarType >
 //! Function to create list objects for processing numerically integrated results.
 /*!
  * Function to create list objects for processing numerically integrated results, so that all
@@ -940,6 +938,7 @@ template< typename TimeType, typename StateScalarType >
  *        starts.
  * \return List objects for processing numerically integrated results.
  */
+template< typename TimeType, typename StateScalarType >
 std::map< IntegratedStateType,
 std::vector< boost::shared_ptr< IntegratedStateProcessor< TimeType, StateScalarType > > > >
 createIntegratedStateProcessors(

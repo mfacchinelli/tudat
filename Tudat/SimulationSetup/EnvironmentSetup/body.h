@@ -1204,7 +1204,6 @@ private:
     //! Current angular velocity vector for body's rotation, expressed in the global frame.
     Eigen::Vector3d currentAngularVelocityVectorInGlobalFrame_;
 
-
     //! Mass of body (default set to zero, calculated from GravityFieldModel when it is set).
     double currentMass_;
 

@@ -5,6 +5,7 @@
 #include "Tudat/Basics/utilities.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
+#include "Tudat/Mathematics/Interpolators/cubicSplineInterpolator.h"
 #include "Tudat/SimulationSetup/PropagationSetup/createEnvironmentUpdater.h"
 
 namespace tudat
@@ -14,27 +15,32 @@ namespace guidance_navigation_control
 {
 
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
-double areaBisectionFunction( const double currentTrueAnomalyGuess, const std::vector< double >& estimatedTrueAnomaly,
+double areaBisectionFunction( const double currentTimeGuess, const double constantTimeStep,
+                              const Eigen::VectorXd& onboardTime,
                               const std::vector< double >& estimatedAerodynamicAccelerationMagnitude )
 {
     // Find nearest lower index to true anomaly guess
-    int nearestLowerIndex = basic_mathematics::computeNearestLeftNeighborUsingBinarySearch( estimatedTrueAnomaly,
-                                                                                            currentTrueAnomalyGuess );
+    int nearestLowerIndex = basic_mathematics::computeNearestLeftNeighborUsingBinarySearch( onboardTime, currentTimeGuess );
+    nearestLowerIndex = ( nearestLowerIndex == 0 ) ? 1 : nearestLowerIndex;
 
     // Compute trapezoidal quadrature to integrate the area until and after the current guess
-    double lowerSliceQuadratureResult = numerical_quadrature::performTrapezoidalQuadrature(
-                utilities::sliceStlVector( estimatedTrueAnomaly, 0, nearestLowerIndex ),
-                utilities::sliceStlVector( estimatedAerodynamicAccelerationMagnitude, 0, nearestLowerIndex ) );
-    double upperSliceQuadratureResult = numerical_quadrature::performTrapezoidalQuadrature(
-                utilities::sliceStlVector( estimatedTrueAnomaly, nearestLowerIndex + 1 ),
-                utilities::sliceStlVector( estimatedAerodynamicAccelerationMagnitude, nearestLowerIndex + 1 ) );
+    std::cout << "Guess: " << currentTimeGuess - 236304000.0 << std::endl
+              << "Index: " << nearestLowerIndex << std::endl
+              << "Total length: " << onboardTime.rows( ) << std::endl;
+    double lowerSliceQuadratureResult = numerical_quadrature::performExtendedSimpsonsQuadrature(
+                constantTimeStep, utilities::sliceStlVector( estimatedAerodynamicAccelerationMagnitude, 0, nearestLowerIndex ) );
+    double upperSliceQuadratureResult = numerical_quadrature::performExtendedSimpsonsQuadrature(
+                constantTimeStep, utilities::sliceStlVector( estimatedAerodynamicAccelerationMagnitude, nearestLowerIndex ) );
+    std::cout << "Lower: " << lowerSliceQuadratureResult << std::endl;
+    std::cout << "Upper: " << upperSliceQuadratureResult << std::endl;
+    std::cout << "Result: " << upperSliceQuadratureResult - lowerSliceQuadratureResult << std::endl;
 
     // Return difference in areas
     return upperSliceQuadratureResult - lowerSliceQuadratureResult;
 }
 
-//! Function to create navigation filter object for onboard state estimation.
-void NavigationSystem::createNavigationFilter(
+//! Function to create navigation filter and root-finder objects for onboard state estimation.
+void NavigationSystem::createNavigationSystemObjects(
         const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
         const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
 {
@@ -59,6 +65,12 @@ void NavigationSystem::createNavigationFilter(
 
     // Update body and acceleration maps
     updateOnboardModel( );
+
+    // Create root-finder object for bisection of aerodynamic acceleration curve
+    // The values inserted are the tolerance in independent value (i.e., about twice the difference between
+    // two time steps) and the maximum number of interations (i.e., 10 iterations)
+    areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >(
+                2.0 * navigationRefreshStepSize_ / currentTime_, 10 );
 }
 
 //! Function to run the State Estimator (SE).
@@ -106,10 +118,10 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
           currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
           stateIterator != currentOrbitHistoryOfEstimatedTranslationalStates_.end( ); stateIterator++ )
     {
-        currentIterationTime = stateIterator->first;
         if ( stateIterator->second.first.segment( 0, 3 ).norm( ) <= atmosphericInterfaceRadius_ )
         {
             // Retireve time, state and acceleration of where the altitude is below the atmospheric interface
+            currentIterationTime = stateIterator->first;
             mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ] =
                     stateIterator->second.second;
             vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back(
@@ -126,32 +138,40 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     // Separate time and accelerations
     std::pair< Eigen::VectorXd, Eigen::MatrixXd > pairOfEstimatedKeplerianStateBelowAtmosphericInterface =
             utilities::extractKeyAndValuesFromMap< double, double, 6 >( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface );
-    Eigen::VectorXd timeBelowAtmosphericInterface = pairOfEstimatedKeplerianStateBelowAtmosphericInterface.first;
+    Eigen::VectorXd timesBelowAtmosphericInterface = pairOfEstimatedKeplerianStateBelowAtmosphericInterface.first;
+    std::vector< double > vectorOfTimesBelowAtmosphericInterface =
+            utilities::convertEigenVectorToStlVector( timesBelowAtmosphericInterface );
     Eigen::MatrixXd estimatedKeplerianStateBelowAtmosphericInterface = pairOfEstimatedKeplerianStateBelowAtmosphericInterface.second;
     Eigen::VectorXd estimatedTrueAnomalyBelowAtmosphericInterface = estimatedKeplerianStateBelowAtmosphericInterface.row( 5 ).transpose( );
 
     // Check that true anomaly and aerodynamic acceleration have the same length
-    if ( static_cast< unsigned int >( estimatedTrueAnomalyBelowAtmosphericInterface.rows( ) ) !=
-         vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.size( ) )
+    if ( vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.size( ) !=
+         static_cast< unsigned int >( estimatedTrueAnomalyBelowAtmosphericInterface.rows( ) ) )
     {
         throw std::runtime_error( "Error in periapse time estimator. The sizes of the true anomaly and aerodynamic accelerations "
                                   "vectors do not match." );
     }
 
-    // Set root-finder boundaries as the first and last true anomaly elements
+    // Set root-finder boundaries as the first and last times
     areaBisectionRootFinder_->resetBoundaries(
-                estimatedTrueAnomalyBelowAtmosphericInterface[ 0 ],
-            estimatedTrueAnomalyBelowAtmosphericInterface[ estimatedTrueAnomalyBelowAtmosphericInterface.rows( ) - 1 ] );
+                vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
+    std::cout << "Init. time: " << vectorOfTimesBelowAtmosphericInterface.front( ) - 236304000.0 << std::endl
+              << "Fin. time: " << vectorOfTimesBelowAtmosphericInterface.back( ) - 236304000.0 << std::endl;
 
     // Get intermediate variables
     Eigen::Vector6d initialEstimatedKeplerianState = estimatedKeplerianStateBelowAtmosphericInterface.col( 0 );
 
     // Set root-finder function as the area below the acceleration curve
-    double estimatedErrorInTrueAnomaly = areaBisectionRootFinder_->execute(
+    double estimatedActualPeriapseTime = areaBisectionRootFinder_->execute(
                 boost::make_shared< basic_mathematics::FunctionProxy< > >(
-                    boost::bind( &areaBisectionFunction, _1,
-                                 utilities::convertEigenVectorToStlVector( estimatedTrueAnomalyBelowAtmosphericInterface ),
+                    boost::bind( &areaBisectionFunction, _1, navigationRefreshStepSize_, timesBelowAtmosphericInterface,
                                  vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ) ) );
+
+    // Interpolate to find estimated error in true anomaly
+    double estimatedErrorInTrueAnomaly = interpolators::CubicSplineInterpolator< double, double >(
+                vectorOfTimesBelowAtmosphericInterface,
+                utilities::convertEigenVectorToStlVector( estimatedTrueAnomalyBelowAtmosphericInterface ) ).interpolate(
+                estimatedActualPeriapseTime );
     std::cout << "Estimated Error in True Anomaly: " <<
                  unit_conversions::convertDegreesToRadians( estimatedErrorInTrueAnomaly ) << " deg" << std::endl;
     // note that this represents directly the error in estimated true anomaly, since the true anomaly of
@@ -160,6 +180,8 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     // Find nearest lower index to error in true anomaly
     int estimatedPeriapsisIndex = basic_mathematics::computeNearestLeftNeighborUsingBinarySearch(
                 estimatedTrueAnomalyBelowAtmosphericInterface, estimatedErrorInTrueAnomaly );
+    std::cout << "Check: " << estimatedActualPeriapseTime - 236304000.0 << ", "
+              << vectorOfTimesBelowAtmosphericInterface.at( estimatedPeriapsisIndex ) - 236304000.0 << std::endl;
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double estimatedChangeInVelocity = - numerical_quadrature::performExtendedSimpsonsQuadrature(
@@ -167,13 +189,13 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     std::cout << "Estimated Change in Velocity: " << estimatedChangeInVelocity << " m/s" << std::endl;
 
     // Compute estimated mean motion by using the semi-major axis at beginning of atmospheric phase
-    double currentEstimatedMeanMotion = std::sqrt( planetaryGravitationalParameter_ /
+    double initialEstimatedMeanMotion = std::sqrt( planetaryGravitationalParameter_ /
                                                    std::pow( initialEstimatedKeplerianState[ 0 ], 3 ) );
 
     // Compute estimated change in semi-major axis due to change in velocity
     // This value is computed by assuming that the change in velocity occurs at pericenter and is given by
     // by an impulsive shot. Also here, the eccentricity at the beginning of the atmospheric phase is used
-    double estimatedChangeInSemiMajorAxisDueToChangeInVelocity = 2.0 / currentEstimatedMeanMotion * std::sqrt(
+    double estimatedChangeInSemiMajorAxisDueToChangeInVelocity = 2.0 / initialEstimatedMeanMotion * std::sqrt(
                 ( 1.0 + initialEstimatedKeplerianState[ 1 ] ) /
                 ( 1.0 - initialEstimatedKeplerianState[ 1 ] ) ) * estimatedChangeInVelocity;
     std::cout << "Estimated Change in Semi-major Axis: " <<
@@ -208,8 +230,7 @@ void NavigationSystem::runPeriapseTimeEstimator( const std::map< double, Eigen::
     estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
 
     // Correct latest estimated Keplerian state with new information from PTE
-    double timeFromPeriapsisToCurrentPosition = timeBelowAtmosphericInterface[ timeBelowAtmosphericInterface.rows( ) ] -
-            timeBelowAtmosphericInterface[ estimatedPeriapsisIndex ];
+    double timeFromPeriapsisToCurrentPosition = vectorOfTimesBelowAtmosphericInterface.back( ) - estimatedActualPeriapseTime;
     Eigen::Vector6d updatedCurrentEstimatedKeplerianState = initialEstimatedKeplerianState;
     initialEstimatedKeplerianState[ 5 ] = 0.0; // set true anomaly to periapsis, to assume that no change in orbital elements
                                                // has occurred during atmospheric phase

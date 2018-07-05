@@ -21,17 +21,18 @@ namespace tudat
 namespace basic_astrodynamics
 {
 
-//! Class to link the control system to the torque model.
+//! Class to link the a custom torque model to a body.
 /*!
- *
+ *  Class to link the a custom torque model to a body.
  */
 class CustomTorque : public TorqueModel
 {
 public:
 
     //! Constructor
-    CustomTorque( const boost::function< Eigen::Vector3d( ) >& customTorqueFunction ) :
-        customTorqueFunction_( customTorqueFunction )
+    CustomTorque( const boost::function< Eigen::Vector3d( ) >& customTorqueFunction,
+                  const boost::function< void( const double ) >& customUpdateFunction = boost::function< void( const double ) >( ) ) :
+        customTorqueFunction_( customTorqueFunction ), customUpdateFunction_( customUpdateFunction )
     { }
 
     //! Destructor
@@ -40,31 +41,38 @@ public:
     //! Function to retrieve the current value of the torque.
     /*!
      *  Function to retrieve the current value of the torque, which is computed by the
-     *  control system based on the current estimated state.
+     *  custom torque function, after having its members updated via the updateMembers function.
      *  \return Current torque, as computed by last call to updateMembers function.
      */
     Eigen::Vector3d getTorque( )
     {
-        // Retrieve and return the control vector from the control system.
+        // Retrieve and return the torque based on the custom torque model
         return customTorqueFunction_( );
     }
 
     //! Update member variables used by the torque model.
     /*!
-     *  Update member variables used by the torque model. This function is empty, since the
-     *  control system is automatically updated by the onboard computer object.
+     *  Update member variables used by the torque model. This function simply calls the custom
+     *  update function with the current time as input.
      */
     void updateMembers( const double currentTime )
     {
-        // nothing to be done, the control system is updated by the onboard computer
+        // Update the custom torque model
+        if( !customUpdateFunction_.empty( ) )
+        {
+            customUpdateFunction_( currentTime );
+        }
     }
 
 protected:
 
 private:
 
-    //! Pointer to the control system to be used to retrieve the torque.
+    //! Function to be used to retrieve the torque.
     const boost::function< Eigen::Vector3d( ) > customTorqueFunction_;
+
+    //! Function to be used to update the torque.
+    const boost::function< void( const double ) > customUpdateFunction_;
 
 };
 

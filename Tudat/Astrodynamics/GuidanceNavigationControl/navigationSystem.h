@@ -15,10 +15,12 @@
 #include <boost/lambda/lambda.hpp>
 
 #include "Tudat/Astrodynamics/Aerodynamics/customConstantTemperatureAtmosphere.h"
-#include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModelTypes.h"
-#include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
+
+#include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
 #include "Tudat/Mathematics/Filters/createFilter.h"
 
 //! Typedefs and using statements to simplify code.
@@ -49,19 +51,21 @@ enum NavigationStateIndices
 /*!
  *  Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
  *  The function returns the difference between the areas under the acceleration curve, computed before and after
- *  a true anomaly guess provided by the root-finder object. Since the area under the curve is a constant value, the
+ *  a time guess provided by the root-finder object. Since the area under the curve is a constant value, the
  *  slicing procedure will always result in a larger and a smaller value of area, unless the slicing occurs exactly
  *  at the centroid of the area curve (which is the tagert point). Since no interpolation is used, it is possible that
- *  the true anomaly guess is not cointained in the estimatedTrueAnomaly vector, thus, the nearest lower index is used
- *  as reference to compute the area.
- *  \param currentTrueAnomalyGuess Current guess in true anomaly to be used as slicing parameter.
- *  \param estimatedTrueAnomaly Vector of the estimated true anomalies below the atmospheric interface.
+ *  the time guess is not cointained in the onboardTime vector, thus, the nearest index is used as reference to
+ *  compute the area.
+ *  \param currentTimeGuess Current guess in periapse time to be used as slicing parameter.
+ *  \param constantTimeStep Value of constant time step to be used for numerical integration.
+ *  \param onboardTime Onboard times below the atmospheric interface.
  *  \param estimatedAerodynamicAccelerationMagnitude Vector of estimated aerodynamic acceleration magnitudes below the
  *      atmospheric interface altitude.
  *  \return Double representing the difference between the areas under the acceleration curve computed before and
- *      after the current true anomaly estimate (i.e., the slicing parameter).
+ *      after the current time estimate (i.e., the slicing parameter).
  */
-double areaBisectionFunction( const double currentTrueAnomalyGuess, const std::vector< double >& estimatedTrueAnomaly,
+double areaBisectionFunction( const double currentTimeGuess, const double constantTimeStep,
+                              const Eigen::VectorXd& onboardTime,
                               const std::vector< double >& estimatedAerodynamicAccelerationMagnitude );
 
 //! Class for the navigation system of an aerobraking maneuver.
@@ -91,24 +95,20 @@ public:
         // Create environment updater
         createOnboardEnvironmentUpdater( );
 
-        // Create root-finder object for bisection of aerodynamic acceleration curve
-        // The values inserted are the tolerance in independent value (i.e., one arcminute of true anomaly) and
-        // the maximum number of interations (i.e., 10 iterations)
-        areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( 1.7e-3, 10 );
-
         // State transition matrix function
         stateTransitionMatrixFunction_ = boost::lambda::constant( Eigen::Matrix6d::Zero( ) );
 
         // Get index of central body acceleration (which is not measured by the IMUs)
-        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
-        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapIterator_++ )
         {
             // Loop over each acceleration
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
-                if ( basic_astrodynamics::getAccelerationModelType( accelerationMapIterator_->second[ i ] ) ==
-                     basic_astrodynamics::spherical_harmonic_gravity )
+                if ( ( basic_astrodynamics::getAccelerationModelType( accelerationMapIterator_->second[ i ] ) ==
+                       basic_astrodynamics::spherical_harmonic_gravity ) &&
+                     ( accelerationMapIterator_->first == planetName_ ) )
                 {
                     sphericalHarmonicsGravityIndex_ = i;
                     break;
@@ -120,8 +120,8 @@ public:
     //! Destructor.
     ~NavigationSystem( ) { }
 
-    //! Function to create navigation filter object for onboard state estimation.
-    void createNavigationFilter(
+    //! Function to create navigation filter and root-finder objects for onboard state estimation.
+    void createNavigationSystemObjects(
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel );
 
@@ -157,8 +157,8 @@ public:
         Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
 
         // Iterate over all accelerations acting on body
-        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
-        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapIterator_++ )
         {
             // Loop over each accelerations
@@ -186,15 +186,15 @@ public:
         Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
 
         // Iterate over all accelerations acting on body
-        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
-        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapIterator_++ )
         {
             // Loop over each accelerations
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( i != sphericalHarmonicsGravityIndex_ )
+                if ( ( i != sphericalHarmonicsGravityIndex_ ) || ( accelerationMapIterator_->first != planetName_ ) )
                 {
                     // Calculate acceleration and add to state derivative
                     currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
@@ -219,6 +219,13 @@ public:
     std::pair< Eigen::Vector6d, Eigen::Vector6d > getCurrentEstimatedTranslationalState( )
     {
         return std::make_pair( currentEstimatedCartesianState_, currentEstimatedKeplerianState_ );
+    }
+
+    //! Function to compute the current estimated mean motion.
+    double getCurrentEstimatedMeanMotion( )
+    {
+        return basic_astrodynamics::computeKeplerMeanMotion( currentEstimatedKeplerianState_[ 0 ],
+                planetaryGravitationalParameter_ );
     }
 
     //! Function to set current Cartesian state to new value.
@@ -293,7 +300,8 @@ private:
     {
         // Update environment
         std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
-        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
+        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_ +
+                onboardBodyMap_.at( planetName_ )->getState( );
         mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
 
@@ -301,16 +309,16 @@ private:
 //        onboardBodyMap_.at( spacecraftName_ )->setState( currentEstimatedCartesianState_ );
 //        onboardBodyMap_.at( spacecraftName_ )->setCurrentRotationalStateToLocalFrame( currentEstimatedRotationalState_ );
 
-        // Update accelerations
-        basic_astrodynamics::SingleBodyAccelerationMap accelerationsOnBody = onboardAccelerationModelMap_.at( spacecraftName_ );
-        for ( accelerationMapIterator_ = accelerationsOnBody.begin( ); accelerationMapIterator_ != accelerationsOnBody.end( );
+        // Loop over bodies exerting accelerations on spacecraft
+        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapIterator_++ )
         {
             // Loop over each acceleration
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
-                // Calculate acceleration and add to state derivative
-                accelerationMapIterator_->second[ i ]->updateMembers( );
+                // Update acceleration model
+                accelerationMapIterator_->second[ i ]->updateMembers( currentTime_ );
             }
         }
     }

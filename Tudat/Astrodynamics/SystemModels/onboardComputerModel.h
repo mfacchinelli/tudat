@@ -12,7 +12,6 @@
 #define TUDAT_ONBOARD_COMPUTER_MODEL_H
 
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
-#include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/navigationSystem.h"
@@ -66,7 +65,7 @@ public:
         atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
 
         // Create navigation filter based on user inputs
-        navigationSystem_->createNavigationFilter(
+        navigationSystem_->createNavigationSystemObjects(
                     boost::bind( &onboardSystemModel, _1, _2,
                                  boost::bind( &ControlSystem::getCurrentAttitudeControlVector, controlSystem_ ),
                                  boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_ ),
@@ -118,8 +117,7 @@ public:
                     removeErrorsFromInertialMeasurementUnitMeasurement( instrumentsModel_->getCurrentGyroscopeMeasurement( ),
                                                                         navigationSystem_->getCurrentEstimatedState( ) ),
                     navigationSystem_->getNavigationRefreshStepSize( ),
-                    basic_astrodynamics::computeKeplerMeanMotion( navigationSystem_->getCurrentEstimatedTranslationalState( ).second[ 0 ],
-                                                                  navigationSystem_->getStandardGravitationalParameter( ) ) );
+                    navigationSystem_->getCurrentEstimatedMeanMotion( ) );
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
@@ -151,8 +149,6 @@ public:
             std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
                     instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
 
-//            utilities::printMapContents( currentOrbitHistoryOfInertialMeasurementUnitMeasurements );
-
             // Extract measured translational accelerations
             std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedAccelerations;
             for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
@@ -163,7 +159,9 @@ public:
                         measurementConstantIterator_->second.segment( 0, 3 );
             }
 
-//            utilities::printMapContents( currentOrbitHistoryOfEstimatedAccelerations );
+            // Remove accelerometer errors from measured acceleration
+//            navigationSystem_->removeAccelerometerErrors( currentOrbitHistoryOfEstimatedAccelerations );
+            // this function also calibrates the accelerometers if it is the first orbit
 
             // Perform periapse time and atmosphere estimations
             navigationSystem_->runPeriapseTimeEstimator( currentOrbitHistoryOfEstimatedAccelerations );

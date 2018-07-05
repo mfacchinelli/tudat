@@ -116,19 +116,19 @@ public:
                                                                                   currentMeasuredRotationalVelocityVector ),
                                                    currentCommandedQuaternionState );
 
-        std::cout << "Current estimated quaternion: " << currentEstimatedStateVector.segment( 6, 4 ).transpose( ) << std::endl
-                  << "Current estimated derivative: "  <<
-                     calculateQuaternionDerivative( currentEstimatedStateVector.segment( 6, 4 ),
-                                                    currentMeasuredRotationalVelocityVector ).transpose( ) << std::endl
-                  << "Commanded state: " << currentCommandedQuaternionState.transpose( ) << std::endl
-                  << "Commnaded derivative: " << currentCommandedQuaternionDerivative.transpose( ) << std::endl
-                  << "Proportional: " <<
-                     proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) ).transpose( ) << std::endl
-                  << "Integral: " <<
-                     integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
-                                                     navigationRefreshStepSize, historyOfQuaternionStateErrors_ ) ).transpose( ) << std::endl
-                  << "Derivative: " <<
-                     derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ).transpose( ) << std::endl;
+//        std::cout << "Current estimated quaternion: " << currentEstimatedStateVector.segment( 6, 4 ).transpose( ) << std::endl
+//                  << "Current estimated derivative: "  <<
+//                     calculateQuaternionDerivative( currentEstimatedStateVector.segment( 6, 4 ),
+//                                                    currentMeasuredRotationalVelocityVector ).transpose( ) << std::endl
+//                  << "Commanded state: " << currentCommandedQuaternionState.transpose( ) << std::endl
+//                  << "Commnaded derivative: " << currentCommandedQuaternionDerivative.transpose( ) << std::endl
+//                  << "Proportional: " <<
+//                     proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) ).transpose( ) << std::endl
+//                  << "Integral: " <<
+//                     integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
+//                                                     navigationRefreshStepSize, historyOfQuaternionStateErrors_ ) ).transpose( ) << std::endl
+//                  << "Derivative: " <<
+//                     derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ).transpose( ) << std::endl;
 
         // Compute control vector based on control gains and error
         currentControlVector_ = proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) ) +
@@ -136,7 +136,7 @@ public:
                                                 navigationRefreshStepSize, historyOfQuaternionStateErrors_ ) ) +
                 derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) );
         // only the imaginary part of the quaternion is used, since only three terms are needed to fully control the spacecraft
-        std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl << std::endl;
+//        std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl << std::endl;
     }
 
     //! Function to update the orbit controller with the scheduled apoapsis maneuver, computed by the guidance system.
@@ -157,17 +157,16 @@ private:
     //! Function to compute the current commanded quaternion to base frame.
     /*!
      *  Function to compute the current commanded quaternion to base frame. The body-fixed frame is assumed to correspond
-     *  to the trajectory frame, where however, the y- and z-axes are inverted. Thus, the direction cosine matrix (DCM) describing
-     *  the rotation from trajectory to inertial frame can be found first, then the second and third columns are inverted in
-     *  sign, and finally the transpose is taken. The DCM is found by using the velocity and radial distance vector. The
-     *  velocity (unit) vector corresponds directly to the x-axis of the trajectory frame, whereas the z-axis is computed by
-     *  subtracting from the radial distance (unit) vector its projection on the x-axis. Then, the y-axis is determined via the
-     *  right-hand rule (i.e., with the cross product). The commanded state thus corresponds to a state with zero angle of attack
-     *  and angle of side-slip and with a bank angle of 180 degrees. Note that since the estimated state is used, the actual
+     *  to the trajectory frame. Thus, the direction cosine matrix (DCM) describing the rotation from trajectory to inertial
+     *  frame can be found and taken as full rotation from body-fixed to inertial. The DCM is found by using the velocity and
+     *  radial distance vector. The velocity (unit) vector corresponds directly to the x-axis of the trajectory frame, whereas
+     *  the z-axis is computed by subtracting from the radial distance (unit) vector its projection on the x-axis. Then, the
+     *  y-axis is determined via the right-hand rule (i.e., with the cross product). The commanded state thus corresponds to a
+     *  state with zero angle of attack, angle of side-slip and bank angle. Note that since the estimated state is used, the actual
      *  transformation can differ.
      *  \param currentEstimatedStateVector Current estimated state as provided by the navigation system.
-     *  \return Quaternion representing the estimated inverse rotation from trajectory to inertial frame. Thus the commanded
-     *      quaternion corresponds to a state with zero angle of attack and angle of side-slip and with a bank angle of 180 degrees.
+     *  \return Quaternion representing the estimated rotation from trajectory to inertial frame. Thus the commanded
+     *      quaternion corresponds to a state with zero angle of attack, angle of side-slip and bank angle.
      */
     Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::Vector16d& currentEstimatedStateVector )
     {
@@ -181,14 +180,16 @@ private:
         // Find trajectory z-axis unit vector
         Eigen::Vector3d zUnitVector = currentEstimatedStateVector.segment( 0, 3 ).normalized( );
         zUnitVector -= zUnitVector.dot( xUnitVector ) * xUnitVector;
-        transformationFromInertialToTrajectoryFrame.col( 2 ) = - zUnitVector; // body-fixed (= -trajectory)
+        transformationFromInertialToTrajectoryFrame.col( 2 ) = zUnitVector; // body-fixed (= trajectory)
 
         // Find body-fixed y-axis unit vector
-        transformationFromInertialToTrajectoryFrame.col( 1 ) = xUnitVector.cross( zUnitVector ); // body-fixed (= -trajectory)
+        transformationFromInertialToTrajectoryFrame.col( 1 ) = zUnitVector.cross( xUnitVector ); // body-fixed (= trajectory)
 
         // Transform DCM to quaternion and give output
         return linear_algebra::convertQuaternionToVectorFormat(
                     Eigen::Quaterniond( transformationFromInertialToTrajectoryFrame ) );
+        // note that due to the different rotation convention in Eigen, transforming the DCM with the constructor above
+        // automatically takes the inverse of the rotation
     }
 
     //! Function to compute the current commanded quaternion derivative to base frame.

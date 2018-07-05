@@ -345,16 +345,16 @@ Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic > convertStlVectorToEigenMatrix
 
 //! Function to add a double to all entries in an STL vector.
 /*!
- *  Function to add a double to all entries in an STL vector (addition of a double must be defined for Argument type).
+ *  Function to add a double to all entries in an STL vector (addition of a double must be defined for T type).
  *  \param vector Vector to which a double is to be added.
  *  \param scalar Value that is to be added to vector
  *  \return New vector with scalar added to all entries of input vector.
  */
-template< typename Argument >
-std::vector< Argument > addScalarToVector( const std::vector< Argument >& vector, const double scalar )
+template< typename T >
+std::vector< T > addScalarToVector( const std::vector< T >& vector, const double scalar )
 {
     // Declare and resize return vector.
-    std::vector< Argument > addedVector;
+    std::vector< T > addedVector;
     addedVector.resize( vector.size( ) );
 
     // Add scalar to all entries of input vector
@@ -603,7 +603,7 @@ std::vector< T > sliceStlVector( const std::vector< T >& vectorToBeSliced, unsig
     }
 
     // Transfer values to sliced array
-    for ( unsigned int i = startIndex; i < endIndex; i++ )
+    for ( unsigned int i = startIndex; i < ( endIndex + 1 ); i++ )
     {
         slicedVector.push_back( vectorToBeSliced.at( i ) );
     }

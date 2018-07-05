@@ -90,6 +90,11 @@ public:
         return stateSize_;
     }
 
+    //! Get total size of the conventional state.
+    /*!
+     * Get total size of the conventional state.
+     * \return Total size of the conventional state.
+     */
     int getConventionalStateSize( )
     {
         return stateSize_;
@@ -119,7 +124,6 @@ public:
      * \param bodyMap Map of bodies in the propagation, with keys the names of the bodies.
      */
     virtual void resetIntegratedStateModels( const simulation_setup::NamedBodyMap& bodyMap ) = 0;
-
 
 protected:
 
