@@ -131,10 +131,11 @@ public:
 //                     derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ).transpose( ) << std::endl;
 
         // Compute control vector based on control gains and error
-        currentControlVector_ = proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) ) +
-                integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
-                                                navigationRefreshStepSize, historyOfQuaternionStateErrors_ ) ) +
-                derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) );
+        currentControlVector_ = - ( proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternionState.segment( 1, 3 ) ) +
+                                    integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
+                                                                    navigationRefreshStepSize, historyOfQuaternionStateErrors_ ) ) +
+                                    derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ) );
+        currentOrbitHistoryOfControlVectors_.push_back( currentControlVector_ );
         // only the imaginary part of the quaternion is used, since only three terms are needed to fully control the spacecraft
 //        std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl << std::endl;
     }
@@ -151,6 +152,15 @@ public:
 
     //! Function to retirieve the apoapsis maneuver.
     Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApsoapsisManeuver_; }
+
+    //! Function to retrieve history of control vectors for the current orbit.
+    std::vector< Eigen::Vector3d > getCurrentOrbitHistoryOfControlVectors( ) { return currentOrbitHistoryOfControlVectors_; }
+
+    //! Clear history of control vectors for the current orbit.
+    void clearCurrentOrbitControlHistory( )
+    {
+        currentOrbitHistoryOfControlVectors_.clear( );
+    }
 
 private:
 
@@ -239,6 +249,9 @@ private:
 
     //! History of errors in the estimated quaternion state.
     std::vector< Eigen::Vector3d > historyOfQuaternionStateErrors_;
+
+    //! History of control torque vectors for current orbit.
+    std::vector< Eigen::Vector3d > currentOrbitHistoryOfControlVectors_;
 
 };
 

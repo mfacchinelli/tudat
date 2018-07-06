@@ -150,17 +150,17 @@ public:
                     instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
 
             // Extract measured translational accelerations
-            std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedTranslationalAccelerations;
+            std::map< double, Eigen::Vector3d > currentOrbitHistoryOfMeasuredTranslationalAccelerations;
             for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
                   measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
                   measurementConstantIterator_++ )
             {
-                currentOrbitHistoryOfEstimatedTranslationalAccelerations[ measurementConstantIterator_->first ] =
+                currentOrbitHistoryOfMeasuredTranslationalAccelerations[ measurementConstantIterator_->first ] =
                         measurementConstantIterator_->second.segment( 0, 3 );
             }
 
             // Perform periapse time and atmosphere estimations
-            navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfEstimatedTranslationalAccelerations );
+            navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
 
             // Perform corridor and maneuver estimations
             guidanceSystem_->runCorridorEstimator( );
@@ -175,13 +175,25 @@ public:
         return isPropagationToBeStopped;
     }
 
+    //! Function to check whether the aerobraking maneuver has been completed.
+    /*!
+     *  Function to check whether the aerobraking maneuver has been completed.
+     *  \return Boolean denoting whether the aerobraking maneuver has been completed.
+     */
+    bool isAerobrakingComplete( )
+    {
+        return true;
+    }
+
 private:
 
     //! Function to run house keeping routines when new orbit is initiated.
     void runHouseKeepingRoutines( )
     {
-        navigationSystem_->clearCurrentOrbitEstimationHistory( );
+        // Empty maps and vectors of data belonging to the current orbit
+        controlSystem_->clearCurrentOrbitControlHistory( );
         instrumentsModel_->clearCurrentOrbitMeasurementHistories( );
+        navigationSystem_->clearCurrentOrbitEstimationHistory( );
     }
 
     //! Boolean denoting whether the maneuvering phase for this orbit has been complete.

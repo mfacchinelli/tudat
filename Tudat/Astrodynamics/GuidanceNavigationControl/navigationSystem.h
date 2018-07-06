@@ -51,38 +51,6 @@ enum NavigationStateIndices
 Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
                                                                     const Eigen::Vector6d& inertialMeasurementUnitErrors );
 
-//! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
-/*!
- *  Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
- *  The function returns the difference between the areas under the acceleration curve, computed before and after
- *  a time guess provided by the root-finder object. Since the area under the curve is a constant value, the
- *  slicing procedure will always result in a larger and a smaller value of area, unless the slicing occurs exactly
- *  at the centroid of the area curve (which is the tagert point). Since no interpolation is used, it is possible that
- *  the time guess is not cointained in the onboardTime vector, thus, the nearest index is used as reference to
- *  compute the area.
- *  \param currentTimeGuess Current guess in periapse time to be used as slicing parameter.
- *  \param constantTimeStep Value of constant time step to be used for numerical integration.
- *  \param onboardTime Onboard times below the atmospheric interface.
- *  \param estimatedAerodynamicAccelerationMagnitude Vector of estimated aerodynamic acceleration magnitudes below the
- *      atmospheric interface altitude.
- *  \return Double representing the difference between the areas under the acceleration curve computed before and
- *      after the current time estimate (i.e., the slicing parameter).
- */
-double areaBisectionFunction( const double currentTimeGuess, const double constantTimeStep,
-                              const Eigen::VectorXd& onboardTime,
-                              const std::vector< double >& estimatedAerodynamicAccelerationMagnitude );
-
-//! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
-/*!
- *  Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
- *  \param currentErrorEstimate
- *  \param vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface
- *  \return
- */
-std::pair< Eigen::VectorXd, Eigen::MatrixXd > accelerometerErrorEstimationFunction(
-        const Eigen::Vector6d& currentErrorEstimate,
-        const std::vector< Eigen::Vector3d >& vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface );
-
 //! Class for the navigation system of an aerobraking maneuver.
 class NavigationSystem
 {
@@ -109,6 +77,9 @@ public:
     {
         // Create environment updater
         createOnboardEnvironmentUpdater( );
+
+        // Atmosphere estimator initialization
+        atmosphereEstimatorInitialized_ = false;
 
         // State transition matrix function
         stateTransitionMatrixFunction_ = boost::lambda::constant( Eigen::Matrix6d::Zero( ) );
@@ -172,7 +143,7 @@ public:
         std::map< double, Eigen::Vector6d > mapOfEstimatedCartesianStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector3d > mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface;
-        std::vector< Eigen::Vector3d > vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface;
+        std::vector< Eigen::Vector3d > vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface;
         for ( translationalStateIterator_ = currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
               translationalStateIterator_ != currentOrbitHistoryOfEstimatedTranslationalStates_.end( ); translationalStateIterator_++ )
         {
@@ -186,7 +157,7 @@ public:
                         translationalStateIterator_->second.second;
                 mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface[ currentIterationTime ] =
                         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentIterationTime ];
-                vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.push_back(
+                vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.push_back(
                             mapOfEstimatedAerodynamicAcceleration.at( currentIterationTime ) );
 
                 // Modify the true anomaly such that it is negative where it is above PI radians (before estimated periapsis)
@@ -198,23 +169,27 @@ public:
         }
 
         // Remove errors from measured accelerations
-        removeAccelerometerErrors( vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface,
+        removeAccelerometerErrors( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
                                    mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
         // this function also calibrates the accelerometers if it is the first orbit
 
-        // Compute magnitude of aerodynamic acceleration
-        std::vector< double > vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
-        for ( unsigned int i = 0; i < vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
+        // Run post-atmosphere processes if not the first orbit
+        if ( true ) // currentOrbitCounter_ != 0 )
         {
-            vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back(
-                        vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.at( i ).norm( ) );
-        }
+            // Compute magnitude of aerodynamic acceleration
+            std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
+            for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
+            {
+                vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back(
+                            vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ).norm( ) );
+            }
 
-        // Run post-atmosphere processes with processed results
-        runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                  vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-        runAtmosphereEstimator( mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
-                                vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+            // Run post-atmosphere processes with processed results
+            runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                      vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+            runAtmosphereEstimator( mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
+                                    vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+        }
     }
 
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
@@ -301,6 +276,12 @@ public:
                 planetaryGravitationalParameter_ );
     }
 
+    //! Function to compute the current estimated mean motion.
+    Eigen::Vector6d getEstimatedAccelerometerErrors( )
+    {
+        return estimatedAccelerometerErrors_;
+    }
+
     //! Function to set current Cartesian state to new value.
     /*!
      *  Function to set current Cartesian state to new value. The value of the Keplerian state is set
@@ -334,12 +315,18 @@ public:
     //! Function to retrieve history of estimated translational and rotational states over time.
     /*!
      *  Function to retrieve history of estimated translational and rotational states over time.
-     *  \return Map where the keys are times and the mapped value is a pair, whose first element is the pair
-     *  of Cartesian and Keplerian elements, whereas the second element is the rotational state.
+     *  \return Map where the keys are times and the mapped value is a pair, whose first element is the pair of
+     *      Cartesian and Keplerian elements, whereas the second element is the rotational state.
      */
     std::map< double, std::pair< std::pair< Eigen::Vector6d, Eigen::Vector6d >, Eigen::Vector7d > > getHistoryOfEstimatedStates( )
     {
         return historyOfEstimatedStates_;
+    }
+
+    //! Function to retrieve history of estimated non-gravitational translational accelerations for the current orbit.
+    std::map< double, Eigen::Vector3d > getCurrentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations( )
+    {
+        return currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_;
     }
 
     //! Function to retireve refresh step size of navigation system.
@@ -354,7 +341,7 @@ public:
     //! Function to retireve the atmospheric interface radius of the body being orbited.
     double getAtmosphericInterfaceRadius( ) { return atmosphericInterfaceRadius_; }
 
-    //! Clear current orbit estimation history.
+    //! Clear history of estimated states and accelerations for the current orbit.
     void clearCurrentOrbitEstimationHistory( )
     {
         currentOrbitHistoryOfEstimatedTranslationalStates_.clear( );
@@ -403,14 +390,14 @@ private:
     //! Function to remove and calibrate (first time only) accelerometer errors.
     /*!
      *  Function to remove and calibrate (first time only) accelerometer errors.
-     *  \param vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface Vector of estimated aerodynamic acceleration
+     *  \param vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface Vector of estimated aerodynamic acceleration
      *      below the atmospheric interface altitude and corrupted by accelerometer errors. The acceleration is thus taken
      *      directly from the IMU.
      *  \param mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface Map of time and estimated Cartesian elements below
      *      the atmospheric interface altitude.
      */
     void removeAccelerometerErrors(
-            std::vector< Eigen::Vector3d >& vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface,
+            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
             const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
 
     //! Function to run the Periapse Time Estimator (PTE).
@@ -428,7 +415,7 @@ private:
      */
     void runPeriapseTimeEstimator(
             const std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-            const std::vector< double >& vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+            const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to run the Atmosphere Estimator (AE).
     /*!
@@ -440,7 +427,7 @@ private:
      */
     void runAtmosphereEstimator(
             const std::map< double, Eigen::Vector6d >& mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
-            const std::vector< double >& vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+            const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
@@ -522,7 +509,14 @@ private:
     unsigned int sphericalHarmonicsGravityIndex_;
 
     //! Vector denoting the bias and scale errors of the accelerometer after calibration.
-    Eigen::Vector6d accelerometerErrors_;
+    Eigen::Vector6d estimatedAccelerometerErrors_;
+
+    //! Boolean denoting whether the atmosphere estimator has been initialized.
+    /*!
+     *  Boolean denoting whether the atmosphere estimator has been initialized. Note that the initialization is assumed to
+     *  be achieved once at least 7 orbits have been carried out.
+     */
+    bool atmosphereEstimatorInitialized_;
 
     //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
     std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;

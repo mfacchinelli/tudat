@@ -4,6 +4,7 @@
 
 #include "Tudat/Basics/utilities.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
+#include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 #include "Tudat/Mathematics/Interpolators/cubicSplineInterpolator.h"
 #include "Tudat/Mathematics/BasicMathematics/leastSquaresEstimation.h"
@@ -23,63 +24,6 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
     return ( Eigen::Matrix3d::Identity( ) -
              Eigen::Matrix3d( inertialMeasurementUnitErrors.segment( 3, 3 ).asDiagonal( ) ) ) * // binomial approximation
             ( currentInertialMeasurementUnitMeasurement - inertialMeasurementUnitErrors.segment( 0, 3 ) );
-}
-
-//! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
-double areaBisectionFunction( const double currentTimeGuess, const double constantTimeStep,
-                              const Eigen::VectorXd& onboardTime,
-                              const std::vector< double >& estimatedAerodynamicAccelerationMagnitude )
-{
-    // Find nearest lower index to true anomaly guess
-    int nearestLowerIndex = basic_mathematics::computeNearestLeftNeighborUsingBinarySearch( onboardTime, currentTimeGuess );
-    nearestLowerIndex = ( nearestLowerIndex == 0 ) ? 1 : nearestLowerIndex;
-
-    // Compute trapezoidal quadrature to integrate the area until and after the current guess
-    std::cout << "Guess: " << currentTimeGuess - 236304000.0 << std::endl
-              << "Index: " << nearestLowerIndex << std::endl
-              << "Total length: " << onboardTime.rows( ) << std::endl;
-    double lowerSliceQuadratureResult = numerical_quadrature::performExtendedSimpsonsQuadrature(
-                constantTimeStep, utilities::sliceStlVector( estimatedAerodynamicAccelerationMagnitude, 0, nearestLowerIndex ) );
-    double upperSliceQuadratureResult = numerical_quadrature::performExtendedSimpsonsQuadrature(
-                constantTimeStep, utilities::sliceStlVector( estimatedAerodynamicAccelerationMagnitude, nearestLowerIndex ) );
-    std::cout << "Lower: " << lowerSliceQuadratureResult << std::endl;
-    std::cout << "Upper: " << upperSliceQuadratureResult << std::endl;
-    std::cout << "Result: " << upperSliceQuadratureResult - lowerSliceQuadratureResult << std::endl;
-
-    // Return difference in areas
-    return upperSliceQuadratureResult - lowerSliceQuadratureResult;
-}
-
-//! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
-std::pair< Eigen::VectorXd, Eigen::MatrixXd > accelerometerErrorEstimationFunction(
-        const Eigen::Vector6d& currentErrorEstimate,
-        const std::vector< Eigen::Vector3d >& vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface )
-{
-    // Set variables to zero
-    Eigen::VectorXd expectedAcceleration = Eigen::VectorXd::Zero(
-                3 * vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.size( ) );
-    Eigen::MatrixXd designMatrix = Eigen::MatrixXd::Zero(
-                3 * vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.size( ), 6 );
-
-    // Loop over each acceleration to add values to matrix
-    for ( unsigned int i = 0; i < vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
-    {
-        // Find current expected measurement
-        expectedAcceleration.segment( 3 * i, 3 ) =
-                ( Eigen::Matrix3d::Identity( ) - Eigen::Matrix3d( currentErrorEstimate.segment( 3, 3 ).asDiagonal( ) ) ) *
-                ( vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.at( i ) - currentErrorEstimate.segment( 0, 3 ) );
-
-        // Find current Jacobian matrix
-        designMatrix.row( 3 * i ) << currentErrorEstimate[ 3 ] - 1.0, 0.0, 0.0, currentErrorEstimate[ 0 ] -
-                vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.at( i )[ 0 ], 0.0, 0.0;
-        designMatrix.row( 3 * i + 1 ) << 0.0, currentErrorEstimate[ 4 ] - 1.0, 0.0, 0.0, currentErrorEstimate[ 1 ] -
-                vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.at( i )[ 1 ], 0.0;
-        designMatrix.row( 3 * i + 2 ) << 0.0, 0.0, currentErrorEstimate[ 5 ] - 1.0, 0.0, 0.0, currentErrorEstimate[ 2 ] -
-                vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.at( i )[ 2 ];
-    }
-
-    // Return acceleration and design matrix as pair
-    return std::make_pair( expectedAcceleration, designMatrix );
 }
 
 //! Function to create navigation filter and root-finder objects for onboard state estimation.
@@ -135,23 +79,25 @@ void NavigationSystem::createOnboardEnvironmentUpdater( )
 
 //! Function to remove and calibrate (first time only) accelerometer errors.
 void NavigationSystem::removeAccelerometerErrors(
-        std::vector< Eigen::Vector3d >& vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface,
+        std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
         const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface )
 {
+    // Inform user
     std::cout << "Removing Accelerometer Errors." << std::endl;
 
     // Calibrate accelerometer errors if it is the first orbit
-    if ( currentOrbitCounter_ == 0 )
+    if ( !atmosphereEstimatorInitialized_ )
     {
+        // Inform user
         std::cout << "Calibrating Accelerometer" << std::endl;
 
         // Initial estimate on error values
         Eigen::Vector6d initialErrorEstimate = Eigen::Vector6d::Zero( );
 
         // Use non-linear least squares to solve for optimal value of errors
-        accelerometerErrors_ =
+        estimatedAccelerometerErrors_ =
                 linear_algebra::nonLinearLeastSquaresFit( boost::bind( &accelerometerErrorEstimationFunction, _1,
-                                                                       vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface ),
+                                                                       vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
                                                           initialErrorEstimate,
                                                           utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
                                                               mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
@@ -159,18 +105,19 @@ void NavigationSystem::removeAccelerometerErrors(
 
     // Remove errors from accelerometer measurements
     for ( std::vector< Eigen::Vector3d >::iterator
-          vectorIterator = vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.begin( );
-          vectorIterator != vectorOfEstimatedAerodynamicAccelerationBelowAtmosphericInterface.end( ); vectorIterator++ )
+          vectorIterator = vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.begin( );
+          vectorIterator != vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.end( ); vectorIterator++ )
     {
-        *vectorIterator = removeErrorsFromInertialMeasurementUnitMeasurement( *vectorIterator, accelerometerErrors_ );
+        *vectorIterator = removeErrorsFromInertialMeasurementUnitMeasurement( *vectorIterator, estimatedAccelerometerErrors_ );
     }
 }
 
 //! Function to run the Periapse Time Estimator (PTE).
 void NavigationSystem::runPeriapseTimeEstimator(
         const std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-        const std::vector< double >& vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
+        const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
 {
+    // Inform user
     std::cout << "Running Periapse Time Estimator." << std::endl;
 
     // Separate time and accelerations
@@ -183,7 +130,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     Eigen::VectorXd estimatedTrueAnomalyBelowAtmosphericInterface = estimatedKeplerianStateBelowAtmosphericInterface.row( 5 ).transpose( );
 
     // Check that true anomaly and aerodynamic acceleration have the same length
-    if ( vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.size( ) !=
+    if ( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.size( ) !=
          static_cast< unsigned int >( estimatedTrueAnomalyBelowAtmosphericInterface.rows( ) ) )
     {
         throw std::runtime_error( "Error in periapse time estimator. The sizes of the true anomaly and aerodynamic accelerations "
@@ -193,8 +140,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // Set root-finder boundaries as the first and last times
     areaBisectionRootFinder_->resetBoundaries(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
-    std::cout << "Init. time: " << vectorOfTimesBelowAtmosphericInterface.front( ) - 236304000.0 << std::endl
-              << "Fin. time: " << vectorOfTimesBelowAtmosphericInterface.back( ) - 236304000.0 << std::endl;
 
     // Get intermediate variables
     Eigen::Vector6d initialEstimatedKeplerianState = estimatedKeplerianStateBelowAtmosphericInterface.col( 0 );
@@ -203,7 +148,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     double estimatedActualPeriapseTime = areaBisectionRootFinder_->execute(
                 boost::make_shared< basic_mathematics::FunctionProxy< > >(
                     boost::bind( &areaBisectionFunction, _1, navigationRefreshStepSize_, timesBelowAtmosphericInterface,
-                                 vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ) ) );
+                                 vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ) ) );
 
     // Interpolate to find estimated error in true anomaly
     double estimatedErrorInTrueAnomaly = interpolators::CubicSplineInterpolator< double, double >(
@@ -211,19 +156,13 @@ void NavigationSystem::runPeriapseTimeEstimator(
                 utilities::convertEigenVectorToStlVector( estimatedTrueAnomalyBelowAtmosphericInterface ) ).interpolate(
                 estimatedActualPeriapseTime );
     std::cout << "Estimated Error in True Anomaly: " <<
-                 unit_conversions::convertDegreesToRadians( estimatedErrorInTrueAnomaly ) << " deg" << std::endl;
+                 unit_conversions::convertRadiansToDegrees( estimatedErrorInTrueAnomaly ) << " deg" << std::endl;
     // note that this represents directly the error in estimated true anomaly, since the true anomaly of
     // periapsis is zero by definition
 
-    // Find nearest lower index to error in true anomaly
-    int estimatedPeriapsisIndex = basic_mathematics::computeNearestLeftNeighborUsingBinarySearch(
-                estimatedTrueAnomalyBelowAtmosphericInterface, estimatedErrorInTrueAnomaly );
-    std::cout << "Check: " << estimatedActualPeriapseTime - 236304000.0 << ", "
-              << vectorOfTimesBelowAtmosphericInterface.at( estimatedPeriapsisIndex ) - 236304000.0 << std::endl;
-
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double estimatedChangeInVelocity = - numerical_quadrature::performExtendedSimpsonsQuadrature(
-                navigationRefreshStepSize_, vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+                navigationRefreshStepSize_, vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
     std::cout << "Estimated Change in Velocity: " << estimatedChangeInVelocity << " m/s" << std::endl;
 
     // Compute estimated mean motion by using the semi-major axis at beginning of atmospheric phase
@@ -240,6 +179,8 @@ void NavigationSystem::runPeriapseTimeEstimator(
                  estimatedChangeInSemiMajorAxisDueToChangeInVelocity << " m" << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
+    std::cout << "SMA. Before: " << initialEstimatedKeplerianState[ 0 ] << ". After: " <<
+                 currentEstimatedKeplerianState_[ 0 ] << std::endl;
     double estimatedChangeInSemiMajorAxisFromKeplerianStateHistory = initialEstimatedKeplerianState[ 0 ] -
             estimatedKeplerianStateBelowAtmosphericInterface( 0, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) );
     double estimatedErrorInSemiMajorAxis = estimatedChangeInSemiMajorAxisFromKeplerianStateHistory -
@@ -255,8 +196,10 @@ void NavigationSystem::runPeriapseTimeEstimator(
                  estimatedChangeInEccentricityDueToChangeInVelocity << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
+    std::cout << "Ecc. Before: " << initialEstimatedKeplerianState[ 1 ] << ". After: " <<
+                 currentEstimatedKeplerianState_[ 1 ] << std::endl;
     double estimatedChangeInEccentricityFromKeplerianStateHistory = initialEstimatedKeplerianState[ 1 ] -
-            estimatedKeplerianStateBelowAtmosphericInterface( 1, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) );
+            estimatedKeplerianStateBelowAtmosphericInterface( 1, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) - 1 );
     double estimatedErrorInEccentricity = estimatedChangeInEccentricityFromKeplerianStateHistory -
             estimatedChangeInEccentricityDueToChangeInVelocity;
     std::cout << "Estimated Error in Eccentricity: " << estimatedErrorInEccentricity << std::endl;
@@ -275,22 +218,22 @@ void NavigationSystem::runPeriapseTimeEstimator(
     updatedCurrentEstimatedKeplerianState += stateTransitionMatrixFunction_( initialEstimatedKeplerianState ) *
             estimatedErrorInKeplerianState * timeFromPeriapsisToCurrentPosition;
 
-    // Update navigation system state estimates
-    setCurrentEstimatedKeplerianState( updatedCurrentEstimatedKeplerianState );
-    historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
+//    // Update navigation system state estimates
+//    setCurrentEstimatedKeplerianState( updatedCurrentEstimatedKeplerianState );
+//    historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
-    // Update navigation filter state and covariance
-    Eigen::Vector16d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-    updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-    navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
-                                                                 Eigen::Matrix16d::Identity( ) );
-    // the covariance matrix is reset to the identity, since the new state is improved in accuracy
+//    // Update navigation filter state and covariance
+//    Eigen::Vector16d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+//    updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
+//    navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+//                                                                 Eigen::Matrix16d::Identity( ) );
+//    // the covariance matrix is reset to the identity, since the new state is improved in accuracy
 }
 
 //! Function to run the Atmosphere Estimator (AE).
 void NavigationSystem::runAtmosphereEstimator(
         const std::map< double, Eigen::Vector6d >& mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
-        const std::vector< double >& vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
+        const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
 {
     // Retrieve some physical parameters of the spacecraft
     double spacecraftMass = onboardBodyMap_.at( spacecraftName_ )->getBodyMass( );
@@ -310,12 +253,16 @@ void NavigationSystem::runAtmosphereEstimator(
         vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface.push_back(
                     2.0 * spacecraftMass / referenceAerodynamicArea / aerodynamicCoefficientsNorm /
                     cartesianStateIterator->second.segment( 3, 3 ).squaredNorm( ) *
-                    vectorOfEstimatedAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.at( i ) );
+                    vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.at( i ) );
 
         // Get estimated altitude
         vectorOfEstimatedAltitudesBelowAtmosphericInterface.push_back(
                     cartesianStateIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius_ );
     }
+
+    // Find periapsis altitude
+    double estimatedPeriapsisAltitude = *std::min_element( vectorOfEstimatedAltitudesBelowAtmosphericInterface.begin( ),
+                                                           vectorOfEstimatedAltitudesBelowAtmosphericInterface.end( ) );
 
     // Run least squares estimation process based on selected atmosphere model
     std::vector< double > vectorOfModelSpecificParameters;
@@ -333,6 +280,26 @@ void NavigationSystem::runAtmosphereEstimator(
     }
     case aerodynamics::three_term_atmosphere_model:
     {
+        // Initial estimate on atmosphere model parameters
+        Eigen::Vector5d initialParameterEstimates;
+        initialParameterEstimates << 2.424e-08, 1.0 / 6533.0, -1.0, 0.0, 0.0;
+
+        // Use non-linear least squares to solve for optimal value of errors
+        Eigen::Vector5d estimatedAtmosphereModelParameters =
+                linear_algebra::nonLinearLeastSquaresFit( boost::bind( &threeModelParametersEstimationFunction, _1,
+                                                                       vectorOfEstimatedAltitudesBelowAtmosphericInterface,
+                                                                       estimatedPeriapsisAltitude ),
+                                                          initialParameterEstimates,
+                                                          utilities::convertStlVectorToEigenVector(
+                                                              vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface ) );
+
+        // Add reference altitude to list of parameters
+        vectorOfModelSpecificParameters.push_back( estimatedAtmosphereModelParameters[ 0 ] );
+        vectorOfModelSpecificParameters.push_back( estimatedPeriapsisAltitude );
+        for ( unsigned int i = 1; i < estimatedAtmosphereModelParameters.size( ); i++ )
+        {
+            vectorOfModelSpecificParameters.push_back( estimatedAtmosphereModelParameters[ i ] );
+        }
         break;
     }
     default:
@@ -341,9 +308,8 @@ void NavigationSystem::runAtmosphereEstimator(
 
     // Update atmosphere settings of onboard body map
     onboardBodyMap_.at( planetName_ )->setAtmosphereModel(
-                boost::make_shared< aerodynamics::CustomConstantTemperatureAtmosphere >( selectedOnboardAtmosphereModel_,
-                                                                                         215.0, 197.0, 1.3,
-                                                                                         vectorOfModelSpecificParameters ) );
+                boost::make_shared< aerodynamics::CustomConstantTemperatureAtmosphere >(
+                    selectedOnboardAtmosphereModel_, 215.0, 197.0, 1.3, vectorOfModelSpecificParameters ) );
 }
 
 } // namespace navigation
