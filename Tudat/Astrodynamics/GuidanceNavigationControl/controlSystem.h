@@ -175,15 +175,15 @@ private:
 
         // Find the trajectory x-axis unit vector
         Eigen::Vector3d xUnitVector = currentEstimatedStateVector.segment( 3, 3 ).normalized( );
-        transformationFromInertialToTrajectoryFrame.col( 0 ) = xUnitVector; // body-fixed (= trajectory)
+        transformationFromInertialToTrajectoryFrame.col( 0 ) = xUnitVector;
 
         // Find trajectory z-axis unit vector
         Eigen::Vector3d zUnitVector = currentEstimatedStateVector.segment( 0, 3 ).normalized( );
         zUnitVector -= zUnitVector.dot( xUnitVector ) * xUnitVector;
-        transformationFromInertialToTrajectoryFrame.col( 2 ) = zUnitVector; // body-fixed (= trajectory)
+        transformationFromInertialToTrajectoryFrame.col( 2 ) = zUnitVector;
 
         // Find body-fixed y-axis unit vector
-        transformationFromInertialToTrajectoryFrame.col( 1 ) = zUnitVector.cross( xUnitVector ); // body-fixed (= trajectory)
+        transformationFromInertialToTrajectoryFrame.col( 1 ) = zUnitVector.cross( xUnitVector );
 
         // Transform DCM to quaternion and give output
         return linear_algebra::convertQuaternionToVectorFormat(

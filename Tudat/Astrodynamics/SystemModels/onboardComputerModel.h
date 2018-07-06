@@ -32,10 +32,6 @@ namespace tudat
 namespace system_models
 {
 
-//! Function to remove the error in gyroscope measurement based on the estimated bias and scale factors.
-Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
-                                                                    const Eigen::Vector16d& currentEstimatedStateVector );
-
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
                                      const Eigen::Vector3d& currentControlVector,
@@ -108,14 +104,13 @@ public:
 
         // Update filter from previous time to next time
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
-                                              boost::bind( &removeErrorsFromInertialMeasurementUnitMeasurement,
-                                                           instrumentsModel_->getCurrentGyroscopeMeasurement( ), _1 ) );
+                                              instrumentsModel_->getCurrentGyroscopeMeasurement( ) );
 
         // Update attitude controller
         controlSystem_->updateAttitudeController(
                     navigationSystem_->getCurrentEstimatedState( ),
                     removeErrorsFromInertialMeasurementUnitMeasurement( instrumentsModel_->getCurrentGyroscopeMeasurement( ),
-                                                                        navigationSystem_->getCurrentEstimatedState( ) ),
+                                                                        navigationSystem_->getCurrentEstimatedState( ).segment( 10, 6 ) ),
                     navigationSystem_->getNavigationRefreshStepSize( ),
                     navigationSystem_->getCurrentEstimatedMeanMotion( ) );
 
@@ -124,6 +119,7 @@ public:
         double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
         if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
         {
+            // Inform user
             std::cout << "Reached apoapsis. Preparing to perform maneuver." << std::endl;
 
             // Stop propagation to add Delta V to actual state
@@ -135,6 +131,9 @@ public:
             // Run house keeping routines
             runHouseKeepingRoutines( );
 
+            // Step up orbit counter
+            navigationSystem_->currentOrbitCounter_++;
+
             // Invert completion flags
             maneuveringPhaseComplete_ = true;
             atmosphericPhaseComplete_ = false;
@@ -143,6 +142,7 @@ public:
                     ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.5 * PI ) ) ) ) &&
                   !atmosphericPhaseComplete_ ) // check altitude
         {
+            // Inform user
             std::cout << "Exited atmosphere. Running post-atmosphere processes." << std::endl;
 
             // Retireve history of inertial measurement unit measurements
@@ -150,22 +150,17 @@ public:
                     instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
 
             // Extract measured translational accelerations
-            std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedAccelerations;
+            std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedTranslationalAccelerations;
             for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
                   measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
                   measurementConstantIterator_++ )
             {
-                currentOrbitHistoryOfEstimatedAccelerations[ measurementConstantIterator_->first ] =
+                currentOrbitHistoryOfEstimatedTranslationalAccelerations[ measurementConstantIterator_->first ] =
                         measurementConstantIterator_->second.segment( 0, 3 );
             }
 
-            // Remove accelerometer errors from measured acceleration
-//            navigationSystem_->removeAccelerometerErrors( currentOrbitHistoryOfEstimatedAccelerations );
-            // this function also calibrates the accelerometers if it is the first orbit
-
             // Perform periapse time and atmosphere estimations
-            navigationSystem_->runPeriapseTimeEstimator( currentOrbitHistoryOfEstimatedAccelerations );
-            navigationSystem_->runAtmosphereEstimator( currentOrbitHistoryOfEstimatedAccelerations );
+            navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfEstimatedTranslationalAccelerations );
 
             // Perform corridor and maneuver estimations
             guidanceSystem_->runCorridorEstimator( );

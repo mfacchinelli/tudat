@@ -131,6 +131,8 @@ public:
         // The value of the initialGuess is not used.
         TUDAT_UNUSED_PARAMETER( initialGuess );
 
+        std::cout << "Entered root-finder" << std::endl;
+
         // Set the root function.
         this->rootFunction = rootFunction;
 
@@ -143,19 +145,23 @@ public:
         DataType currentLowerBound = lowerBound_;
         DataType currentUpperBound = upperBound_;
         DataType rootValue = ( currentLowerBound + currentUpperBound ) / 2.0;
+        std::cout << "Root: " << rootValue - 236304000.0 << std::endl;
 
         // Find the corresponding function values at the important interval points (lower bound,
         // upper bound and midpoint).
         DataType currentLowerBoundFunctionValue = this->rootFunction->evaluate( currentLowerBound );
         DataType currentUpperBoundFunctionValue = this->rootFunction->evaluate( currentUpperBound );
         DataType rootFunctionValue = this->rootFunction->evaluate( rootValue );
+        std::cout << "Lower Bound: " << currentLowerBoundFunctionValue << std::endl;
+        std::cout << "Upper Bound: " << currentUpperBoundFunctionValue << std::endl;
+        std::cout << "Value: " << rootFunctionValue << std::endl;
 
         // Validate that upperbound and lowerbound function values have different signs
         // (requirement).
         if( currentLowerBoundFunctionValue * currentUpperBoundFunctionValue > 0.0 )
         {
-            throw std::runtime_error(
-                        "The Bisection algorithm requires that the values at the upper, and lower bounds have a different sign." );
+            throw std::runtime_error( "The Bisection algorithm requires that the values at the upper, "
+                                      "and lower bounds have a different sign." );
         }
 
         // Loop counter.
@@ -167,9 +173,10 @@ public:
             // Sanity check.
             if( currentLowerBoundFunctionValue * currentUpperBoundFunctionValue > 0.0 )
             {
-                throw std::runtime_error(
-                            "The Bisection algorithm requires that the values at the upper, and lower bounds have a different sign, error during iteration." );
+                throw std::runtime_error( "The Bisection algorithm requires that the values at the upper, "
+                                          "and lower bounds have a different sign, error during iteration." );
             }
+
             // Save old values.
             previousRootValue = rootValue;
             previousRootFunctionValue = rootFunctionValue;
@@ -192,6 +199,12 @@ public:
             // Compute the new midpoint of the interval and its function value.
             rootValue = ( currentLowerBound + currentUpperBound ) / 2.0;
             rootFunctionValue = this->rootFunction->evaluate( rootValue );
+
+            std::cout << std::endl << "Iteration: " << counter << std::endl;
+            std::cout << "Root: " << rootValue - 236304000.0 << std::endl;
+            std::cout << "Lower Bound: " << currentLowerBoundFunctionValue << std::endl;
+            std::cout << "Upper Bound: " << currentUpperBoundFunctionValue << std::endl;
+            std::cout << "Value: " << rootFunctionValue << std::endl;
 
             counter++;
         }

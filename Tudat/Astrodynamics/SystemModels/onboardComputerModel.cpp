@@ -10,15 +10,6 @@ namespace system_models
 
 using namespace tudat::guidance_navigation_control;
 
-//! Function to remove the error in gyroscope measurement based on the estimated bias and scale factors.
-Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
-                                                                    const Eigen::Vector16d& currentEstimatedStateVector )
-{
-    return ( Eigen::Matrix3d::Identity( ) -
-             Eigen::Matrix3d( currentEstimatedStateVector.segment( 13, 3 ).asDiagonal( ) ) ) * // binomial approximation
-            ( currentInertialMeasurementUnitMeasurement - currentEstimatedStateVector.segment( 10, 3 ) );
-}
-
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector16d onboardSystemModel( const double currentTime,
                                      const Eigen::Vector16d& currentEstimatedStateVector,
@@ -44,7 +35,7 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
 
     // Rotational kinematics
     Eigen::Vector3d currentActualRotationalVelocityVector = removeErrorsFromInertialMeasurementUnitMeasurement(
-                currentMeasuredRotationalVelocityVector, currentEstimatedStateVector );
+                currentMeasuredRotationalVelocityVector, currentEstimatedStateVector.segment( 10, 6 ) );
     currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionDerivative(
                 currentQuaternionToGlobalFrame, currentActualRotationalVelocityVector );
 
