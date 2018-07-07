@@ -173,23 +173,24 @@ public:
                                    mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
         // this function also calibrates the accelerometers if it is the first orbit
 
-        // Run post-atmosphere processes if not the first orbit
+        // Compute magnitude of aerodynamic acceleration
+        std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
+        for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
+        {
+            vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back(
+                        vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ).norm( ) );
+        }
+
+        // Run periapse time estimator if not the first orbit
         if ( true ) // currentOrbitCounter_ != 0 )
         {
-            // Compute magnitude of aerodynamic acceleration
-            std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
-            for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
-            {
-                vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back(
-                            vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ).norm( ) );
-            }
-
-            // Run post-atmosphere processes with processed results
             runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                       vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-            runAtmosphereEstimator( mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
-                                    vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
         }
+
+        // Run atmosphere estimator with processed results
+        runAtmosphereEstimator( mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
+                                vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
     }
 
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.

@@ -71,6 +71,7 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
         const double referenceAltitude )
 {
     using mathematical_constants::PI;
+    std::cout << "Parameters: " << currentParameterEstimate.transpose( ) << std::endl;
 
     // Set variables to zero
     Eigen::VectorXd expectedDensity = Eigen::VectorXd::Zero( vectorOfEstimatedAltitudesBelowAtmosphericInterface.size( ) );
@@ -84,10 +85,10 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
     for ( unsigned int i = 0; i < vectorOfEstimatedAltitudesBelowAtmosphericInterface.size( ); i++ )
     {
         // Find current expected measurement
-        expectedDensity[ i ] = aerodynamics::threeTermAtmosphereModel(
-                    vectorOfEstimatedAltitudesBelowAtmosphericInterface.at( i ), 0.0, 0.0, 0.0, currentParameterEstimate[ 0 ],
+        expectedDensity[ i ] = std::log( aerodynamics::threeTermAtmosphereModel(
+                    vectorOfEstimatedAltitudesBelowAtmosphericInterface.at( i ), 0.0, 0.0, 0.0, std::exp( currentParameterEstimate[ 0 ] ),
                 referenceAltitude, 1.0 / currentParameterEstimate[ 1 ], { currentParameterEstimate[ 2 ],
-                    currentParameterEstimate[ 3 ], currentParameterEstimate[ 4 ] } );
+                    currentParameterEstimate[ 3 ], currentParameterEstimate[ 4 ] } ) );
 
         // Find current Jacobian matrix
         relativeAltitude = vectorOfEstimatedAltitudesBelowAtmosphericInterface.at( i ) - referenceAltitude;

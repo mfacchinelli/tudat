@@ -10,7 +10,7 @@ namespace aerodynamics
 
 //! First atmosphere model, based on exponential atmosphere.
 double exponentialAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                   const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight )
+                                   const double referenceAltitude, const double densityAtReferenceAltitude, const double scaleHeight )
 {
     // Compute density
     TUDAT_UNUSED_PARAMETER( longitude );
@@ -21,7 +21,7 @@ double exponentialAtmosphereModel( const double altitude, const double longitude
 
 //! Second atmosphere model, based on a three longitudinal waves model.
 double threeWaveAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                 const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight,
+                                 const double referenceAltitude, const double densityAtReferenceAltitude, const double scaleHeight,
                                  const double uncertaintyFactor, const double dustStormFactor )
 {
     // Compute density
@@ -35,7 +35,7 @@ double threeWaveAtmosphereModel( const double altitude, const double longitude, 
 
 //! Third atmosphere model, based on three constant scale height atmospheres.
 double threeTermAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                 const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight,
+                                 const double referenceAltitude, const double densityAtReferenceAltitude, const double scaleHeight,
                                  const std::vector< double >& modelWeights )
 {
     using namespace mathematical_constants;

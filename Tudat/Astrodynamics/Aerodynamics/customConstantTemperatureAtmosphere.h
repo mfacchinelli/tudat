@@ -52,13 +52,13 @@ enum AvailableConstantTemperatureAtmosphereModels
  *  \param longitude Current longitude (unused).
  *  \param latitude Current latitude (unused).
  *  \param time Current time (unused).
- *  \param densityAtReferenceAltitude Density at reference altitude condition.
  *  \param referenceAltitude Reference altitude.
+ *  \param densityAtReferenceAltitude Density at reference altitude condition.
  *  \param scaleHeight Scale height of the atmosphere.
  *  \return Density at current conditions, based on the exponential model with given characteristics.
  */
 double exponentialAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                   const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight );
+                                   const double referenceAltitude, const double densityAtReferenceAltitude, const double scaleHeight );
 
 //! Second atmosphere model, based on a three longitudinal waves model.
 /*!
@@ -68,8 +68,8 @@ double exponentialAtmosphereModel( const double altitude, const double longitude
  *  \param longitude Current longitude.
  *  \param latitude Current latitude (unused).
  *  \param time Current time (unused).
- *  \param densityAtReferenceAltitude Density at reference altitude condition.
  *  \param referenceAltitude Reference altitude.
+ *  \param densityAtReferenceAltitude Density at reference altitude condition.
  *  \param scaleHeight Scale height of the atmosphere.
  *  \param uncertaintyFactor Factor representing uncertainty in the atmosphere. Can be a
  *      random variable.
@@ -78,7 +78,7 @@ double exponentialAtmosphereModel( const double altitude, const double longitude
  *  \return Density at current conditions, based on the three-waves model with given characteristics.
  */
 double threeWaveAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                 const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight,
+                                 const double referenceAltitude, const double densityAtReferenceAltitude, const double scaleHeight,
                                  const double uncertaintyFactor, const double dustStormFactor );
 
 //! Third atmosphere model, based on three constant scale height atmospheres.
@@ -90,14 +90,14 @@ double threeWaveAtmosphereModel( const double altitude, const double longitude, 
  *  \param longitude Current longitude (unused).
  *  \param latitude Current latitude (unused).
  *  \param time Current time (unused).
- *  \param densityAtReferenceAltitude Density at reference altitude condition.
  *  \param referenceAltitude Reference altitude.
+ *  \param densityAtReferenceAltitude Density at reference altitude condition.
  *  \param scaleHeight Scale height of the atmosphere.
  *  \param modelWeights Weights for each of the three models.
  *  \return Density at current conditions, based on the exponential model with given characteristics.
  */
 double threeTermAtmosphereModel( const double altitude, const double longitude, const double latitude, const double time,
-                                 const double densityAtReferenceAltitude, const double referenceAltitude, const double scaleHeight,
+                                 const double referenceAltitude, const double densityAtReferenceAltitude, const double scaleHeight,
                                  const std::vector< double >& modelWeights );
 
 //! Custom constant temperature atmosphere class.

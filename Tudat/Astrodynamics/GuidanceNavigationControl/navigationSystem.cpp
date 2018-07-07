@@ -179,8 +179,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
                  estimatedChangeInSemiMajorAxisDueToChangeInVelocity << " m" << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
-    std::cout << "SMA. Before: " << initialEstimatedKeplerianState[ 0 ] << ". After: " <<
-                 currentEstimatedKeplerianState_[ 0 ] << std::endl;
     double estimatedChangeInSemiMajorAxisFromKeplerianStateHistory = initialEstimatedKeplerianState[ 0 ] -
             estimatedKeplerianStateBelowAtmosphericInterface( 0, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) );
     double estimatedErrorInSemiMajorAxis = estimatedChangeInSemiMajorAxisFromKeplerianStateHistory -
@@ -196,8 +194,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
                  estimatedChangeInEccentricityDueToChangeInVelocity << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
-    std::cout << "Ecc. Before: " << initialEstimatedKeplerianState[ 1 ] << ". After: " <<
-                 currentEstimatedKeplerianState_[ 1 ] << std::endl;
     double estimatedChangeInEccentricityFromKeplerianStateHistory = initialEstimatedKeplerianState[ 1 ] -
             estimatedKeplerianStateBelowAtmosphericInterface( 1, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) - 1 );
     double estimatedErrorInEccentricity = estimatedChangeInEccentricityFromKeplerianStateHistory -
@@ -263,6 +259,7 @@ void NavigationSystem::runAtmosphereEstimator(
     // Find periapsis altitude
     double estimatedPeriapsisAltitude = *std::min_element( vectorOfEstimatedAltitudesBelowAtmosphericInterface.begin( ),
                                                            vectorOfEstimatedAltitudesBelowAtmosphericInterface.end( ) );
+    std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
 
     // Run least squares estimation process based on selected atmosphere model
     std::vector< double > vectorOfModelSpecificParameters;
@@ -282,21 +279,21 @@ void NavigationSystem::runAtmosphereEstimator(
     {
         // Initial estimate on atmosphere model parameters
         Eigen::Vector5d initialParameterEstimates;
-        initialParameterEstimates << 2.424e-08, 1.0 / 6533.0, -1.0, 0.0, 0.0;
+        initialParameterEstimates << std::log( 2.424e-08 ), 1.0 / 6533.0, -1.0, 0.0, 0.0;
 
         // Use non-linear least squares to solve for optimal value of errors
         Eigen::Vector5d estimatedAtmosphereModelParameters =
-                linear_algebra::nonLinearLeastSquaresFit( boost::bind( &threeModelParametersEstimationFunction, _1,
-                                                                       vectorOfEstimatedAltitudesBelowAtmosphericInterface,
-                                                                       estimatedPeriapsisAltitude ),
-                                                          initialParameterEstimates,
-                                                          utilities::convertStlVectorToEigenVector(
-                                                              vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface ) );
+                linear_algebra::nonLinearLeastSquaresFit(
+                    boost::bind( &threeModelParametersEstimationFunction, _1, vectorOfEstimatedAltitudesBelowAtmosphericInterface,
+                                 estimatedPeriapsisAltitude ),
+                    initialParameterEstimates, utilities::convertStlVectorToEigenVector(
+                        vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface ).array( ).log( ) );
 
         // Add reference altitude to list of parameters
-        vectorOfModelSpecificParameters.push_back( estimatedAtmosphereModelParameters[ 0 ] );
         vectorOfModelSpecificParameters.push_back( estimatedPeriapsisAltitude );
-        for ( unsigned int i = 1; i < estimatedAtmosphereModelParameters.size( ); i++ )
+        vectorOfModelSpecificParameters.push_back( std::exp( estimatedAtmosphereModelParameters[ 0 ] ) );
+        vectorOfModelSpecificParameters.push_back( 1.0 / estimatedAtmosphereModelParameters[ 1 ] ); // scale height
+        for ( unsigned int i = 2; i < 5; i++ )
         {
             vectorOfModelSpecificParameters.push_back( estimatedAtmosphereModelParameters[ i ] );
         }

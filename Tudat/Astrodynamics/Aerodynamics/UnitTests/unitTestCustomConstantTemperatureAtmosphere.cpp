@@ -37,8 +37,8 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereGetSet )
     // Initialize constants that need to be set.
     const double constantTemperature = 288.16;
     std::vector< double > modelSpecificParameters;
-    modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
     modelSpecificParameters.push_back( 0.0 ); // reference altitude
+    modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
     modelSpecificParameters.push_back( 7.050e3 ); // scale height
 
     // Create a custom atmosphere object.
@@ -57,8 +57,8 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereSeaLevel )
     // Initialize constants that need to be set.
     const double constantTemperature = 288.16;
     std::vector< double > modelSpecificParameters;
-    modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
     modelSpecificParameters.push_back( 0.0 ); // reference altitude
+    modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
     modelSpecificParameters.push_back( 7.050e3 ); // scale height
     const double altitude = 0.0;
 
@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereSeaLevel )
 
     BOOST_CHECK_CLOSE_FRACTION( constantTemperature, customAtmosphere.
                                 getTemperature( altitude ), tolerance );
-    BOOST_CHECK_CLOSE_FRACTION( modelSpecificParameters.at( 0 ), customAtmosphere.
+    BOOST_CHECK_CLOSE_FRACTION( modelSpecificParameters.at( 1 ), customAtmosphere.
                                 getDensity( altitude ), tolerance );
     BOOST_CHECK_CLOSE_FRACTION( pressureAtZeroAltitude, customAtmosphere.
                                 getPressure( altitude ), 0.002 * pressureAtZeroAltitude );
@@ -90,8 +90,8 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereAt10km )
         // Initialize constants that need to be set.
         const double constantTemperature = 288.16;
         std::vector< double > modelSpecificParameters;
-        modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
         modelSpecificParameters.push_back( 0.0 ); // reference altitude
+        modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
         modelSpecificParameters.push_back( 7.050e3 ); // scale height
         const double altitude = 10.0e3;
 
@@ -107,7 +107,7 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereAt10km )
                     modelSpecificParameters );
 
         // Declare and set expected density.
-        const double expectedDensity  = modelSpecificParameters.at( 0 ) *
+        const double expectedDensity  = modelSpecificParameters.at( 1 ) *
                 std::exp( - altitude / modelSpecificParameters.at( 2 ) );
         const double expectedPressure = 24526.24934607106;
 
@@ -127,8 +127,8 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereAt10km )
         // Initialize constants that need to be set.
         const double constantTemperature = 288.16;
         std::vector< double > modelSpecificParameters;
-        modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
         modelSpecificParameters.push_back( 0.0 ); // reference altitude
+        modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
         modelSpecificParameters.push_back( 7.050e3 ); // scale height
         modelSpecificParameters.push_back( 1.0 ); // uncertainty factor
         modelSpecificParameters.push_back( 0.0 ); // dust storm factor
@@ -174,8 +174,8 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereAt10km )
         // Initialize constants that need to be set.
         const double constantTemperature = 288.16;
         std::vector< double > modelSpecificParameters;
-        modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
         modelSpecificParameters.push_back( 0.0 ); // reference altitude
+        modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
         modelSpecificParameters.push_back( 7.050e3 ); // scale height
         modelSpecificParameters.push_back( -1.0 ); // weight for exponential term
         modelSpecificParameters.push_back( 0.0 ); // weight for cosine term
@@ -194,7 +194,7 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmosphereAt10km )
                     modelSpecificParameters );
 
         // Declare and set expected density.
-        const double expectedDensity = modelSpecificParameters.at( 0 ) *
+        const double expectedDensity = modelSpecificParameters.at( 1 ) *
                 std::exp( - altitude / modelSpecificParameters.at( 2 ) );
         const double expectedPressure = 24526.24934607106;
 
@@ -216,8 +216,8 @@ BOOST_AUTO_TEST_CASE( testCustomConstantTemperatureAtmospherePositionIndependent
     // Initialize constants that need to be set.
     const double constantTemperature = 288.16;
     std::vector< double > modelSpecificParameters;
-    modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
     modelSpecificParameters.push_back( 0.0 ); // reference altitude
+    modelSpecificParameters.push_back( 1.225 ); // density at reference altitude
     modelSpecificParameters.push_back( 7.050e3 ); // scale height
     const double altitude = 10.0e3;
 
