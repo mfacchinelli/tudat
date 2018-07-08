@@ -18,7 +18,7 @@ Eigen::VectorXd nonLinearLeastSquaresFit(
 {
     // Set current estimate to initial value
     Eigen::VectorXd currentEstimate = initialEstimate;
-    std::cout << "Measured: " << actualObservations.transpose( ) << std::endl;
+//    std::cout << "Measured: " << actualObservations.transpose( ) << std::endl;
 
     // Initialize variables
     std::pair< Eigen::VectorXd, Eigen::MatrixXd > pairOfEstimatedObservationsAndDesignMatrix;
@@ -33,8 +33,8 @@ Eigen::VectorXd nonLinearLeastSquaresFit(
         // Compute current system and jacobian functions
         pairOfEstimatedObservationsAndDesignMatrix = observationAndJacobianFunctions( currentEstimate );
         designMatrix = pairOfEstimatedObservationsAndDesignMatrix.second;
-        std::cout << "Expected: " << pairOfEstimatedObservationsAndDesignMatrix.first.transpose( ) << std::endl;
-        std::cout << "Jacobian: " << designMatrix << std::endl;
+//        std::cout << "Expected: " << pairOfEstimatedObservationsAndDesignMatrix.first.transpose( ) << std::endl;
+//        std::cout << "Jacobian: " << designMatrix << std::endl;
 
         // Offset in observation
         offsetInObservations = actualObservations - pairOfEstimatedObservationsAndDesignMatrix.first;

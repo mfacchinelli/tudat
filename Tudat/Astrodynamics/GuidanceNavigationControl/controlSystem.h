@@ -72,8 +72,10 @@ public:
                    const Eigen::Vector3d& derivativeGain ) :
         proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain )
     {
-        // Initialize control vector to zero
+        // Initialize variables to default values
         currentControlVector_ = Eigen::Vector3d::Zero( );
+        previousCommandedQuaternionState_ = Eigen::Vector4d::Zero( );
+        isSignToBeFlipped_ = false;
     }
 
     //! Destructor.
@@ -98,8 +100,20 @@ public:
                                    const double navigationRefreshStepSize,
                                    const double currentMeanMotion )
     {
+        // Determine commanded quaternion
+        Eigen::Vector4d currentCommandedQuaternionState = ( isSignToBeFlipped_ ? -1.0 : 1.0 ) *
+                computeCurrentCommandedQuaternionState( currentEstimatedStateVector );
+
+        // Check if current quaternion signs match the previous time otherwise flip the sign
+        bool doesSignHistoryMatch = currentCommandedQuaternionState.isApprox( -previousCommandedQuaternionState_, 1e-1 );
+        if ( doesSignHistoryMatch )
+        {
+            currentCommandedQuaternionState *= -1.0;
+        }
+        isSignToBeFlipped_ = isSignToBeFlipped_ || doesSignHistoryMatch;
+        previousCommandedQuaternionState_ = currentCommandedQuaternionState;
+
         // Compute difference between current and commanded state
-        Eigen::Vector4d currentCommandedQuaternionState = computeCurrentCommandedQuaternionState( currentEstimatedStateVector );
         Eigen::Vector4d currentErrorInEstimatedQuaternionState =
                 computeErrorInEstimatedQuaternion( currentEstimatedStateVector.segment( 6, 4 ),
                                                    currentCommandedQuaternionState );
@@ -196,8 +210,7 @@ private:
         transformationFromInertialToTrajectoryFrame.col( 1 ) = zUnitVector.cross( xUnitVector );
 
         // Transform DCM to quaternion and give output
-        return linear_algebra::convertQuaternionToVectorFormat(
-                    Eigen::Quaterniond( transformationFromInertialToTrajectoryFrame ) );
+        return linear_algebra::convertQuaternionToVectorFormat( Eigen::Quaterniond( transformationFromInertialToTrajectoryFrame ) );
         // note that due to the different rotation convention in Eigen, transforming the DCM with the constructor above
         // automatically takes the inverse of the rotation
     }
@@ -240,6 +253,12 @@ private:
 
     //! Double denoting the derivative gain for the PID attitude controller.
     const Eigen::Vector3d derivativeGain_;
+
+    //! Vector denoting the previous signs of quaternions.
+    Eigen::Vector4d previousCommandedQuaternionState_;
+
+    //! Boolean denoting whether the sign of the quaternion needs to be flipped.
+    bool isSignToBeFlipped_;
 
     //! Vector denoting the current quaternion attitude correction.
     Eigen::Vector3d currentControlVector_;

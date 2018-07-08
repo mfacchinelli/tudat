@@ -147,7 +147,7 @@ Eigen::VectorXd getLeastSquaresPolynomialFit(
     if( independentValues.rows( ) != dependentValues.rows( ) )
     {
         throw std::runtime_error( "Error when doing least squares polynomial fit, size of dependent and independent "
-                                  "variable vectors is not equal" );
+                                  "variable vectors is not equal." );
     }
 
     Eigen::MatrixXd informationMatrix = Eigen::MatrixXd::Zero( dependentValues.rows( ), polynomialPowers.size( ) );

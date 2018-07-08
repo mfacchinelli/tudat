@@ -58,7 +58,7 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > accelerometerErrorEstimationFuncti
 //! three-term atmosphere model.
 std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunction(
         const Eigen::Vector5d& currentParameterEstimate,
-        const std::vector< double >& vectorOfEstimatedAltitudesBelowAtmosphericInterface,
+        const Eigen::VectorXd& vectorOfEstimatedAltitudesBelowAtmosphericInterface,
         const double referenceAltitude );
 
 } // namespace guidance_navigation_control

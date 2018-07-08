@@ -12,6 +12,6 @@ void GuidanceSystem::runCorridorEstimator( )
 
 }
 
-} // namespace navigation
+} // namespace guidance_navigation_control
 
 } // namespace tudat

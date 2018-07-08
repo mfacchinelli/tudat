@@ -56,6 +56,6 @@ Eigen::Vector4d calculateQuaternionDerivative( const Eigen::Vector4d& currentQua
     return conversionMatrix * currentQuaternionsToBaseFrame;
 }
 
-} // namespace navigation
+} // namespace guidance_navigation_control
 
 } // namespace tudat

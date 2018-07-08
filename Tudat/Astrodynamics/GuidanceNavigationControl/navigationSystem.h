@@ -67,13 +67,14 @@ public:
                       const std::string& spacecraftName, const std::string& planetName,
                       const boost::shared_ptr< filters::FilterSettings< > > navigationFilterSettings,
                       const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel,
-                      const double atmosphericInterfaceAltitude ) :
+                      const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
         selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel ),
         planetaryGravitationalParameter_( onboardBodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( ) ),
         planetaryRadius_( onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( ) ),
-        atmosphericInterfaceRadius_( planetaryRadius_ + atmosphericInterfaceAltitude )
+        atmosphericInterfaceRadius_( planetaryRadius_ + atmosphericInterfaceAltitude ),
+        reducedAtmosphericInterfaceRadius_( planetaryRadius_ + reducedAtmosphericInterfaceAltitude )
     {
         // Create environment updater
         createOnboardEnvironmentUpdater( );
@@ -468,7 +469,21 @@ private:
     const double planetaryRadius_;
 
     //! Double denoting the atmospheric interface altitude.
+    /*!
+     *  Double denoting the atmospheric interface altitude. This altitude corresponds to the altitude where the aerodynamic
+     *  accelerations have the same magnitude as the solar radiation pressure accelerations. At these conditions, the bias of
+     *  the accelerometer is easier to quantify.
+     */
     const double atmosphericInterfaceRadius_;
+
+    //! Double denoting the reduced atmospheric interface altitude.
+    /*!
+     *  Double denoting the reduced atmospheric interface altitude. This altitude is used as atltitude threshold for the
+     *  atmosphere estimation. The reason why it is reduced, w.r.t. the nominal atmospheric interface, is to achieve a more
+     *  optimal atmosphere estimation. Below the reduced altitude the effect of bias and noise is less influential and
+     *  produces higher quality results.
+     */
+    const double reducedAtmosphericInterfaceRadius_;
 
     //! Pointer to the onboard environment updater.
     /*!
@@ -512,15 +527,29 @@ private:
     //! Vector denoting the bias and scale errors of the accelerometer after calibration.
     Eigen::Vector6d estimatedAccelerometerErrors_;
 
+    //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
+    std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;
+
     //! Boolean denoting whether the atmosphere estimator has been initialized.
     /*!
      *  Boolean denoting whether the atmosphere estimator has been initialized. Note that the initialization is assumed to
-     *  be achieved once at least 7 orbits have been carried out.
+     *  be achieved once at least numberOfAtmosphereSamplesForEstimation_ orbits have been carried out.
      */
     bool atmosphereEstimatorInitialized_;
 
-    //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
-    std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;
+    //! Integer denoting the maximum number of atmosphere samples required for the atmosphere estimator to be considered initiated.
+    /*!
+     *  Integer denoting the maximum number of atmosphere samples required for the atmosphere estimator to be considered initiated.
+     *  Once the number of atmosphere samples is reached, the atmosphere estimator uses the moving average of the last
+     *  numberOfAtmosphereSamplesForEstimation_ of orbits to estimate the atmosphere model parameters.
+     */
+    unsigned int numberOfAtmosphereSamplesForEstimation_;
+
+    //! Hisotry of estimated atmosphere model parameters.
+    /*!
+     *  Hisotry of estimated atmosphere model parameters. These values are used as input to the moving average calculation.
+     */
+    std::vector< Eigen::VectorXd > historyOfEstimatedAtmosphereParameters_;
 
     //! History of estimated translational (in Cartesian and Keplerian elements) and rotational states.
     /*!

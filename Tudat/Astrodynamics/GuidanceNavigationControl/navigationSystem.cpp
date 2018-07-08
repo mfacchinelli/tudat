@@ -1,5 +1,7 @@
 #include <iostream>
 
+#include <Eigen/LU>
+
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/navigationSystem.h"
 
 #include "Tudat/Basics/utilities.h"
@@ -7,7 +9,6 @@
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 #include "Tudat/Mathematics/Interpolators/cubicSplineInterpolator.h"
-#include "Tudat/Mathematics/BasicMathematics/leastSquaresEstimation.h"
 #include "Tudat/Mathematics/BasicMathematics/nonLinearLeastSquaresEstimation.h"
 #include "Tudat/SimulationSetup/PropagationSetup/createEnvironmentUpdater.h"
 
@@ -180,7 +181,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
     double estimatedChangeInSemiMajorAxisFromKeplerianStateHistory = initialEstimatedKeplerianState[ 0 ] -
-            estimatedKeplerianStateBelowAtmosphericInterface( 0, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) );
+            estimatedKeplerianStateBelowAtmosphericInterface( 0, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) - 1 );
     double estimatedErrorInSemiMajorAxis = estimatedChangeInSemiMajorAxisFromKeplerianStateHistory -
             estimatedChangeInSemiMajorAxisDueToChangeInVelocity;
     std::cout << "Estimated Error in Semi-major Axis: " << estimatedErrorInSemiMajorAxis << " m" << std::endl;
@@ -237,42 +238,83 @@ void NavigationSystem::runAtmosphereEstimator(
     double aerodynamicCoefficientsNorm =
             onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getCurrentForceCoefficients( ).norm( );
 
-    // Convert estimated aerodynamic acceleration to estimated atmospheric density and compute altitude below atmospheric interface
-    unsigned int i = 0;
+    // Pre-allocate variables
     std::vector< double > vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface;
     std::vector< double > vectorOfEstimatedAltitudesBelowAtmosphericInterface;
+
+    // Convert estimated aerodynamic acceleration to estimated atmospheric density and compute altitude below atmospheric interface
+    unsigned int i = 0;
+    double currentRadialDistance;
     for ( std::map< double, Eigen::Vector6d >::const_iterator cartesianStateIterator =
           mapOfEstimatedCartesianStatesBelowAtmosphericInterface.begin( );
           cartesianStateIterator != mapOfEstimatedCartesianStatesBelowAtmosphericInterface.end( ); cartesianStateIterator++, i++ )
     {
-        // Get estimated density
-        vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface.push_back(
+        currentRadialDistance = cartesianStateIterator->second.segment( 0, 3 ).norm( );
+        if ( currentRadialDistance < reducedAtmosphericInterfaceRadius_ )
+        {
+            // Get estimated density
+            vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface.push_back(
                     2.0 * spacecraftMass / referenceAerodynamicArea / aerodynamicCoefficientsNorm /
                     cartesianStateIterator->second.segment( 3, 3 ).squaredNorm( ) *
                     vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.at( i ) );
 
-        // Get estimated altitude
-        vectorOfEstimatedAltitudesBelowAtmosphericInterface.push_back(
-                    cartesianStateIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius_ );
+            // Get estimated altitude
+            vectorOfEstimatedAltitudesBelowAtmosphericInterface.push_back( currentRadialDistance - planetaryRadius_ );
+        }
     }
+    Eigen::VectorXd estimatedAtmosphericDensitiesBelowAtmosphericInterface =
+            utilities::convertStlVectorToEigenVector( vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface );
+    Eigen::VectorXd estimatedAltitudesBelowAtmosphericInterface =
+            utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowAtmosphericInterface );
 
     // Find periapsis altitude
-    double estimatedPeriapsisAltitude = *std::min_element( vectorOfEstimatedAltitudesBelowAtmosphericInterface.begin( ),
-                                                           vectorOfEstimatedAltitudesBelowAtmosphericInterface.end( ) );
-    std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
+    double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
+//    std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
+//    std::cout << "Altitudes: " << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
+//    std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
+//    std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
 
     // Run least squares estimation process based on selected atmosphere model
+    Eigen::VectorXd modelSpecificParameters;
     std::vector< double > vectorOfModelSpecificParameters;
     switch ( selectedOnboardAtmosphereModel_ )
     {
     case aerodynamics::exponential_atmosphere_model:
     case aerodynamics::three_wave_atmosphere_model:
     {
-        // Transform density to logarithmic space
-
+        // Compute information matrix
+        Eigen::MatrixXd informationMatrix;
+        informationMatrix.resize( estimatedAltitudesBelowAtmosphericInterface.rows( ), 2 );
+        for ( unsigned int i = 0; i < estimatedAltitudesBelowAtmosphericInterface.rows( ); i++ )
+        {
+            informationMatrix.row( i ) << 1.0, estimatedPeriapsisAltitude - estimatedAltitudesBelowAtmosphericInterface[ i ];
+        }
 
         // Use least squares polynomial fit
-//        Eigen::VectorXd estimatedAtmosphereParameters = linear_algebra::getLeastSquaresPolynomialFit( );
+        Eigen::VectorXd logarithmOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface =
+                estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( );
+        Eigen::Vector2d estimatedAtmosphereModelParameters = ( informationMatrix.transpose( ) * informationMatrix ).inverse( ) *
+                informationMatrix.transpose( ) * logarithmOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface;
+
+        // Add reference altitude to list of parameters and revert from logarithmic space
+        if ( selectedOnboardAtmosphereModel_ == aerodynamics::exponential_atmosphere_model )
+        {
+            // If the exponential model is selected, add only the two estimated parameters
+            modelSpecificParameters.resize( 3 );
+            modelSpecificParameters[ 0 ] = estimatedPeriapsisAltitude;
+            modelSpecificParameters[ 1 ] = std::exp( estimatedAtmosphereModelParameters[ 0 ] );
+            modelSpecificParameters[ 2 ] = 1.0 / estimatedAtmosphereModelParameters[ 1 ];
+        }
+        else if ( selectedOnboardAtmosphereModel_ == aerodynamics::three_wave_atmosphere_model )
+        {
+            // If the three-wave model is selected, also add the extra two parameters
+            modelSpecificParameters.resize( 5 );
+            modelSpecificParameters[ 0 ] = estimatedPeriapsisAltitude;
+            modelSpecificParameters[ 1 ] = std::exp( estimatedAtmosphereModelParameters[ 0 ] );
+            modelSpecificParameters[ 2 ] = 1.0 / estimatedAtmosphereModelParameters[ 1 ];
+            modelSpecificParameters[ 3 ] = 1.0;
+            modelSpecificParameters[ 4 ] = 0.0;
+        }
         break;
     }
     case aerodynamics::three_term_atmosphere_model:
@@ -282,26 +324,47 @@ void NavigationSystem::runAtmosphereEstimator(
         initialParameterEstimates << std::log( 2.424e-08 ), 1.0 / 6533.0, -1.0, 0.0, 0.0;
 
         // Use non-linear least squares to solve for optimal value of errors
-        Eigen::Vector5d estimatedAtmosphereModelParameters =
-                linear_algebra::nonLinearLeastSquaresFit(
-                    boost::bind( &threeModelParametersEstimationFunction, _1, vectorOfEstimatedAltitudesBelowAtmosphericInterface,
+        Eigen::Vector5d estimatedAtmosphereModelParameters = linear_algebra::nonLinearLeastSquaresFit(
+                    boost::bind( &threeModelParametersEstimationFunction, _1, estimatedAltitudesBelowAtmosphericInterface,
                                  estimatedPeriapsisAltitude ),
-                    initialParameterEstimates, utilities::convertStlVectorToEigenVector(
-                        vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface ).array( ).log( ) );
+                    initialParameterEstimates, estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) );
 
-        // Add reference altitude to list of parameters
-        vectorOfModelSpecificParameters.push_back( estimatedPeriapsisAltitude );
-        vectorOfModelSpecificParameters.push_back( std::exp( estimatedAtmosphereModelParameters[ 0 ] ) );
-        vectorOfModelSpecificParameters.push_back( 1.0 / estimatedAtmosphereModelParameters[ 1 ] ); // scale height
-        for ( unsigned int i = 2; i < 5; i++ )
-        {
-            vectorOfModelSpecificParameters.push_back( estimatedAtmosphereModelParameters[ i ] );
-        }
+        // Add reference altitude to list of parameters and revert from logarithmic space
+        modelSpecificParameters.resize( 6 );
+        modelSpecificParameters[ 0 ] = estimatedPeriapsisAltitude;
+        modelSpecificParameters[ 1 ] = std::exp( estimatedAtmosphereModelParameters[ 0 ] );
+        modelSpecificParameters[ 2 ] = 1.0 / estimatedAtmosphereModelParameters[ 1 ];
+        modelSpecificParameters.segment( 3, 3 ) = estimatedAtmosphereModelParameters.segment( 2, 3 );
         break;
     }
     default:
         throw std::runtime_error( "Error in atmoshere estimation of navigation system. Atmosphere model not recognized." );
     }
+    std::cout << "Atmosphere values: " << modelSpecificParameters.transpose( ) << std::endl;
+
+    // Add values to hisotry
+    historyOfEstimatedAtmosphereParameters_.push_back( modelSpecificParameters );
+
+    // Perform moving average if enough parameters are available
+    unsigned int numberOfSamplesForMovingAverage = historyOfEstimatedAtmosphereParameters_.size( );
+    if ( numberOfSamplesForMovingAverage > 1 )
+    {
+        // If the number is larger than the number of samples to be used, use limiting value
+        if ( numberOfSamplesForMovingAverage > numberOfAtmosphereSamplesForEstimation_ )
+        {
+            atmosphereEstimatorInitialized_ = true;
+            numberOfSamplesForMovingAverage = numberOfAtmosphereSamplesForEstimation_;
+        }
+
+        // Compute moving average
+        for ( unsigned int i = 1; i < numberOfSamplesForMovingAverage; i++ )
+        {
+            modelSpecificParameters += historyOfEstimatedAtmosphereParameters_.at(
+                        historyOfEstimatedAtmosphereParameters_.size( ) - ( i + 1 ) );
+        }
+        modelSpecificParameters /= numberOfAtmosphereSamplesForEstimation_;
+    }
+    vectorOfModelSpecificParameters = utilities::convertEigenVectorToStlVector( modelSpecificParameters );
 
     // Update atmosphere settings of onboard body map
     onboardBodyMap_.at( planetName_ )->setAtmosphereModel(
@@ -309,6 +372,6 @@ void NavigationSystem::runAtmosphereEstimator(
                     selectedOnboardAtmosphereModel_, 215.0, 197.0, 1.3, vectorOfModelSpecificParameters ) );
 }
 
-} // namespace navigation
+} // namespace guidance_navigation_control
 
 } // namespace tudat
