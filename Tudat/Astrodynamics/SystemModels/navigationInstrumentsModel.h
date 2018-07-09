@@ -277,6 +277,11 @@ private:
             }
         }
 
+        // Transform acceleration to body-fixed frame
+        currentTranslationalAcceleration_ =
+                bodyMap_.at( spacecraftName_ )->getCurrentRotationToLocalFrame( ).toRotationMatrix( ).transpose( ) *
+                currentTranslationalAcceleration_;
+
         // Add errors to acceleration value
         currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
         currentTranslationalAcceleration_ += biasVector + produceAccelerometerNoise( );

@@ -14,6 +14,7 @@
 
 #include "Tudat/Mathematics/Statistics/basicStatistics.h"
 #include "Tudat/Mathematics/BasicMathematics/basicMathematicsFunctions.h"
+#include "Tudat/Basics/utilities.h"
 
 namespace tudat
 {
@@ -128,6 +129,65 @@ Eigen::VectorXd computeSampleVariance( const std::vector< Eigen::VectorXd >& sam
 
     // Return sample variance.
     return 1.0 / ( static_cast< double >( sampleData.size( ) ) - 1.0 ) * sumOfResidualsSquared_;
+}
+
+//! Compute moving average of an Eigen vector.
+Eigen::VectorXd computeMovingAverage( const Eigen::VectorXd& sampleData, const unsigned int numberOfAveragingPoints )
+{
+    // Declare moving average vector
+    int numberOfSamplePoints = sampleData.rows( );
+    Eigen::VectorXd movingAverage;
+    movingAverage.resize( numberOfSamplePoints );
+
+    // Check that number of samples to be used for averaging is odd
+    if ( ( numberOfAveragingPoints % 2 ) == 0 )
+    {
+        throw std::runtime_error( "Error while computing moving average. The number of points used to average has to be odd." );
+    }
+    int numberOfPointsOnEachSide = ( numberOfAveragingPoints - 1 ) / 2;
+
+    // Loop over each element and compute moving average
+    unsigned int lowerIndex;
+    unsigned int upperIndex;
+    for ( int i = 0; i < numberOfSamplePoints; i++ )
+    {
+        lowerIndex = ( ( i - numberOfPointsOnEachSide ) < 0 ) ? 0 : ( i - numberOfPointsOnEachSide );
+        upperIndex = ( ( i + numberOfPointsOnEachSide ) < ( numberOfSamplePoints - 1 ) ) ?
+                  ( numberOfSamplePoints - 1 ) : ( i + numberOfPointsOnEachSide );
+        movingAverage[ i ] = computeAverageOfVectorComponents( sampleData.segment( lowerIndex, upperIndex - lowerIndex ) );
+    }
+    return movingAverage;
+}
+
+//! Compute moving average of a set of Eigen vectors in a map.
+template< unsigned int NumberOfElements >
+std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > > computeMovingAverage(
+        const std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > >& sampleData,
+        const unsigned int numberOfAveragingPoints )
+{
+    // Convert map to Eigen matrix
+    Eigen::MatrixXd matrixOfSampleData =
+            utilities::extractKeyAndValuesFromMap< double, double, NumberOfElements >( sampleData ).second;
+
+    // Declare moving average vector
+    Eigen::MatrixXd movingAverage;
+    movingAverage.resizeLike( matrixOfSampleData );
+
+    // Loop over rows and compute sample mean
+    for ( unsigned int i = 0; i < NumberOfElements; i++ )
+    {
+        movingAverage.row( i ) = computeMovingAverage( matrixOfSampleData.row( i ).transpose( ), numberOfAveragingPoints ).transpose( );
+    }
+
+    // Output data as map
+    unsigned int i = 0;
+    std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > > outputData;
+    for ( typename std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > >::const_iterator
+          mapIterator = sampleData.begin( ); mapIterator != sampleData.end( ); mapIterator++, i++ )
+    {
+        outputData[ mapIterator->first ] = movingAverage.col( i );
+    }
+    return outputData;
 }
 
 } // namespace statistics

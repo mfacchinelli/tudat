@@ -149,7 +149,7 @@ public:
             std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
                     instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
 
-            // Extract measured translational accelerations
+            // Extract measured translational accelerations and transform to inertial frame
             std::map< double, Eigen::Vector3d > currentOrbitHistoryOfMeasuredTranslationalAccelerations;
             for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
                   measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );

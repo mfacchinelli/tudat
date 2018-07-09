@@ -576,11 +576,11 @@ public:
             {
                 if( integrateDynamicalAndVariationalEquationsConcurrently )
                 {
-                    integrateVariationalAndDynamicalEquations( propagatorSettings_->getInitialStates( ), 1 );
+                    integrateVariationalAndDynamicalEquations( propagatorSettings_->getInitialStates( ), true );
                 }
                 else
                 {
-                    integrateVariationalAndDynamicalEquations( propagatorSettings_->getInitialStates( ), 0 );
+                    integrateVariationalAndDynamicalEquations( propagatorSettings_->getInitialStates( ), false );
                 }
             }
         }

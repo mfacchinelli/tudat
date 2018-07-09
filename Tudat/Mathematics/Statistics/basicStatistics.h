@@ -107,6 +107,15 @@ double computeSampleMedian( std::vector< double > sampleData );
  */
 Eigen::VectorXd computeSampleVariance( const std::vector< Eigen::VectorXd >& sampleData );
 
+//! Compute moving average of vector.
+/*!
+ *  Compute moving average of vector.
+ *  \param sampleData
+ *  \param numberOfAveragingPoints
+ *  \return
+ */
+Eigen::VectorXd computeMovingAverage( const Eigen::VectorXd& sampleData, const unsigned int numberOfAveragingPoints = 5 );
+
 } // namespace statistics
 } // namespace tudat
 

@@ -54,7 +54,7 @@ void checkTranslationalStatesFeasibility(
             if( bodyMap.at( bodyToIntegrate )->getEphemeris( ) == NULL )
             {
                 throw std::runtime_error( "Error when checking translational dynamics feasibility of body " +
-                                          bodyToIntegrate + "no such body found" );
+                                          bodyToIntegrate + " no such body found" );
             }
         }
         else

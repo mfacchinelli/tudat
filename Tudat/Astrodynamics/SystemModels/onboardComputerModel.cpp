@@ -29,15 +29,11 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
     // Translational dynamics
     currentStateDerivative.segment( 3, 3 ) = currentEstimatedTranslationalAccelerationVector;
 
-    // Invert quaternion to get rotation to global (base) frame
-    Eigen::Vector4d currentQuaternionToGlobalFrame = currentEstimatedStateVector.segment( 6, 4 );
-    currentQuaternionToGlobalFrame.segment( 1, 3 ) *= -1.0;
-
     // Rotational kinematics
     Eigen::Vector3d currentActualRotationalVelocityVector = removeErrorsFromInertialMeasurementUnitMeasurement(
                 currentMeasuredRotationalVelocityVector, currentEstimatedStateVector.segment( 10, 6 ) );
     currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionDerivative(
-                currentQuaternionToGlobalFrame, currentActualRotationalVelocityVector );
+                currentEstimatedStateVector.segment( 6, 4 ), currentActualRotationalVelocityVector );
 
     // Give output
     return currentStateDerivative;

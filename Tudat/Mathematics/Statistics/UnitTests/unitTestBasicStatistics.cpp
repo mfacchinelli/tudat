@@ -12,6 +12,7 @@
 #define BOOST_TEST_MAIN
 
 #include <limits>
+#include <iostream>
 
 #include <boost/test/floating_point_comparison.hpp>
 #include <boost/test/unit_test.hpp>
@@ -77,6 +78,32 @@ BOOST_AUTO_TEST_CASE( testSampleVariance )
     // Check if computed sample variance matches expected value.
     BOOST_CHECK_CLOSE_FRACTION( computedSampleVariance, expectedSampleVariance,
                                 std::numeric_limits< double >::epsilon( ) );
+}
+
+//! Test if moving average is computed correctly. Results compared with MATLAB smooth function.
+BOOST_AUTO_TEST_CASE( testMovingAverage )
+{
+    Eigen::VectorXd vectorOfPoints;
+    vectorOfPoints.resize( 15 );
+    vectorOfPoints << 0.93329860101525, 3.93372816267124, 1.35032100135611, 2.97099423629127, 3.18245216750598, 1.43494398584927,
+            0.915460520182276, 2.60394635060288, 2.09834777464011, 3.04137361348961, 0.265830887303261, 2.96918626998768,
+            1.23234701262448, 2.42638755740894, 1.6271912582765;
+
+    Eigen::VectorXd expectedMovingAverage;
+    expectedMovingAverage.resize( 15 );
+    expectedMovingAverage << 0.93329860101525, 2.07244925501420, 2.47415883376797, 2.57448791073478, 1.97083438223698, 2.22155945208634,
+            2.04703015975610, 2.01881444895283, 1.78499182924363, 2.19573697920471, 1.92141711160903, 1.98702506816280, 1.70418859712017,
+            1.76197527610331, 1.62719125827650;
+
+    Eigen::VectorXd computedMovingAverage = statistics::computeMovingAverage( vectorOfPoints, 5 );
+
+    // Compare results
+    double tolerance = std::numeric_limits< double >::epsilon( );
+    for ( unsigned int i = 0; i < 15; i++ )
+    {
+        BOOST_CHECK_CLOSE_FRACTION( computedMovingAverage[ i ], expectedMovingAverage[ i ],
+                                    tolerance );
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END( )
