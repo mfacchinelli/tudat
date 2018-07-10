@@ -182,7 +182,7 @@ public:
      */
     bool isAerobrakingComplete( )
     {
-        return true;
+        return false;
     }
 
 private:

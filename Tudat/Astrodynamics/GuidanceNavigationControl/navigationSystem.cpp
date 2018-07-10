@@ -9,6 +9,7 @@
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 #include "Tudat/Mathematics/Interpolators/cubicSplineInterpolator.h"
 #include "Tudat/Mathematics/BasicMathematics/nonLinearLeastSquaresEstimation.h"
+#include "Tudat/Mathematics/Statistics/basicStatistics.h"
 #include "Tudat/SimulationSetup/PropagationSetup/createEnvironmentUpdater.h"
 
 namespace tudat
@@ -87,10 +88,9 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     std::cout << "Removing Accelerometer Errors." << std::endl;
 
     // Apply smoothing method to noisy accelerometer data
-    for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
-    {
-        std::cout << vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ).transpose( ) << std::endl;
-    }
+    unsigned int numberOfSamplePoints = 25 / navigationRefreshStepSize_;
+    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
+            statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
 
     // Calibrate accelerometer errors if it is the first orbit
     if ( !atmosphereEstimatorInitialized_ )
@@ -116,12 +116,10 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
           rotationalStateIterator_ != mapOfEstimatedRotationalStatesBelowAtmosphericInterface.end( ); rotationalStateIterator_++, i++ )
     {
         vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
-                removeErrorsFromInertialMeasurementUnitMeasurement( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ),
-                                                                    estimatedAccelerometerErrors_ );
-        vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
                 linear_algebra::convertVectorToQuaternionFormat(
                     rotationalStateIterator_->second.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
-                vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i );
+                removeErrorsFromInertialMeasurementUnitMeasurement( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ),
+                                                                    estimatedAccelerometerErrors_ );
     }
 }
 
@@ -303,10 +301,10 @@ void NavigationSystem::runAtmosphereEstimator(
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
-        //        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
-        //        std::cout << "Altitudes: " << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
-        //        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
-        //        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
+//        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
+//        std::cout << "Altitudes: " << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
+//        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
+//        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
 
         // Run least squares estimation process based on selected atmosphere model
         Eigen::VectorXd modelSpecificParameters;
@@ -346,8 +344,8 @@ void NavigationSystem::runAtmosphereEstimator(
                 modelSpecificParameters[ 0 ] = estimatedPeriapsisAltitude;
                 modelSpecificParameters[ 1 ] = std::exp( estimatedAtmosphereModelParameters[ 0 ] );
                 modelSpecificParameters[ 2 ] = 1.0 / estimatedAtmosphereModelParameters[ 1 ];
-                modelSpecificParameters[ 3 ] = 1.0;
-                modelSpecificParameters[ 4 ] = 0.0;
+                modelSpecificParameters[ 3 ] = 1.0; // should be randomized
+                modelSpecificParameters[ 4 ] = 0.0; // should depend on dust storms
             }
             break;
         }

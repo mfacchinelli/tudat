@@ -18,6 +18,7 @@
 
 namespace tudat
 {
+
 namespace statistics
 {
 
@@ -147,42 +148,65 @@ Eigen::VectorXd computeMovingAverage( const Eigen::VectorXd& sampleData, const u
     int numberOfPointsOnEachSide = ( numberOfAveragingPoints - 1 ) / 2;
 
     // Loop over each element and compute moving average
-    unsigned int lowerIndex;
-    unsigned int upperIndex;
+    unsigned int lowerIndex, upperIndex;
     for ( int i = 0; i < numberOfSamplePoints; i++ )
     {
         lowerIndex = ( ( i - numberOfPointsOnEachSide ) < 0 ) ? 0 : ( i - numberOfPointsOnEachSide );
-        upperIndex = ( ( i + numberOfPointsOnEachSide ) < ( numberOfSamplePoints - 1 ) ) ?
+        upperIndex = ( ( i + numberOfPointsOnEachSide ) > ( numberOfSamplePoints - 1 ) ) ?
                   ( numberOfSamplePoints - 1 ) : ( i + numberOfPointsOnEachSide );
-        movingAverage[ i ] = computeAverageOfVectorComponents( sampleData.segment( lowerIndex, upperIndex - lowerIndex ) );
+        movingAverage[ i ] = computeAverageOfVectorComponents( sampleData.segment( lowerIndex, ( upperIndex - lowerIndex + 1 ) ) );
     }
     return movingAverage;
 }
 
-//! Compute moving average of a set of Eigen vectors in a map.
-template< unsigned int NumberOfElements >
-std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > > computeMovingAverage(
-        const std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > >& sampleData,
-        const unsigned int numberOfAveragingPoints )
+//! Compute moving average of a set of Eigen vectors in a STL vector.
+std::vector< Eigen::Vector3d > computeMovingAverage(
+        const std::vector< Eigen::Vector3d >& sampleData, const unsigned int numberOfAveragingPoints )
 {
     // Convert map to Eigen matrix
-    Eigen::MatrixXd matrixOfSampleData =
-            utilities::extractKeyAndValuesFromMap< double, double, NumberOfElements >( sampleData ).second;
+    Eigen::MatrixXd matrixOfSampleData = utilities::convertStlVectorToEigenMatrix< double, 3 >( sampleData );
 
     // Declare moving average vector
     Eigen::MatrixXd movingAverage;
     movingAverage.resizeLike( matrixOfSampleData );
 
     // Loop over rows and compute sample mean
-    for ( unsigned int i = 0; i < NumberOfElements; i++ )
+    for ( int i = 0; i < movingAverage.rows( ); i++ )
+    {
+        movingAverage.row( i ) = computeMovingAverage( matrixOfSampleData.row( i ).transpose( ), numberOfAveragingPoints ).transpose( );
+    }
+
+    // Output data as map
+    std::vector< Eigen::Vector3d > outputData;
+    for ( unsigned int i = 0; i < movingAverage.cols( ); i++ )
+    {
+        outputData.push_back( movingAverage.col( i ) );
+    }
+    return outputData;
+}
+
+//! Compute moving average of a set of Eigen vectors in a map.
+std::map< double, Eigen::VectorXd > computeMovingAverage(
+        const std::map< double, Eigen::VectorXd >& sampleData, const unsigned int numberOfAveragingPoints )
+{
+    // Convert map to Eigen matrix
+    Eigen::MatrixXd matrixOfSampleData =
+            utilities::extractKeyAndValuesFromMap< double, double, Eigen::Dynamic >( sampleData ).second;
+
+    // Declare moving average vector
+    Eigen::MatrixXd movingAverage;
+    movingAverage.resizeLike( matrixOfSampleData );
+
+    // Loop over rows and compute sample mean
+    for ( int i = 0; i < movingAverage.rows( ); i++ )
     {
         movingAverage.row( i ) = computeMovingAverage( matrixOfSampleData.row( i ).transpose( ), numberOfAveragingPoints ).transpose( );
     }
 
     // Output data as map
     unsigned int i = 0;
-    std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > > outputData;
-    for ( typename std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > >::const_iterator
+    std::map< double, Eigen::VectorXd > outputData;
+    for ( typename std::map< double, Eigen::VectorXd >::const_iterator
           mapIterator = sampleData.begin( ); mapIterator != sampleData.end( ); mapIterator++, i++ )
     {
         outputData[ mapIterator->first ] = movingAverage.col( i );
@@ -191,4 +215,5 @@ std::map< double, Eigen::Matrix< double, NumberOfElements, 1 > > computeMovingAv
 }
 
 } // namespace statistics
+
 } // namespace tudat

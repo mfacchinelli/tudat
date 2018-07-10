@@ -11,10 +11,9 @@
 #ifndef TUDAT_UTILITIES_H
 #define TUDAT_UTILITIES_H
 
-#include <vector>
-
-#include <iostream>
 #include <map>
+#include <vector>
+#include <iostream>
 
 #include <boost/function.hpp>
 #include <boost/multi_array.hpp>
@@ -278,22 +277,26 @@ Eigen::Matrix< ScalarType, Eigen::Dynamic, NumberOfColumns > createConcatenatedE
 }
 
 //! Function to extract both keys and values from map, and output them as a pair.
-template< typename KeyType, typename ScalarType, unsigned int NumberOfElements >
-std::pair< Eigen::Matrix< KeyType, Eigen::Dynamic, 1 >, Eigen::Matrix< ScalarType, Eigen::Dynamic, Eigen::Dynamic > >
-extractKeyAndValuesFromMap( const std::map< KeyType, Eigen::Matrix< ScalarType, NumberOfElements, 1 > >& inputMap )
+template< typename KeyType, typename ScalarType, int NumberOfRows >
+std::pair< Eigen::Matrix< ScalarType, Eigen::Dynamic, 1 >, Eigen::Matrix< ScalarType, Eigen::Dynamic, Eigen::Dynamic > >
+extractKeyAndValuesFromMap( const std::map< KeyType, Eigen::Matrix< ScalarType, NumberOfRows, 1 > >& inputMap )
 {
     // Declare eventual output variables
-    Eigen::Matrix< KeyType, Eigen::Dynamic, 1 > keyValuesVector;
-    Eigen::Matrix< ScalarType, NumberOfElements, Eigen::Dynamic > mappedValuesMatrix;
+    Eigen::Matrix< ScalarType, Eigen::Dynamic, 1 > keyValuesVector;
+    Eigen::Matrix< ScalarType, Eigen::Dynamic, Eigen::Dynamic > mappedValuesMatrix;
+
+    // Make compatible with Eigen::Dynamic vectors
+    bool dynamicInput = ( NumberOfRows == Eigen::Dynamic );
+    unsigned int resizingDimension = dynamicInput ? inputMap.begin( )->second.rows( ) : NumberOfRows;
 
     // Assign size to matrices
     unsigned int numberOfKeys = inputMap.size( );
     keyValuesVector.resize( numberOfKeys, 1 );
-    mappedValuesMatrix.resize( NumberOfElements, numberOfKeys );
+    mappedValuesMatrix.resize( resizingDimension, numberOfKeys );
 
     // Loop over map and save elements
     int i = 0;
-    for ( typename std::map< KeyType, Eigen::Matrix< ScalarType, NumberOfElements, 1 > >::const_iterator
+    for ( typename std::map< KeyType, Eigen::Matrix< ScalarType, NumberOfRows, 1 > >::const_iterator
           mapIterator = inputMap.begin( ); mapIterator != inputMap.end( ); mapIterator++, i++ )
     {
         keyValuesVector[ i ] = mapIterator->first;
@@ -330,12 +333,12 @@ Eigen::Matrix< T, Eigen::Dynamic, 1 > convertStlVectorToEigenVector( const std::
 }
 
 //! Function to convert std::vector to Eigen::Matrix.
-template< typename T >
+template< typename T, int Rows = Eigen::Dynamic >
 Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic > convertStlVectorToEigenMatrix(
-        const std::vector< Eigen::Matrix< T, Eigen::Dynamic, 1 > >& stlVector )
+        const std::vector< Eigen::Matrix< T, Rows, 1 > >& stlVector )
 {
     Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic > eigenMatrix =
-            Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic >::Zero( stlVector.at( 0 ).rows( ), stlVector.size( ) );
+            Eigen::Matrix< T, Eigen::Dynamic, Eigen::Dynamic >::Zero( Rows, stlVector.size( ) );
     for( unsigned int i = 0; i < stlVector.size( ); i++ )
     {
         eigenMatrix.col( i ) = stlVector.at( i );
