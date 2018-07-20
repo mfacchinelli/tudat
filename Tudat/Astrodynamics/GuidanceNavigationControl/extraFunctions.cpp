@@ -83,7 +83,7 @@ double lowerAltitudeBisectionFunction( const double currentAltitudeGuess, const 
                                        const double planetaryRadius, const double planetaryGravitationalParameter,
                                        const double atmosphericInterfaceRadius,
                                        const double maximumHeatRate, const double maximumHeatLoad,
-                                       const boost::shared_ptr< aerodynamics::AtmosphereModel > atmosphereModel )
+                                       const boost::function< double( double ) >& densityFunction )
 {
     using mathematical_constants::PI;
 
@@ -95,13 +95,13 @@ double lowerAltitudeBisectionFunction( const double currentAltitudeGuess, const 
 
     // Initialize history of interesting values
     double altitude, velocity, heatRate;
-    std::vector< double > historyOfTrueAnomalies, historyOfAltitudes, historyOfVelocities, historyOfHeatRates;
+    std::vector< double > historyOfTrueAnomalies, historyOfRadialDistances, historyOfHeatRates;
 
     // Compute true anomaly at atosphere interface
     double atmosphereInterfaceTrueAnomaly = std::acos( ( semiLatusRectum / atmosphericInterfaceRadius - 1.0 ) / eccentricity );
 
     // Compute parameters during atmosphere pass
-    trueAnomalyStepSize = unit_conversions::convertDegreesToRadians( 0.5 );
+    double trueAnomalyStepSize = unit_conversions::convertDegreesToRadians( 0.1 );
     for ( double trueAnomaly = -atmosphereInterfaceTrueAnomaly; trueAnomaly <= atmosphereInterfaceTrueAnomaly;
           trueAnomaly += trueAnomalyStepSize )
     {
@@ -111,31 +111,34 @@ double lowerAltitudeBisectionFunction( const double currentAltitudeGuess, const 
                                                                       planetaryGravitationalParameter );
 
         // Compute atmospheric heating
-        heatRate = 0.5 * std::pow( velocity, 3 ) * atmosphereModel->getDensity( altitude, 0.0, 0.0, 0.0 );
+        heatRate = 0.5 * std::pow( velocity, 3 ) * densityFunction( altitude );
 
         // Save values to history
         historyOfTrueAnomalies.push_back( trueAnomaly );
-        historyOfAltitudes.push_back( altitude + planetaryRadius );
+        historyOfRadialDistances.push_back( altitude + planetaryRadius );
         historyOfHeatRates.push_back( heatRate );
     }
 
     // Convert change in true anomaly to time step
-    Eigen::VectorXd timeSteps = ( utilities::convertStlVectorToEigenVector( historyOfAltitudes ) ).square( ) /
+    Eigen::VectorXd radialDistances = utilities::convertStlVectorToEigenVector( historyOfRadialDistances );
+    Eigen::VectorXd timeSteps = radialDistances.cwiseProduct( radialDistances ) /
             std::sqrt( planetaryGravitationalParameter * semiLatusRectum ) * trueAnomalyStepSize;
 
     // Compute heat load by integrating heat flux
     double heatLoad = ( timeSteps.cwiseProduct( utilities::convertStlVectorToEigenVector( historyOfHeatRates ) ) ).sum( );
 
+    // Compute offsets w.r.t. maximum allowed heat rate and heat load
+    double offsetInHeatRate = utilities::convertStlVectorToEigenVector( historyOfHeatRates ).maxCoeff( ) - maximumHeatRate;
+    double offsetInHeatLoad = heatLoad - maximumHeatLoad;
+
     // Return value to to indicate closeness to limiting value
-    return ( utilities::convertStlVectorToEigenVector( historyOfHeatRates ).maxCoeff( ) - maximumHeatRate ) * (
-                heatLoad - maximumHeatLoad );
+    return ( offsetInHeatRate > offsetInHeatLoad ) ? offsetInHeatRate : offsetInHeatLoad;
 }
 
 //! Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
 double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const double estimatedApoapsisRadius,
                                        const double planetaryRadius, const double planetaryGravitationalParameter,
-                                       const double atmosphericInterfaceRadius, const double minimumDynamicPressure,
-                                       const boost::shared_ptr< aerodynamics::AtmosphereModel > atmosphereModel )
+                                       const double minimumDynamicPressure, const boost::function< double( double ) >& densityFunction )
 {
     using mathematical_constants::PI;
 
@@ -144,33 +147,13 @@ double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const 
     double eccentricity = ( estimatedApoapsisRadius - currentAltitudeGuess - planetaryRadius ) /
             ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
 
-    // Initialize history of interesting values
-    double altitude, velocity, dynamicPressure;
-    std::vector< double > historyOfDynamicPressures;
-
-    // Compute true anomaly at atosphere interface
-    double atmosphereInterfaceTrueAnomaly = std::acos( ( semiMajorAxis * ( 1.0 - eccentricity * eccentricity ) /
-                                                         atmosphericInterfaceRadius - 1.0 ) / eccentricity );
-
-    // Compute parameters during atmosphere pass
-    trueAnomalyStepSize = unit_conversions::convertDegreesToRadians( 0.5 );
-    for ( double trueAnomaly = -atmosphereInterfaceTrueAnomaly; trueAnomaly <= atmosphereInterfaceTrueAnomaly;
-          trueAnomaly += trueAnomalyStepSize )
-    {
-        // Compute altitude and velocity
-        altitude = basic_astrodynamics::computeKeplerRadialDistance( semiMajorAxis, eccentricity, trueAnomaly ) - planetaryRadius;
-        velocity = basic_astrodynamics::computeKeplerOrbitalVelocity( semiMajorAxis, eccentricity, trueAnomaly,
-                                                                      planetaryGravitationalParameter );
-
-        // Compute atmospheric heating
-        dynamicPressure = 0.5 * std::pow( velocity, 2 ) * atmosphereModel->getDensity( altitude, 0.0, 0.0, 0.0 );
-
-        // Save values to history
-        historyOfDynamicPressures.push_back( dynamicPressure );
-    }
+    // Compute values at periapsis
+    double periapsisVelocity = basic_astrodynamics::computeKeplerOrbitalVelocity( semiMajorAxis, eccentricity, 0.0,
+                                                                                  planetaryGravitationalParameter );
+    double periapsisDynamicPressure = 0.5 * std::pow( periapsisVelocity, 2 ) * densityFunction( currentAltitudeGuess );
 
     // Return maximum value of dynamic pressure w.r.t. threshold value
-    return utilities::convertStlVectorToEigenVector( historyOfDynamicPressures ).maxCoeff( ) - minimumDynamicPressure;
+    return periapsisDynamicPressure - minimumDynamicPressure;
 }
 
 //! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.

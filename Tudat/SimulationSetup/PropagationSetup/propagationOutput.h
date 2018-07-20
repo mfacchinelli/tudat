@@ -1107,16 +1107,16 @@ boost::function< double( ) > getDoubleDependentVariableFunction(
                                                 bodyMap.at( bodyWithProperty )->getFlightConditions( ) ) );
             break;
         }
-        case local_aerodynamic_heat_flux_dependent_variable:
+        case local_aerodynamic_heat_rate_dependent_variable:
         {
             if( boost::dynamic_pointer_cast< aerodynamics::AtmosphericFlightConditions >(
                         bodyMap.at( bodyWithProperty )->getFlightConditions( ) )== NULL )
             {
-                std::string errorMessage = "Error, no atmospheric flight conditions available when requesting heat flux "
+                std::string errorMessage = "Error, no atmospheric flight conditions available when requesting heat rate "
                                            "output of " + bodyWithProperty + "w.r.t." + secondaryBody;
                 throw std::runtime_error( errorMessage );
             }
-            variableFunction = boost::bind( &aerodynamics::AtmosphericFlightConditions::getCurrentAerodynamicHeatFlux,
+            variableFunction = boost::bind( &aerodynamics::AtmosphericFlightConditions::getCurrentAerodynamicHeatRate,
                                             boost::dynamic_pointer_cast< aerodynamics::AtmosphericFlightConditions >(
                                                 bodyMap.at( bodyWithProperty )->getFlightConditions( ) ) );
             break;

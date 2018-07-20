@@ -25,28 +25,13 @@
 #include "Tudat/Mathematics/Filters/createFilter.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen
-{
-typedef Eigen::Matrix< double, 16, 1 > Vector16d;
-typedef Eigen::Matrix< double, 16, 16 > Matrix16d;
-}
+namespace Eigen { typedef Eigen::Matrix< double, 16, 1 > Vector16d; typedef Eigen::Matrix< double, 16, 16 > Matrix16d; }
 
 namespace tudat
 {
 
 namespace guidance_navigation_control
 {
-
-//! Enumeration of indices for navigation state vector.
-enum NavigationStateIndices
-{
-    cartesian_position_index = 0,
-    cartesian_velocity_index = 3,
-    quaternion_real_index = 6,
-    quaternion_imaginary_index = 7,
-    gyroscope_bias_index = 10,
-    gyroscope_scale_factor_index = 13
-};
 
 //! Function to remove the error in gyroscope measurement based on the estimated bias and scale factors.
 Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
@@ -56,6 +41,17 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
 class NavigationSystem
 {
 public:
+
+    //! Enumeration for indices of navigation state vector.
+    enum NavigationStateIndices
+    {
+        cartesian_position_index = 0,
+        cartesian_velocity_index = 3,
+        quaternion_real_index = 6,
+        quaternion_imaginary_index = 7,
+        gyroscope_bias_index = 10,
+        gyroscope_scale_factor_index = 13
+    };
 
     //! Constructor.
     /*!
@@ -145,6 +141,34 @@ public:
         // two time steps) and the maximum number of iterations (i.e., 25 iterations)
         areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >(
                     2.0 * navigationRefreshStepSize_ / currentTime_, 25 );
+    }
+
+    //! Function to run the State Estimator (SE).
+    void runStateEstimator( const double currentTime, Eigen::Vector7d& currentExternalMeasurementVector,
+                            const Eigen::Vector3d& currentGyroscopeMeasurement )
+    {
+        // Set time
+        currentTime_ = currentTime;
+
+        // Convert translational acceleration to inertial frame
+        currentExternalMeasurementVector.segment( 0, 3 ) =
+                linear_algebra::convertVectorToQuaternionFormat(
+                    currentEstimatedRotationalState_.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
+                currentExternalMeasurementVector.segment( 0, 3 );
+
+        // Update filter
+        navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
+
+        // Extract estimated state and update navigation estimates
+        Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 ).normalized( );
+        currentEstimatedRotationalState_.segment( 4, 3 ) =
+                removeErrorsFromInertialMeasurementUnitMeasurement( currentGyroscopeMeasurement, updatedEstimatedState.segment( 10, 6 ) );
+        setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
+        // this function also automatically stores the full state estimates at the current time
+
+        // Update body and acceleration maps
+        updateOnboardModel( );
     }
 
     //! Function to run post-atmosphere processes.
@@ -311,10 +335,28 @@ public:
                 planetaryGravitationalParameter_ );
     }
 
-    //! Function to compute the current estimated mean motion.
+    //! Function to retrieve the density at the input conditions according to the onboard model.
+    double getDensityAtSpecifiedConditions( double altitude, double longitude = 0.0 )
+    {
+        return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity( altitude, longitude, 0.0, 0.0 );
+    }
+
+    //! Function to retrieve the estimated accelerometer errors.
     Eigen::Vector6d getEstimatedAccelerometerErrors( )
     {
         return estimatedAccelerometerErrors_;
+    }
+
+    //! Function to retrieve information on the initialization of the atmosphere estimator.
+    /*!
+     *  Function to retrieve information on the initialization of the atmosphere estimator.
+     *  \return Pair of integers, where the first element denotes the number of atmosphere samples that have been taken so far,
+     *      and the second element indicates the number of atmosphere samples required for the atmosphere estimator to be
+     *      considered initialized.
+     */
+    std::pair< unsigned int, unsigned int > getAtmosphereInitiationIndicators( )
+    {
+        return std::make_pair( historyOfEstimatedAtmosphereParameters_.size( ), numberOfRequiredAtmosphereSamplesForInitiation_ );
     }
 
     //! Function to retrieve history of estimated translational and rotational states over time.
@@ -583,17 +625,17 @@ private:
     //! Boolean denoting whether the atmosphere estimator has been initialized.
     /*!
      *  Boolean denoting whether the atmosphere estimator has been initialized. Note that the initialization is assumed to
-     *  be achieved once at least numberOfAtmosphereSamplesForEstimation_ orbits have been carried out.
+     *  be achieved once at least numberOfRequiredAtmosphereSamplesForInitiation_ orbits have been carried out.
      */
     bool atmosphereEstimatorInitialized_;
 
-    //! Integer denoting the maximum number of atmosphere samples required for the atmosphere estimator to be considered initiated.
+    //! Integer denoting the number of atmosphere samples required for the atmosphere estimator to be considered initiated.
     /*!
-     *  Integer denoting the maximum number of atmosphere samples required for the atmosphere estimator to be considered initiated.
+     *  Integer denoting the number of atmosphere samples required for the atmosphere estimator to be considered initiated.
      *  Once the number of atmosphere samples is reached, the atmosphere estimator uses the moving average of the last
-     *  numberOfAtmosphereSamplesForEstimation_ of orbits to estimate the atmosphere model parameters.
+     *  numberOfRequiredAtmosphereSamplesForInitiation_ of orbits to estimate the atmosphere model parameters.
      */
-    unsigned int numberOfAtmosphereSamplesForEstimation_;
+    unsigned int numberOfRequiredAtmosphereSamplesForInitiation_;
 
     //! Hisotry of estimated atmosphere model parameters.
     /*!

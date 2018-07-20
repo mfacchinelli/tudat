@@ -14,8 +14,9 @@
 #include <map>
 #include <iostream>
 
+#include <boost/function.hpp>
+
 #include "Tudat/Basics/basicTypedefs.h"
-#include "Tudat/Astrodynamics/Aerodynamics/atmosphereModel.h"
 
 namespace tudat
 {
@@ -57,10 +58,16 @@ double areaBisectionFunction( const double currentTimeGuess, const double consta
                               const std::vector< double >& estimatedAerodynamicAccelerationMagnitude );
 
 //! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
-double lowerAltitudeBisectionFunction( );
+double lowerAltitudeBisectionFunction( const double currentAltitudeGuess, const double estimatedApoapsisRadius,
+                                       const double planetaryRadius, const double planetaryGravitationalParameter,
+                                       const double atmosphericInterfaceRadius,
+                                       const double maximumHeatRate, const double maximumHeatLoad,
+                                       const boost::function< double( double ) >& densityFunction );
 
 //! Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
-double upperAltitudeBisectionFunction( );
+double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const double estimatedApoapsisRadius,
+                                       const double planetaryRadius, const double planetaryGravitationalParameter,
+                                       const double minimumDynamicPressure, const boost::function< double( double ) >& densityFunction );
 
 //! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
 /*!

@@ -98,7 +98,7 @@ enum PropagationDependentVariables
     body_fixed_relative_cartesian_position = 35,
     body_fixed_relative_spherical_position = 36,
     local_dynamic_pressure_dependent_variable = 37,
-    local_aerodynamic_heat_flux_dependent_variable = 38
+    local_aerodynamic_heat_rate_dependent_variable = 38
 };
 
 //! Functional base class for defining settings for dependent variables that are to be saved during propagation

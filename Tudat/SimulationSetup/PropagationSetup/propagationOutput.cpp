@@ -213,7 +213,7 @@ int getDependentVariableSize(
     case local_dynamic_pressure_dependent_variable:
         variableSize = 1;
         break;
-    case local_aerodynamic_heat_flux_dependent_variable:
+    case local_aerodynamic_heat_rate_dependent_variable:
         variableSize = 1;
         break;
     case geodetic_latitude_dependent_variable:

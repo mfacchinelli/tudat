@@ -41,7 +41,7 @@ double computeKeplerRadialDistance( const double semiMajorAxis,
                                     const double eccentricity,
                                     const double trueAnomaly )
 {
-    return ( semiMajorAxis * ( 1.0 - eccentricity * eccentricity ) ) / ( 1.0 * eccentricity * std::cos( trueAnomaly ) );
+    return ( semiMajorAxis * ( 1.0 - eccentricity * eccentricity ) ) / ( 1.0 + eccentricity * std::cos( trueAnomaly ) );
 }
 
 //! Compute two-body orbital velocity with vis-viva equation.
@@ -52,9 +52,9 @@ double computeKeplerOrbitalVelocity( const double semiMajorAxis,
                                      const double massOfOrbitingBody )
 {
     return std::sqrt( ( ( physical_constants::GRAVITATIONAL_CONSTANT * massOfOrbitingBody ) +
-                        gravitationalParameterOfCentralBody ) * ( 2.0 /
-                                                                  computeKeplerRadialDistance( semiMajorAxis, eccentricity, trueAnomaly ) +
-                                                                  1.0  / semiMajorAxis ) );
+                        gravitationalParameterOfCentralBody ) * (
+                          2.0 / computeKeplerRadialDistance( semiMajorAxis, eccentricity, trueAnomaly ) -
+                          1.0 / semiMajorAxis ) );
 }
 
 //! Compute Kepler angular momentum.

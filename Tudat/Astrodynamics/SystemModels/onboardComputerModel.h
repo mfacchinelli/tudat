@@ -20,10 +20,7 @@
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen
-{
-typedef Eigen::Matrix< double, 16, 1 > Vector16d;
-}
+namespace Eigen { typedef Eigen::Matrix< double, 16, 1 > Vector16d; }
 using namespace tudat::guidance_navigation_control;
 
 namespace tudat
@@ -122,15 +119,31 @@ public:
             // Inform user
             std::cout << "Reached apoapsis. Preparing to perform maneuver." << std::endl;
 
-            // Stop propagation to add Delta V to actual state
-            isPropagationToBeStopped = true;
+            // Determine in which phase of aerobraking the spacecraft is and perform corridor estimation
+            guidanceSystem_->determineAerobrakingPhase( currentEstimatedState.second,
+                                                        navigationSystem_->getAtmosphereInitiationIndicators( ) );
+            guidanceSystem_->runCorridorEstimator( currentEstimatedState.second,
+                                                   navigationSystem_->getRadius( ),
+                                                   navigationSystem_->getStandardGravitationalParameter( ),
+                                                   navigationSystem_->getAtmosphericInterfaceRadius( ),
+                                                   boost::bind( &NavigationSystem::getDensityAtSpecifiedConditions,
+                                                                navigationSystem_, _1, 0.0 ) );
 
-            // Perform corridor and maneuver estimations
-            guidanceSystem_->runCorridorEstimator( navigationSystem_->currentOrbitCounter_ );
-            guidanceSystem_->runManeuverEstimator( );
+            // Check whether propagation needs to be stopped
+            // Propagation is stopped only if an apoapsis maneuver needs to be performed
+            isPropagationToBeStopped = guidanceSystem_->getIsApoapsisManeuverToBePerformed( );
 
-            // Retireve required apoapsis maneuver and feed it to the control system
-            controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
+            // If propagation is to be stopped, to add Delta V to state, run remaining pre-maneuver processes
+            if ( isPropagationToBeStopped )
+            {
+                // Run maneuver estimator
+                guidanceSystem_->runManeuverEstimator( currentEstimatedState.second,
+                                                       navigationSystem_->getCurrentEstimatedMeanMotion( ),
+                                                       navigationSystem_->getRadius( ) );
+
+                // Retireve required apoapsis maneuver and feed it to the control system
+                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
+            }
 
             // Run house keeping routines
             runHouseKeepingRoutines( );
@@ -182,7 +195,8 @@ public:
      */
     bool isAerobrakingComplete( )
     {
-        return true;
+        return ( ( navigationSystem_->currentOrbitCounter_ == 1 ) &&
+                 ( navigationSystem_->getCurrentEstimatedTranslationalState( ).second[ 5 ] > ( 1.1 * mathematical_constants::PI ) ) );
     }
 
 private:

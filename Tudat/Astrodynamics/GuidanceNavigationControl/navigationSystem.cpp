@@ -62,7 +62,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     if ( !atmosphereEstimatorInitialized_ )
     {
         // Inform user
-        std::cout << "Calibrating Accelerometer" << std::endl;
+        std::cout << "Calibrating Accelerometer." << std::endl;
 
         // Initial estimate on error values
         Eigen::Vector6d initialErrorEstimate = Eigen::Vector6d::Zero( );
@@ -348,10 +348,10 @@ void NavigationSystem::runAtmosphereEstimator(
         if ( numberOfSamplesForMovingAverage > 1 )
         {
             // If the number is larger than the number of samples to be used, use limiting value
-            if ( numberOfSamplesForMovingAverage > numberOfAtmosphereSamplesForEstimation_ )
+            if ( numberOfSamplesForMovingAverage > numberOfRequiredAtmosphereSamplesForInitiation_ )
             {
                 atmosphereEstimatorInitialized_ = true;
-                numberOfSamplesForMovingAverage = numberOfAtmosphereSamplesForEstimation_;
+                numberOfSamplesForMovingAverage = numberOfRequiredAtmosphereSamplesForInitiation_;
             }
 
             // Compute moving average
@@ -360,7 +360,7 @@ void NavigationSystem::runAtmosphereEstimator(
                 modelSpecificParameters += historyOfEstimatedAtmosphereParameters_.at(
                             historyOfEstimatedAtmosphereParameters_.size( ) - ( i + 1 ) );
             }
-            modelSpecificParameters /= numberOfAtmosphereSamplesForEstimation_;
+            modelSpecificParameters /= numberOfRequiredAtmosphereSamplesForInitiation_;
         }
         vectorOfModelSpecificParameters = utilities::convertEigenVectorToStlVector( modelSpecificParameters );
 

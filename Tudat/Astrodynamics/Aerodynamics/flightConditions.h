@@ -56,7 +56,7 @@ protected:
         airspeed_flight_condition,
         geodetic_latitude_condition,
         dynamic_pressure_condition,
-        aerodynamic_heat_flux
+        aerodynamic_heat_rate
     };
 
 public:
@@ -329,18 +329,18 @@ public:
         return scalarFlightConditions_.at( dynamic_pressure_condition );
     }
 
-    //! Function to retrieve (and compute if necessary) the current aerodynamic heat flux
+    //! Function to retrieve (and compute if necessary) the current aerodynamic heat rate
     /*!
-     * Function to retrieve (and compute if necessary) the current aerodynamic heat flux
-     * \return Current aerodynamic heat flux
+     * Function to retrieve (and compute if necessary) the current aerodynamic heat rate
+     * \return Current aerodynamic heat rate
      */
-    double getCurrentAerodynamicHeatFlux( )
+    double getCurrentAerodynamicHeatRate( )
     {
-        if( scalarFlightConditions_.count( aerodynamic_heat_flux ) == 0 )
+        if( scalarFlightConditions_.count( aerodynamic_heat_rate ) == 0 )
         {
-            computeAerodynamicHeatFlux( );
+            computeAerodynamicHeatRate( );
         }
-        return scalarFlightConditions_.at( aerodynamic_heat_flux );
+        return scalarFlightConditions_.at( aerodynamic_heat_rate );
     }
 
     //! Function to retrieve (and compute if necessary) the current freestream pressure
@@ -586,11 +586,11 @@ private:
                 getCurrentDensity( ) * currentAirspeed * currentAirspeed;
     }
 
-    //! Function to compute and set the current aerodynamic heat flux.
-    void computeAerodynamicHeatFlux( )
+    //! Function to compute and set the current aerodynamic heat rate.
+    void computeAerodynamicHeatRate( )
     {
         double currentAirspeed = getCurrentAirspeed( );
-        scalarFlightConditions_[ aerodynamic_heat_flux ] = 0.5 *
+        scalarFlightConditions_[ aerodynamic_heat_rate ] = 0.5 *
                 getCurrentDensity( ) * currentAirspeed * currentAirspeed * currentAirspeed;
     }
 

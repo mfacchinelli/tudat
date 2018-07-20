@@ -19,10 +19,7 @@
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen
-{
-typedef Eigen::Matrix< double, 16, 1 > Vector16d;
-}
+namespace Eigen { typedef Eigen::Matrix< double, 16, 1 > Vector16d; }
 
 namespace tudat
 {
