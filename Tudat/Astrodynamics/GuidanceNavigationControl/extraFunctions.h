@@ -15,6 +15,7 @@
 #include <iostream>
 
 #include "Tudat/Basics/basicTypedefs.h"
+#include "Tudat/Astrodynamics/Aerodynamics/atmosphereModel.h"
 
 namespace tudat
 {
@@ -54,6 +55,12 @@ Eigen::Matrix6d computeStateTransitionMatrix( const Eigen::Vector6d& cartesianSt
 double areaBisectionFunction( const double currentTimeGuess, const double constantTimeStep,
                               const Eigen::VectorXd& onboardTime,
                               const std::vector< double >& estimatedAerodynamicAccelerationMagnitude );
+
+//! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
+double lowerAltitudeBisectionFunction( );
+
+//! Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
+double upperAltitudeBisectionFunction( );
 
 //! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
 /*!

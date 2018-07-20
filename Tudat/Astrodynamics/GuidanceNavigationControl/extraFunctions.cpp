@@ -1,10 +1,13 @@
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
 
 #include "Tudat/Basics/utilities.h"
+
+#include "Tudat/Astrodynamics/Aerodynamics/customConstantTemperatureAtmosphere.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 #include "Tudat/Mathematics/BasicMathematics/nearestNeighbourSearch.h"
-#include "Tudat/Astrodynamics/Aerodynamics/customConstantTemperatureAtmosphere.h"
 
 namespace tudat
 {
@@ -24,8 +27,7 @@ Eigen::Matrix6d computeStateTransitionMatrix( const Eigen::Vector6d& cartesianSt
     // Pre-compute recurring terms
     double radialDistance = cartesianState.segment( 0, 3 ).norm( );
     double radialDistanceSquared = radialDistance * radialDistance;
-    double radialDistanceToTheThree = radialDistanceSquared * radialDistance;
-    double gravityRecurringTermOne = planetGravitationalParameter / radialDistanceToTheThree;
+    double gravityRecurringTerm = planetGravitationalParameter / radialDistanceSquared / radialDistance;
 
     // Add terms due to velocity
     stateTransitionMatrix( 0, 3 ) = 1.0;
@@ -33,27 +35,25 @@ Eigen::Matrix6d computeStateTransitionMatrix( const Eigen::Vector6d& cartesianSt
     stateTransitionMatrix( 2, 5 ) = 1.0;
 
     // Add terms due to gravitational acceleration
-    stateTransitionMatrix( 3, 0 ) = gravityRecurringTermOne * ( 3.0 * cartesianState[ 0 ] *
+    stateTransitionMatrix( 3, 0 ) = gravityRecurringTerm * ( 3.0 * cartesianState[ 0 ] *
             cartesianState[ 0 ] / radialDistanceSquared - 1.0 );
-    stateTransitionMatrix( 4, 0 ) = 3.0 * gravityRecurringTermOne / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 1 ];
-    stateTransitionMatrix( 5, 0 ) = 3.0 * gravityRecurringTermOne / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 2 ];
+    stateTransitionMatrix( 4, 0 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 1 ];
+    stateTransitionMatrix( 5, 0 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 2 ];
 
-    stateTransitionMatrix( 3, 1 ) = 3.0 * gravityRecurringTermOne / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 1 ];
-    stateTransitionMatrix( 4, 1 ) = gravityRecurringTermOne * ( 3.0 * cartesianState[ 1 ] *
+    stateTransitionMatrix( 3, 1 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 1 ];
+    stateTransitionMatrix( 4, 1 ) = gravityRecurringTerm * ( 3.0 * cartesianState[ 1 ] *
             cartesianState[ 1 ] / radialDistanceSquared - 1.0 );
-    stateTransitionMatrix( 5, 1 ) = 3.0 * gravityRecurringTermOne / radialDistanceSquared * cartesianState[ 1 ] * cartesianState[ 2 ];
+    stateTransitionMatrix( 5, 1 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 1 ] * cartesianState[ 2 ];
 
-    stateTransitionMatrix( 3, 2 ) = 3.0 * gravityRecurringTermOne / radialDistanceSquared * cartesianState[ 1 ] * cartesianState[ 2 ];
-    stateTransitionMatrix( 4, 2 ) = 3.0 * gravityRecurringTermOne / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 2 ];
-    stateTransitionMatrix( 5, 2 ) = gravityRecurringTermOne * ( 3.0 * cartesianState[ 2 ] *
+    stateTransitionMatrix( 3, 2 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 1 ] * cartesianState[ 2 ];
+    stateTransitionMatrix( 4, 2 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 2 ];
+    stateTransitionMatrix( 5, 2 ) = gravityRecurringTerm * ( 3.0 * cartesianState[ 2 ] *
             cartesianState[ 2 ] / radialDistanceSquared - 1.0 );
 
     // Add terms due to aerodynamic acceleration
     stateTransitionMatrix( 3, 3 ) = - density * aerodynamicParameters * std::fabs( cartesianState[ 3 ] );
     stateTransitionMatrix( 4, 4 ) = - density * aerodynamicParameters * std::fabs( cartesianState[ 4 ] );
     stateTransitionMatrix( 5, 5 ) = - density * aerodynamicParameters * std::fabs( cartesianState[ 5 ] );
-
-    std::cout << stateTransitionMatrix << std::endl;
 
     // Give output
     return stateTransitionMatrix;
@@ -76,6 +76,101 @@ double areaBisectionFunction( const double currentTimeGuess, const double consta
 
     // Return difference in areas
     return upperSliceQuadratureResult - lowerSliceQuadratureResult;
+}
+
+//! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
+double lowerAltitudeBisectionFunction( const double currentAltitudeGuess, const double estimatedApoapsisRadius,
+                                       const double planetaryRadius, const double planetaryGravitationalParameter,
+                                       const double atmosphericInterfaceRadius,
+                                       const double maximumHeatRate, const double maximumHeatLoad,
+                                       const boost::shared_ptr< aerodynamics::AtmosphereModel > atmosphereModel )
+{
+    using mathematical_constants::PI;
+
+    // Initial conditions
+    double semiMajorAxis = 0.5 * ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
+    double eccentricity = ( estimatedApoapsisRadius - currentAltitudeGuess - planetaryRadius ) /
+            ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
+    double semiLatusRectum = semiMajorAxis * ( 1.0 - eccentricity * eccentricity );
+
+    // Initialize history of interesting values
+    double altitude, velocity, heatRate;
+    std::vector< double > historyOfTrueAnomalies, historyOfAltitudes, historyOfVelocities, historyOfHeatRates;
+
+    // Compute true anomaly at atosphere interface
+    double atmosphereInterfaceTrueAnomaly = std::acos( ( semiLatusRectum / atmosphericInterfaceRadius - 1.0 ) / eccentricity );
+
+    // Compute parameters during atmosphere pass
+    trueAnomalyStepSize = unit_conversions::convertDegreesToRadians( 0.5 );
+    for ( double trueAnomaly = -atmosphereInterfaceTrueAnomaly; trueAnomaly <= atmosphereInterfaceTrueAnomaly;
+          trueAnomaly += trueAnomalyStepSize )
+    {
+        // Compute altitude and velocity
+        altitude = basic_astrodynamics::computeKeplerRadialDistance( semiMajorAxis, eccentricity, trueAnomaly ) - planetaryRadius;
+        velocity = basic_astrodynamics::computeKeplerOrbitalVelocity( semiMajorAxis, eccentricity, trueAnomaly,
+                                                                      planetaryGravitationalParameter );
+
+        // Compute atmospheric heating
+        heatRate = 0.5 * std::pow( velocity, 3 ) * atmosphereModel->getDensity( altitude, 0.0, 0.0, 0.0 );
+
+        // Save values to history
+        historyOfTrueAnomalies.push_back( trueAnomaly );
+        historyOfAltitudes.push_back( altitude + planetaryRadius );
+        historyOfHeatRates.push_back( heatRate );
+    }
+
+    // Convert change in true anomaly to time step
+    Eigen::VectorXd timeSteps = ( utilities::convertStlVectorToEigenVector( historyOfAltitudes ) ).square( ) /
+            std::sqrt( planetaryGravitationalParameter * semiLatusRectum ) * trueAnomalyStepSize;
+
+    // Compute heat load by integrating heat flux
+    double heatLoad = ( timeSteps.cwiseProduct( utilities::convertStlVectorToEigenVector( historyOfHeatRates ) ) ).sum( );
+
+    // Return value to to indicate closeness to limiting value
+    return ( utilities::convertStlVectorToEigenVector( historyOfHeatRates ).maxCoeff( ) - maximumHeatRate ) * (
+                heatLoad - maximumHeatLoad );
+}
+
+//! Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
+double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const double estimatedApoapsisRadius,
+                                       const double planetaryRadius, const double planetaryGravitationalParameter,
+                                       const double atmosphericInterfaceRadius, const double minimumDynamicPressure,
+                                       const boost::shared_ptr< aerodynamics::AtmosphereModel > atmosphereModel )
+{
+    using mathematical_constants::PI;
+
+    // Initial conditions
+    double semiMajorAxis = 0.5 * ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
+    double eccentricity = ( estimatedApoapsisRadius - currentAltitudeGuess - planetaryRadius ) /
+            ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
+
+    // Initialize history of interesting values
+    double altitude, velocity, dynamicPressure;
+    std::vector< double > historyOfDynamicPressures;
+
+    // Compute true anomaly at atosphere interface
+    double atmosphereInterfaceTrueAnomaly = std::acos( ( semiMajorAxis * ( 1.0 - eccentricity * eccentricity ) /
+                                                         atmosphericInterfaceRadius - 1.0 ) / eccentricity );
+
+    // Compute parameters during atmosphere pass
+    trueAnomalyStepSize = unit_conversions::convertDegreesToRadians( 0.5 );
+    for ( double trueAnomaly = -atmosphereInterfaceTrueAnomaly; trueAnomaly <= atmosphereInterfaceTrueAnomaly;
+          trueAnomaly += trueAnomalyStepSize )
+    {
+        // Compute altitude and velocity
+        altitude = basic_astrodynamics::computeKeplerRadialDistance( semiMajorAxis, eccentricity, trueAnomaly ) - planetaryRadius;
+        velocity = basic_astrodynamics::computeKeplerOrbitalVelocity( semiMajorAxis, eccentricity, trueAnomaly,
+                                                                      planetaryGravitationalParameter );
+
+        // Compute atmospheric heating
+        dynamicPressure = 0.5 * std::pow( velocity, 2 ) * atmosphereModel->getDensity( altitude, 0.0, 0.0, 0.0 );
+
+        // Save values to history
+        historyOfDynamicPressures.push_back( dynamicPressure );
+    }
+
+    // Return maximum value of dynamic pressure w.r.t. threshold value
+    return utilities::convertStlVectorToEigenVector( historyOfDynamicPressures ).maxCoeff( ) - minimumDynamicPressure;
 }
 
 //! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
@@ -133,8 +228,9 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
     {
         // Find current expected measurement
         expectedDensity[ i ] = std::log( aerodynamics::threeTermAtmosphereModel(
-                    estimatedAltitudesBelowAtmosphericInterface[ i ], 0.0, 0.0, 0.0, std::exp( currentParameterEstimate[ 0 ] ),
-                referenceAltitude, 1.0 / currentParameterEstimate[ 1 ], { currentParameterEstimate[ 2 ],
+                                             estimatedAltitudesBelowAtmosphericInterface[ i ], 0.0, 0.0, 0.0,
+                                             std::exp( currentParameterEstimate[ 0 ] ), referenceAltitude,
+                                         1.0 / currentParameterEstimate[ 1 ], { currentParameterEstimate[ 2 ],
                     currentParameterEstimate[ 3 ], currentParameterEstimate[ 4 ] } ) );
 
         // Find current Jacobian matrix

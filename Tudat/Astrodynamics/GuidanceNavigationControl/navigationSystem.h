@@ -116,34 +116,35 @@ public:
     //! Function to create navigation filter and root-finder objects for onboard state estimation.
     void createNavigationSystemObjects(
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
-            const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel );
-
-    //! Function to run the State Estimator (SE).
-    void runStateEstimator( const double currentTime, Eigen::Vector7d& currentExternalMeasurementVector,
-                            const Eigen::Vector3d& currentGyroscopeMeasurement )
+            const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
     {
-        // Set time
-        currentTime_ = currentTime;
+        // Create filter object
+        navigationFilter_ = filters::createFilter< >( navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel );
 
-        // Convert translational acceleration to inertial frame
-        currentExternalMeasurementVector.segment( 0, 3 ) =
-                linear_algebra::convertVectorToQuaternionFormat(
-                    currentEstimatedRotationalState_.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
-                currentExternalMeasurementVector.segment( 0, 3 );
+        // Set initial time
+        currentTime_ = navigationFilter_->getInitialTime( );
+        currentOrbitCounter_ = 0;
 
-        // Update filter
-        navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
+        // Retrieve navigation filter step size and estimated state
+        navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
+        Eigen::Vector16d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
 
-        // Extract estimated state and update navigation estimates
-        Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-        currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 ).normalized( );
-        currentEstimatedRotationalState_.segment( 4, 3 ) =
-                removeErrorsFromInertialMeasurementUnitMeasurement( currentGyroscopeMeasurement, updatedEstimatedState.segment( 10, 6 ) );
-        setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
+        // Set initial rotational state
+        currentEstimatedRotationalState_.setZero( );
+        currentEstimatedRotationalState_.segment( 0, 4 ) = initialEstimatedState.segment( 6, 4 ).normalized( );
+
+        // Set initial translational state
+        setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
         // this function also automatically stores the full state estimates at the current time
 
         // Update body and acceleration maps
         updateOnboardModel( );
+
+        // Create root-finder object for bisection of aerodynamic acceleration curve
+        // The values inserted are the tolerance in independent value (i.e., about twice the difference between
+        // two time steps) and the maximum number of iterations (i.e., 25 iterations)
+        areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >(
+                    2.0 * navigationRefreshStepSize_ / currentTime_, 25 );
     }
 
     //! Function to run post-atmosphere processes.
@@ -603,7 +604,7 @@ private:
     //! History of estimated translational (in Cartesian and Keplerian elements) and rotational states.
     /*!
      *  History of estimated translational (in Cartesian and Keplerian elements) and rotational states,
-     *  stored as a map, where the keys are times and the mapped value is a pair, whose first element is the pair
+     *  stored as a map, where the keys are times and the mapped values are pairs, whose first element is the pair
      *  of Cartesian and Keplerian elements, whereas the second element is the rotational state.
      */
     std::map< double, std::pair< std::pair< Eigen::Vector6d, Eigen::Vector6d >, Eigen::Vector7d > > historyOfEstimatedStates_;

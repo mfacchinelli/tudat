@@ -27,40 +27,6 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
             ( currentInertialMeasurementUnitMeasurement - inertialMeasurementUnitErrors.segment( 0, 3 ) );
 }
 
-//! Function to create navigation filter and root-finder objects for onboard state estimation.
-void NavigationSystem::createNavigationSystemObjects(
-        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
-        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
-{
-    // Create filter object
-    navigationFilter_ = filters::createFilter< >( navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel );
-
-    // Set initial time
-    currentTime_ = navigationFilter_->getInitialTime( );
-    currentOrbitCounter_ = 0;
-
-    // Retrieve navigation filter step size and estimated state
-    navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
-    Eigen::Vector16d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-
-    // Set initial rotational state
-    currentEstimatedRotationalState_.setZero( );
-    currentEstimatedRotationalState_.segment( 0, 4 ) = initialEstimatedState.segment( 6, 4 ).normalized( );
-
-    // Set initial translational state
-    setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
-    // this function also automatically stores the full state estimates at the current time
-
-    // Update body and acceleration maps
-    updateOnboardModel( );
-
-    // Create root-finder object for bisection of aerodynamic acceleration curve
-    // The values inserted are the tolerance in independent value (i.e., about twice the difference between
-    // two time steps) and the maximum number of interations (i.e., 25 iterations)
-    areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< > >(
-                2.0 * navigationRefreshStepSize_ / currentTime_, 25 );
-}
-
 //! Function to create the onboard environment updater.
 void NavigationSystem::createOnboardEnvironmentUpdater( )
 {
@@ -157,7 +123,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
 
     // Set root-finder function as the area below the acceleration curve
     double estimatedActualPeriapseTime = areaBisectionRootFinder_->execute(
-                boost::make_shared< basic_mathematics::FunctionProxy< > >(
+                boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
                     boost::bind( &areaBisectionFunction, _1, navigationRefreshStepSize_, timesBelowAtmosphericInterface,
                                  vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ) ) );
 

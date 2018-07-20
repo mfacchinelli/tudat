@@ -125,6 +125,10 @@ public:
             // Stop propagation to add Delta V to actual state
             isPropagationToBeStopped = true;
 
+            // Perform corridor and maneuver estimations
+            guidanceSystem_->runCorridorEstimator( navigationSystem_->currentOrbitCounter_ );
+            guidanceSystem_->runManeuverEstimator( );
+
             // Retireve required apoapsis maneuver and feed it to the control system
             controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
 
@@ -162,10 +166,6 @@ public:
             // Perform periapse time and atmosphere estimations
             navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
 
-            // Perform corridor and maneuver estimations
-            guidanceSystem_->runCorridorEstimator( );
-            guidanceSystem_->runManeuverEstimator( );
-
             // Invert completion flags
             maneuveringPhaseComplete_ = false;
             atmosphericPhaseComplete_ = true;
@@ -182,7 +182,7 @@ public:
      */
     bool isAerobrakingComplete( )
     {
-        return false;
+        return true;
     }
 
 private:
