@@ -22,6 +22,7 @@
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
 #include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
+#include "Tudat/SimulationSetup/PropagationSetup/dynamicsSimulator.h"
 #include "Tudat/Mathematics/Filters/createFilter.h"
 
 //! Typedefs and using statements to simplify code.
@@ -109,7 +110,15 @@ public:
     //! Destructor.
     ~NavigationSystem( ) { }
 
-    //! Function to create navigation filter and root-finder objects for onboard state estimation.
+    //! Function to create navigation objects for onboard state estimation.
+    /*!
+     *  Function to create navigation objects for onboard state estimation. This function should be called before any feature of
+     *  the navigation system is used, as it creates most of the objects that are needed for state estimation (i.e., navigation
+     *  filter, root-finder, onboard integrator and propagator settings).
+     *  \param onboardSystemModel Function that defines the onboard system model (i.e., Cowell equations of motion).
+     *  \param onboardMeasurementModel Function that defines the onboard measurement model (i.e., simulated IMU and star tracker
+     *      measurements).
+     */
     void createNavigationSystemObjects(
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
@@ -141,6 +150,21 @@ public:
         // two time steps) and the maximum number of iterations (i.e., 25 iterations)
         areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >(
                     2.0 * navigationRefreshStepSize_ / currentTime_, 25 );
+
+        // Create object of dependent variables to save
+        std::vector< boost::shared_ptr< propagators::SingleDependentVariableSaveSettings > > dependentVariablesList;
+        dependentVariablesList.push_back( boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
+                                              propagators::local_dynamic_pressure_dependent_variable, spacecraftName_, planetName_ ) );
+        dependentVariablesList.push_back( boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
+                                              propagators::local_aerodynamic_heat_rate_dependent_variable, spacecraftName_, planetName_ ) );
+
+        // Create object for propagation of spacecraft state with user-provided initial conditions
+        onboardIntegratorSettings_ = boost::make_shared< numerical_integrators::IntegratorSettings< double > >(
+                    numerical_integrators::rungeKutta4, 0.0, 10.0 );
+        onboardPropagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< double > >(
+                    std::vector< std::string >( 1, planetName_ ), onboardAccelerationModelMap_,
+                    std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ), 0.0, propagators::cowell,
+                    boost::make_shared< propagators::DependentVariableSaveSettings >( dependentVariablesList, false ) );
     }
 
     //! Function to run the State Estimator (SE).
@@ -172,6 +196,17 @@ public:
     }
 
     //! Function to run post-atmosphere processes.
+    /*!
+     *  Function to run post-atmosphere processes. This function takes the map of full accelerations measured by the IMU and
+     *  after processing them, it feeds them to the functions that run the post-atosphere processes. The processing consists of
+     *  reducing the accelerations to only the values that are measured below the atmospheric interface altitude. The
+     *  post-atmosphere processes are carried out in the following order:
+     *      - post-process accelerations: calibrate (if atmosphere estimator is not initialized) and remove accelerometer errors
+     *      - run PTE only if atmosphere estimator (AE) is initialized
+     *      - run AE to estimate atmospheric properties
+     *  \param mapOfMeasuredAerodynamicAcceleration Map of time and measured aerodynamic acceleration as measured by the IMU, i.e.,
+     *      before any errors have been removed.
+     */
     void runPostAtmosphereProcesses( const std::map< double, Eigen::Vector3d >& mapOfMeasuredAerodynamicAcceleration )
     {
         using mathematical_constants::PI;
@@ -237,6 +272,57 @@ public:
             runAtmosphereEstimator( mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
                                     vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
         }
+    }
+
+    //! Function to propagate translational Cartesian state to specified termination settings.
+    /*!
+     *  Function to propagate translational Cartesian state to specified termination settings. Note that this function does not
+     *  continuously estimate the spacecraft state, but instead it is called by the navigation system or any other onboard system
+     *  to propagate the current estimated state to some termination condition. The initial time and state are automatically set to
+     *  the current time and current estimated translational Cartesian state, respectively, but they can be overwritten by setting
+     *  them from the input.
+     *  \param propagationTerminationSettings Termination settings to be used to stop the propagation.
+     *  \return Pair of dynamics simulator results. The first element is the map of time and propagated state, whereas the second
+     *      one is the map of time and dependent variable values.
+     */
+    std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >
+    propagateStateToTerminationSettings(
+            const boost::shared_ptr< propagators::PropagationTerminationSettings > propagationTerminationSettings,
+            const Eigen::Vector6d& initialTranslationalCartesianState = Eigen::Vector6d::Zero( ), const double initialTime = -1.0 )
+    {
+        // Set initial time
+        if ( initialTime == -1.0 )
+        {
+            onboardIntegratorSettings_->initialTime_ = currentTime_;
+        }
+        else
+        {
+            onboardIntegratorSettings_->initialTime_ = initialTime;
+        }
+
+        // Set initial state
+        if ( initialTranslationalCartesianState.isApprox( Eigen::Vector6d::Zero( ) ) )
+        {
+            onboardPropagatorSettings_->resetInitialStates( currentEstimatedCartesianState_ );
+        }
+        else
+        {
+            onboardPropagatorSettings_->resetInitialStates( initialTranslationalCartesianState );
+        }
+
+        // Set propagation settings
+        onboardPropagatorSettings_->resetTerminationSettings( propagationTerminationSettings );
+
+        // Create dynamics simulator and propagate
+        propagators::SingleArcDynamicsSimulator< double, double > dynamicsSimulator(
+                    onboardBodyMap_, onboardIntegratorSettings_, onboardPropagatorSettings_ );
+
+        // Retrieve results from onboard computer and systems
+        std::map< double, Eigen::VectorXd > translationalStateResult = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
+        std::map< double, Eigen::VectorXd > dependentVariablesResult = dynamicsSimulator.getDependentVariableHistory( );
+
+        // Give output
+        return std::make_pair( translationalStateResult, dependentVariablesResult );
     }
 
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
@@ -394,6 +480,76 @@ public:
     //! Function to retireve the atmospheric interface radius of the body being orbited.
     double getAtmosphericInterfaceRadius( ) { return atmosphericInterfaceRadius_; }
 
+    //! Function to set current Cartesian state to new value.
+    /*!
+     *  Function to set current Cartesian state to new value. The value of the Keplerian state is set
+     *  automatically by converting the Cartesian state to Keplerian elements. Also, the function updates the
+     *  history of translational (and rotational, although unchanged) to the new values.
+     *  \param newCurrentKeplerianState New Cartesian state at current time.
+     *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
+     */
+    void setCurrentEstimatedCartesianState( const Eigen::Vector6d& newCurrentCartesianState,
+                                            const Eigen::Matrix16d& newCurrentCovarianceMatrix = Eigen::Matrix16d::Zero( ) )
+    {
+        // Update navigation system current value
+        currentEstimatedCartesianState_ = newCurrentCartesianState;
+        currentEstimatedKeplerianState_ = orbital_element_conversions::convertCartesianToKeplerianElements(
+                    newCurrentCartesianState, planetaryGravitationalParameter_ );
+        storeCurrentTimeAndStateEstimates( ); // overwrite previous values
+
+        // Update navigation filter current value
+        Eigen::Vector16d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
+        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix16d::Zero( ) ) )
+        {
+            // Use previous value
+            Eigen::Matrix16d newCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+                                                                         newCurrentCovarianceMatrix );
+        }
+        else
+        {
+            // Use input value
+            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+                                                                         newCurrentCovarianceMatrix );
+        }
+    }
+
+    //! Function to set current Keplerian state to new value.
+    /*!
+     *  Function to set current Keplerian state to new value. The value of the Cartesian state is set
+     *  automatically by converting the Keplerian state to Cartesian elements. Also, the function updates the
+     *  history of translational (and rotational, although unchanged) to the new values.
+     *  \param newCurrentKeplerianState New Keplerian state at current time.
+     *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
+     */
+    void setCurrentEstimatedKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState,
+                                            const Eigen::Matrix16d& newCurrentCovarianceMatrix = Eigen::Matrix16d::Zero( ) )
+    {
+        // Update navigation system current value
+        currentEstimatedKeplerianState_ = newCurrentKeplerianState;
+        currentEstimatedCartesianState_ = orbital_element_conversions::convertKeplerianToCartesianElements(
+                    newCurrentKeplerianState, planetaryGravitationalParameter_ );
+        storeCurrentTimeAndStateEstimates( ); // overwrite previous values
+
+        // Update navigation filter current value
+        Eigen::Vector16d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
+        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix16d::Zero( ) ) )
+        {
+            // Use previous value
+            Eigen::Matrix16d newCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+                                                                         newCurrentCovarianceMatrix );
+        }
+        else
+        {
+            // Use input value
+            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+                                                                         newCurrentCovarianceMatrix );
+        }
+    }
+
     //! Clear history of estimated states and accelerations for the current orbit.
     void clearCurrentOrbitEstimationHistory( )
     {
@@ -490,36 +646,6 @@ private:
             const std::map< double, Eigen::Vector6d >& mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
-    //! Function to set current Cartesian state to new value.
-    /*!
-     *  Function to set current Cartesian state to new value. The value of the Keplerian state is set
-     *  automatically by converting the Cartesian state to Keplerian elements. Also, the function updates the
-     *  history of translational (and rotational, although unchanged) to the new values.
-     *  \param newCurrentKeplerianState New Cartesian state at current time.
-     */
-    void setCurrentEstimatedCartesianState( const Eigen::Vector6d& newCurrentCartesianState )
-    {
-        currentEstimatedCartesianState_ = newCurrentCartesianState;
-        currentEstimatedKeplerianState_ = orbital_element_conversions::convertCartesianToKeplerianElements(
-                    newCurrentCartesianState, planetaryGravitationalParameter_ );
-        storeCurrentTimeAndStateEstimates( ); // overwrite previous values
-    }
-
-    //! Function to set current Keplerian state to new value.
-    /*!
-     *  Function to set current Keplerian state to new value. The value of the Cartesian state is set
-     *  automatically by converting the Keplerian state to Cartesian elements. Also, the function updates the
-     *  history of translational (and rotational, although unchanged) to the new values.
-     *  \param newCurrentKeplerianState New Keplerian state at current time.
-     */
-    void setCurrentEstimatedKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState )
-    {
-        currentEstimatedKeplerianState_ = newCurrentKeplerianState;
-        currentEstimatedCartesianState_ = orbital_element_conversions::convertKeplerianToCartesianElements(
-                    newCurrentKeplerianState, planetaryGravitationalParameter_ );
-        storeCurrentTimeAndStateEstimates( ); // overwrite previous values
-    }
-
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
     {
@@ -591,9 +717,6 @@ private:
     //! Function to propagate estimated state error.
     boost::function< Eigen::Matrix6d( const Eigen::Vector6d&, const double ) > stateTransitionMatrixFunction_;
 
-    //! Pointer to root-finder used to esimated the time of periapsis.
-    boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;
-
     //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
     unsigned int sphericalHarmonicsGravityIndex_;
 
@@ -615,6 +738,25 @@ private:
      *  body-fixed (local) to inertial (global or base) frame, whereas the rotational velocity is expressed in the body frame.
      */
     Eigen::Vector7d currentEstimatedRotationalState_;
+
+    //! Pointer to root-finder used to esimated the time of periapsis.
+    boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;
+
+    //! Pointer to integrator settings for onboard propagation.
+    /*!
+     *  Pointer to integrator settings for onboard propagation. Note that this object is not used to propagate the spacecraft
+     *  state over time (this is carried out by the navigationFilter_ object), but is used by the navigation system or other
+     *  systems to predict the spacecraft position at a future time.
+     */
+    boost::shared_ptr< numerical_integrators::IntegratorSettings< double > > onboardIntegratorSettings_;
+
+    //! Pointer to propagator settings for onboard propagation.
+    /*!
+     *  Pointer to propagator settings for onboard propagation. Note that this object is not used to propagate the spacecraft
+     *  state over time (this is carried out by the navigationFilter_ object), but is used by the navigation system or other
+     *  systems to predict the spacecraft position at a future time.
+     */
+    boost::shared_ptr< propagators::TranslationalStatePropagatorSettings< double > > onboardPropagatorSettings_;
 
     //! Vector denoting the bias and scale errors of the accelerometer after calibration.
     Eigen::Vector6d estimatedAccelerometerErrors_;

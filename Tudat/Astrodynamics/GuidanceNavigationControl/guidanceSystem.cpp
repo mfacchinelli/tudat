@@ -1,7 +1,9 @@
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/guidanceSystem.h"
 
-#include "Tudat/Mathematics/BasicMathematics/functionProxy.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
+#include "Tudat/Mathematics/BasicMathematics/functionProxy.h"
 
 namespace tudat
 {
@@ -10,41 +12,63 @@ namespace guidance_navigation_control
 {
 
 //! Function to run corridor estimator (CE).
-void GuidanceSystem::runCorridorEstimator( const Eigen::Vector6d& currentEstimatedKeplerianState,
+void GuidanceSystem::runCorridorEstimator( const double currentTime,
+                                           const Eigen::Vector6d& currentEstimatedKeplerianState,
                                            const double planetaryRadius,
                                            const double planetaryGravitationalParameter,
-                                           const double atmosphericInterfaceRadius,
-                                           const boost::function< double( double ) >& densityFunction )
+                                           const boost::function< std::pair< std::map< double, Eigen::VectorXd >,
+                                           std::map< double, Eigen::VectorXd > >(
+                                               const boost::shared_ptr< propagators::PropagationTerminationSettings >,
+                                               const Eigen::Vector6d& ) >& statePropagationFunction )
 {
     // Inform user
     std::cout << "Estimating Periapsis Corridor." << std::endl;
 
-    // Compute estimated apoapsis radius
-    double estimatedApoapsisRadius = computeCurrentEstimatedApoapsisRadius( currentEstimatedKeplerianState );
+    // Create propagation termination settings based on period to be used throughout the function
+    double terminationTime = currentTime + 2.0 / 3.0 *
+            basic_astrodynamics::computeKeplerOrbitalPeriod( currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter);
+    boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
+            boost::make_shared< propagators::PropagationTimeTerminationSettings >( terminationTime );
 
-    // Compute predicted periapsis altitude
-    double predictedPeriapsisAltitude = computeCurrentEstimatedPeriapsisRadius( currentEstimatedKeplerianState ) - planetaryRadius;
+    // Create reduced state propagation function where termination settings are already set
+    reducedStatePropagationFunction_ = boost::bind( statePropagationFunction, terminationSettings, _1 );
+
+    // Propagate state for two thirds of the orbit
+    std::map< double, Eigen::VectorXd > unchangedPropagatedState =
+            reducedStatePropagationFunction_( orbital_element_conversions::convertKeplerianToCartesianElements(
+                                                  currentEstimatedKeplerianState, planetaryGravitationalParameter ) ).first;
+
+    // Retrieve periapsis altitude
+    unsigned int i = 0;
+    Eigen::VectorXd historyOfAltitudes;
+    historyOfAltitudes.resize( unchangedPropagatedState.size( ) );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = unchangedPropagatedState.begin( );
+          mapIterator != unchangedPropagatedState.end( ); mapIterator++, i++ )
+    {
+        historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
+    }
+    double predictedPeriapsisAltitude = historyOfAltitudes.minCoeff( );
     std::cout << "Predicted periapsis altitude: " << predictedPeriapsisAltitude / 1.0e3 << " km" << std::endl;
 
     // Set root-finder boundaries for the lower altitude limits
-    altitudeBisectionRootFinder_->resetBoundaries( 75.0e3, 175.0e3 );
+    altitudeBisectionRootFinder_->resetBoundaries( 90.0e3, 120.0e3 );
 
-    // Set root-finder function as the area below the acceleration curve
+    // Set root-finder function as the heat rate and heat load calculator
     double estimatedLowerAltitudeBound = altitudeBisectionRootFinder_->execute(
                 boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                    boost::bind( &lowerAltitudeBisectionFunction, _1, estimatedApoapsisRadius, planetaryRadius,
-                                 planetaryGravitationalParameter, atmosphericInterfaceRadius, maximumAllowedHeatRate_,
-                                 maximumAllowedHeatLoad_, densityFunction ) ) );
+                    boost::bind( &lowerAltitudeBisectionFunction, _1, currentEstimatedKeplerianState, planetaryRadius,
+                                 planetaryGravitationalParameter, maximumAllowedHeatRate_, maximumAllowedHeatLoad_,
+                                 reducedStatePropagationFunction_ ) ) );
     std::cout << "Lower boundary: " << estimatedLowerAltitudeBound / 1.0e3 << " km" << std::endl;
 
     // Set root-finder boundaries for the upper altitude limits
-    altitudeBisectionRootFinder_->resetBoundaries( 75.0e3, 175.0e3 );
+    altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 150.0e3 );
 
-    // Set root-finder function as the area below the acceleration curve
+    // Set root-finder function as the dynamic pressure calculator
     double estimatedUpperAltitudeBound = altitudeBisectionRootFinder_->execute(
                 boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                    boost::bind( &upperAltitudeBisectionFunction, _1, estimatedApoapsisRadius, planetaryRadius,
-                                 planetaryGravitationalParameter, minimumAllowedDynamicPressure_, densityFunction ) ) );
+                    boost::bind( &upperAltitudeBisectionFunction, _1, currentEstimatedKeplerianState, planetaryRadius,
+                                 planetaryGravitationalParameter, minimumAllowedDynamicPressure_, reducedStatePropagationFunction_ ) ) );
     std::cout << "Upper boundary: " << estimatedUpperAltitudeBound / 1.0e3 << " km" << std::endl;
 
     // Check that lower altitude bound is indeed lower
@@ -68,13 +92,63 @@ void GuidanceSystem::runCorridorEstimator( const Eigen::Vector6d& currentEstimat
     double estimatedTargetPeriapsisAltitude = isAltitudeWithinBounds ? predictedPeriapsisAltitude :
                                                                        0.5 * ( estimatedLowerAltitudeBound +
                                                                                estimatedUpperAltitudeBound );
+
+    // Add scaling if spacecraft is in walk-in phase
+    estimatedTargetPeriapsisAltitude *= periapsisAltitudeWalkInScaling_;
     std::cout << "Tagert periapsis altitude: " << estimatedTargetPeriapsisAltitude / 1.0e3 << " km" << std::endl;
 
     // Save periapsis corridor altitudes to history
     historyOfEstimatedPeriapsisCorridorBoundaries_.push_back( std::make_pair( estimatedLowerAltitudeBound, estimatedUpperAltitudeBound ) );
 
     // Store corridor information to pair
-    pairOfPeriapsisTargetingInformation_ = std::make_pair( isAltitudeWithinBounds, estimatedTargetPeriapsisAltitude );
+    periapsisTargetingInformation_ = std::make_tuple( isAltitudeWithinBounds, predictedPeriapsisAltitude,
+                                                      estimatedTargetPeriapsisAltitude );
+}
+
+//! Function to run maneuver estimator (ME).
+void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
+                                           const Eigen::Vector6d& currentEstimatedKeplerianState,
+                                           const double currentEstimatedMeanAnomaly,
+                                           const double planetaryRadius )
+{
+    // Inform user
+    std::cout << "Estimating Apoapsis Maneuver." << std::endl;
+
+    // Set apoapsis maneuver vector to zero
+    scheduledApsoapsisManeuver_.setZero( );
+
+    // Compute predicted periapsis radius
+    double predictedPeriapsisAltitude = computeCurrentEstimatedPeriapsisRadius( currentEstimatedKeplerianState ) - planetaryRadius;
+    double differenceInPeriapsisAltitude = std::get< 2 >( periapsisTargetingInformation_ ) - predictedPeriapsisAltitude;
+
+    // Compute estimated maneuver in y-direction of local orbit frame
+    double nominalApoapsisManeuverMagnitude = 0.25 * currentEstimatedMeanAnomaly * differenceInPeriapsisAltitude * std::sqrt(
+                ( 1.0 + currentEstimatedKeplerianState[ 1 ] ) / ( 1.0 - currentEstimatedKeplerianState[ 1 ] ) );
+    std::cout << "Nominal mangitude: " << nominalApoapsisManeuverMagnitude << " m/s" << std::endl;
+
+    // Compute transformation from local to inertial frame
+    Eigen::Matrix3d transformationFromLocalToInertialFrame =
+            computeCurrentRotationFromLocalToInertialFrame( currentEstimatedCartesianState );
+
+    // Set root-finder boundaries for the maneuver estimation
+    maneuverBisectionRootFinder_->resetBoundaries( 2.0 * nominalApoapsisManeuverMagnitude, 0.5 * nominalApoapsisManeuverMagnitude );
+
+    // Set root-finder function as the heat rate and heat load calculator
+    double estimatedApoapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
+                boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                    boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState,
+                                 std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius, transformationFromLocalToInertialFrame,
+                                 reducedStatePropagationFunction_ ) ) );
+    std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
+              << "Ratio: " << estimatedApoapsisManeuverMagnitude / nominalApoapsisManeuverMagnitude << std::endl;
+
+    // Add magnitude to maneuver vector and save to hisotry
+    scheduledApsoapsisManeuver_[ 1 ] = estimatedApoapsisManeuverMagnitude;
+    historyOfApoapsisManeuverMagnitudes_.push_back( estimatedApoapsisManeuverMagnitude );
+
+    // Convert manveuver (i.e., Delta V vector) to inertial frame
+    scheduledApsoapsisManeuver_ = transformationFromLocalToInertialFrame * scheduledApsoapsisManeuver_;
+    std::cout << "Scheduled maneuver: " << scheduledApsoapsisManeuver_.transpose( ) << std::endl;
 }
 
 } // namespace guidance_navigation_control

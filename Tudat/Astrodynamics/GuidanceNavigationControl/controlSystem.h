@@ -180,7 +180,7 @@ private:
      *  Function to compute the current commanded quaternion to base frame. The body-fixed frame is assumed to correspond
      *  to the trajectory frame. Thus, the direction cosine matrix (DCM) describing the rotation from trajectory to inertial
      *  frame can be found and taken as full rotation from body-fixed to inertial. The DCM is found by using the velocity and
-     *  radial distance vector. The velocity (unit) vector corresponds directly to the x-axis of the trajectory frame, whereas
+     *  radial distance vector. The airspeed (unit) vector corresponds directly to the x-axis of the trajectory frame, whereas
      *  the z-axis is computed by subtracting from the radial distance (unit) vector its projection on the x-axis. Then, the
      *  y-axis is determined via the right-hand rule (i.e., with the cross product). The commanded state thus corresponds to a
      *  state with zero angle of attack, angle of side-slip and bank angle. Note that since the estimated state is used, the actual
@@ -195,7 +195,7 @@ private:
         Eigen::Matrix3d transformationFromInertialToTrajectoryFrame;
 
         // Find the trajectory x-axis unit vector
-        Eigen::Vector3d xUnitVector = currentEstimatedStateVector.segment( 3, 3 ).normalized( );
+        Eigen::Vector3d xUnitVector = ( currentEstimatedStateVector.segment( 3, 3 ) - Eigen::Vector3d::Zero( ) ).normalized( );
         transformationFromInertialToTrajectoryFrame.col( 0 ) = xUnitVector;
 
         // Find trajectory z-axis unit vector

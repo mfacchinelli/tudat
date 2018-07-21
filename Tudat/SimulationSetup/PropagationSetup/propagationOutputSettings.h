@@ -343,7 +343,7 @@ public:
      */
     DependentVariableSaveSettings(
             const std::vector< boost::shared_ptr< SingleDependentVariableSaveSettings > > dependentVariables,
-            const bool printDependentVariableTypes = 1 ):
+            const bool printDependentVariableTypes = true ):
         dependentVariables_( dependentVariables ), printDependentVariableTypes_( printDependentVariableTypes ){ }
 
     //! List of settings for parameters that are to be saved.

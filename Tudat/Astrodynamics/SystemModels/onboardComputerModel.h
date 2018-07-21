@@ -52,6 +52,8 @@ public:
         controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem ),
         instrumentsModel_( instrumentsModel )
     {
+        dummyCallCounter_ = 0;
+
         // Define internal constants
         maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with no need to perform a maneuver
         atmosphericPhaseComplete_ = false;
@@ -122,12 +124,11 @@ public:
             // Determine in which phase of aerobraking the spacecraft is and perform corridor estimation
             guidanceSystem_->determineAerobrakingPhase( currentEstimatedState.second,
                                                         navigationSystem_->getAtmosphereInitiationIndicators( ) );
-            guidanceSystem_->runCorridorEstimator( currentEstimatedState.second,
+            guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.second,
                                                    navigationSystem_->getRadius( ),
                                                    navigationSystem_->getStandardGravitationalParameter( ),
-                                                   navigationSystem_->getAtmosphericInterfaceRadius( ),
-                                                   boost::bind( &NavigationSystem::getDensityAtSpecifiedConditions,
-                                                                navigationSystem_, _1, 0.0 ) );
+                                                   boost::bind( &NavigationSystem::propagateStateToTerminationSettings,
+                                                                navigationSystem_, _1, _2, -1.0 ) );
 
             // Check whether propagation needs to be stopped
             // Propagation is stopped only if an apoapsis maneuver needs to be performed
@@ -137,12 +138,20 @@ public:
             if ( isPropagationToBeStopped )
             {
                 // Run maneuver estimator
-                guidanceSystem_->runManeuverEstimator( currentEstimatedState.second,
+                guidanceSystem_->runManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
                                                        navigationSystem_->getCurrentEstimatedMeanMotion( ),
                                                        navigationSystem_->getRadius( ) );
 
-                // Retireve required apoapsis maneuver and feed it to the control system
-                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
+                // Retireve required apoapsis maneuver
+                Eigen::Vector3d scheduledApoapsisManeuver = guidanceSystem_->getScheduledApoapsisManeuver( );
+
+                // Feed maneuver to the navigation system
+                Eigen::Vector6d updatedCurrentEstimatedCartesianState = navigationSystem_->getCurrentEstimatedTranslationalState( ).first;
+                updatedCurrentEstimatedCartesianState.segment( 3, 3 ) += scheduledApoapsisManeuver;
+                navigationSystem_->setCurrentEstimatedCartesianState( updatedCurrentEstimatedCartesianState );
+
+                // Feed maneuver to the control system
+                controlSystem_->updateOrbitController( scheduledApoapsisManeuver );
             }
 
             // Run house keeping routines
@@ -195,11 +204,13 @@ public:
      */
     bool isAerobrakingComplete( )
     {
-        return ( ( navigationSystem_->currentOrbitCounter_ == 1 ) &&
-                 ( navigationSystem_->getCurrentEstimatedTranslationalState( ).second[ 5 ] > ( 1.1 * mathematical_constants::PI ) ) );
+        dummyCallCounter_++;
+        return ( dummyCallCounter_ > 2 );
     }
 
 private:
+
+    unsigned int dummyCallCounter_;
 
     //! Function to run house keeping routines when new orbit is initiated.
     void runHouseKeepingRoutines( )

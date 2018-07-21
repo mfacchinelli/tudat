@@ -44,7 +44,7 @@ void NavigationSystem::createOnboardEnvironmentUpdater( )
                 onboardBodyMap_, environmentModelsToUpdate, integratedTypeAndBodyList );
 }
 
-//! Function to remove and calibrate (first time only) accelerometer errors.
+//! Function to post-process the accelerometer measurements.
 void NavigationSystem::postProcessAccelerometerMeasurements(
         std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
         const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface,
@@ -207,17 +207,12 @@ void NavigationSystem::runPeriapseTimeEstimator(
             estimatedErrorInCartesianState * timeFromPeriapsisToCurrentPosition;
 
     // Update navigation system state estimates
-    setCurrentEstimatedCartesianState( updatedCurrentEstimatedCartesianState );
+    setCurrentEstimatedCartesianState( updatedCurrentEstimatedCartesianState, Eigen::Matrix16d::Identity( ) );
+    // the covariance matrix is reset to the identity, since the new state is improved in accuracy
+
     std::cout << "Before: " << initialEstimatedKeplerianState.transpose( ) << std::endl;
     std::cout << "Mid: " << correctedInitialEstimatedKeplerianState.transpose( ) << std::endl;
     std::cout << "After: " << currentEstimatedKeplerianState_.transpose( ) << std::endl;
-
-    // Update navigation filter state and covariance
-    Eigen::Vector16d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-    updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-    navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
-                                                                 Eigen::Matrix16d::Identity( ) );
-    // the covariance matrix is reset to the identity, since the new state is improved in accuracy
 }
 
 //! Function to run the Atmosphere Estimator (AE).
@@ -225,6 +220,9 @@ void NavigationSystem::runAtmosphereEstimator(
         const std::map< double, Eigen::Vector6d >& mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
         const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
 {
+    // Inform user
+    std::cout << "Estimating Atmospheric Parameters." << std::endl;
+
     // Retrieve some physical parameters of the spacecraft
     double spacecraftMass = onboardBodyMap_.at( spacecraftName_ )->getBodyMass( );
     double referenceAerodynamicArea = onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getReferenceArea( );

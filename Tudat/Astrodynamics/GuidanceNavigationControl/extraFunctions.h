@@ -12,6 +12,7 @@
 #define TUDAT_GNC_EXTRA_FUNCTIONS_H
 
 #include <map>
+#include <tuple>
 #include <iostream>
 
 #include <boost/function.hpp>
@@ -58,16 +59,54 @@ double areaBisectionFunction( const double currentTimeGuess, const double consta
                               const std::vector< double >& estimatedAerodynamicAccelerationMagnitude );
 
 //! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
-double lowerAltitudeBisectionFunction( const double currentAltitudeGuess, const double estimatedApoapsisRadius,
+/*!
+ *  Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
+ *  \param currentAltitudeGuess
+ *  \param initialEstimatedKeplerianState
+ *  \param planetaryRadius
+ *  \param planetaryGravitationalParameter
+ *  \param maximumHeatRate
+ *  \param maximumHeatLoad
+ *  \param statePropagationFunction
+ *  \return
+ */
+double lowerAltitudeBisectionFunction( const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
                                        const double planetaryRadius, const double planetaryGravitationalParameter,
-                                       const double atmosphericInterfaceRadius,
                                        const double maximumHeatRate, const double maximumHeatLoad,
-                                       const boost::function< double( double ) >& densityFunction );
+                                       const boost::function< std::pair< std::map< double, Eigen::VectorXd >,
+                                       std::map< double, Eigen::VectorXd > >( const Eigen::Vector6d& ) >& statePropagationFunction );
 
 //! Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
-double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const double estimatedApoapsisRadius,
+/*!
+ *  Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
+ *  \param currentAltitudeGuess
+ *  \param initialEstimatedKeplerianState
+ *  \param planetaryRadius
+ *  \param planetaryGravitationalParameter
+ *  \param minimumDynamicPressure
+ *  \param statePropagationFunction
+ *  \return
+ */
+double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
                                        const double planetaryRadius, const double planetaryGravitationalParameter,
-                                       const double minimumDynamicPressure, const boost::function< double( double ) >& densityFunction );
+                                       const double minimumDynamicPressure,
+                                       const boost::function< std::pair< std::map< double, Eigen::VectorXd >,
+                                       std::map< double, Eigen::VectorXd > >( const Eigen::Vector6d& ) >& statePropagationFunction );
+
+//! Function to be used as input to the root-finder to determine the magnitude of the apoapsis maneuver.
+/*!
+ *  Function to be used as input to the root-finder to determine the magnitude of the apoapsis maneuver.
+ *  \param currentMagnitudeGuess
+ *  \param initialEstimatedCartesianState
+ *  \param targetPeriapsisRadius
+ *  \param transformationFromLocalToInertialFrame
+ *  \param statePropagationFunction
+ *  \return
+ */
+double maneuverBisectionFunction( const double currentMagnitudeGuess, const Eigen::Vector6d& initialEstimatedCartesianState,
+                                  const double targetPeriapsisRadius, const Eigen::Matrix3d& transformationFromLocalToInertialFrame,
+                                  const boost::function< std::pair< std::map< double, Eigen::VectorXd >,
+                                  std::map< double, Eigen::VectorXd > >( const Eigen::Vector6d& ) >& statePropagationFunction );
 
 //! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
 /*!
