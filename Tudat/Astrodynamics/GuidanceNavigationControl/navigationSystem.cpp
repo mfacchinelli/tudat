@@ -55,6 +55,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
 
     // Apply smoothing method to noisy accelerometer data
     unsigned int numberOfSamplePoints = 25 / navigationRefreshStepSize_;
+    numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
             statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
 
