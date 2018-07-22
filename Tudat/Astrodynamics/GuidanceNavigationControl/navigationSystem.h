@@ -262,7 +262,7 @@ public:
             }
 
             // Run periapse time estimator if not the first orbit
-            if ( atmosphereEstimatorInitialized_ )
+            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) // atmosphereEstimatorInitialized_ )
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -503,9 +503,9 @@ public:
         if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix16d::Zero( ) ) )
         {
             // Use previous value
-            Eigen::Matrix16d newCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            Eigen::Matrix16d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
             navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
-                                                                         newCurrentCovarianceMatrix );
+                                                                         oldCurrentCovarianceMatrix );
         }
         else
         {
@@ -538,9 +538,9 @@ public:
         if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix16d::Zero( ) ) )
         {
             // Use previous value
-            Eigen::Matrix16d newCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            Eigen::Matrix16d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
             navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
-                                                                         newCurrentCovarianceMatrix );
+                                                                         oldCurrentCovarianceMatrix );
         }
         else
         {
@@ -781,7 +781,8 @@ private:
 
     //! Hisotry of estimated atmosphere model parameters.
     /*!
-     *  Hisotry of estimated atmosphere model parameters. These values are used as input to the moving average calculation.
+     *  Hisotry of estimated atmosphere model parameters. These values are used as input to the moving average calculation to
+     *  achieve a more accurate estimate of the atospheric properties.
      */
     std::vector< Eigen::VectorXd > historyOfEstimatedAtmosphereParameters_;
 
