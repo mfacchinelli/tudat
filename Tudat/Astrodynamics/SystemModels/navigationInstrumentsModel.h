@@ -36,7 +36,7 @@ Eigen::Matrix3d computeScaleMisalignmentMatrix( const Eigen::Vector3d& scaleFact
 Eigen::Vector4d sumQuaternionUncertainty( const Eigen::Vector4d& quaternionVector,
                                           const Eigen::Vector3d& equivalentVectorUncertainty );
 
-//! Class for guidance system of an aerobraking maneuver.
+//! Class for instrument models of a planet-bound spacecraft.
 class NavigationInstrumentsModel
 {
 public:
@@ -44,9 +44,10 @@ public:
     //! Constructor.
     /*!
      *  Constructor.
-     *  \param bodyMap
-     *  \param accelerationModelMap
-     *  \param spacecraftName
+     *  \param bodyMap Body map used in the main simulation.
+     *  \param accelerationModelMap Acceleration model map used in the main simulation.
+     *  \param spacecraftName Name of the spacecraft whose instrument model needs to be created.
+     *  \param planetName Name of the planet the spacecraft is orbiting.
      */
     NavigationInstrumentsModel( const simulation_setup::NamedBodyMap& bodyMap,
                                 const basic_astrodynamics::AccelerationMap& accelerationModelMap,
@@ -72,7 +73,12 @@ public:
                      ( accelerationMapIterator_->first == planetName_ ) )
                 {
                     sphericalHarmonicsGravityIndex_ = i;
-                    break;
+                }
+                else if ( ( basic_astrodynamics::getAccelerationModelType( accelerationMapIterator_->second[ i ] ) ==
+                            basic_astrodynamics::third_body_central_gravity ) &&
+                          ( accelerationMapIterator_->first == "Sun" ) )
+                {
+                    thirdBodyGravityIndex_ = i;
                 }
             }
         }
@@ -110,6 +116,15 @@ public:
      */
     void addStarTracker( const unsigned int numberOfStarTrackers,
                          const Eigen::Vector3d& starTrackerAccuracy );
+
+    //! Function to add an altimeter to the spacecraft set of instruments.
+    /*!
+     *  Function to add an altimeter to the spacecraft set of instruments.
+     */
+    void addAltimeter( const Eigen::Vector3d& pointingDirectionInBodyFrame,
+                       const std::pair< double, double >& altitudeRange,
+                       const double fieldOfView,
+                       const double altimeterAccuracy );
 
     //! Function to update the onboard instruments to the current time.
     /*!
@@ -269,7 +284,8 @@ private:
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( ( i != sphericalHarmonicsGravityIndex_ ) || ( accelerationMapIterator_->first != planetName_ ) )
+                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) &&
+                     !( ( i == thirdBodyGravityIndex_ ) && ( accelerationMapIterator_->first == "Sun" ) ) )
                 {
                     // Calculate acceleration and add to state derivative
                     currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
@@ -281,6 +297,7 @@ private:
         currentTranslationalAcceleration_ =
                 bodyMap_.at( spacecraftName_ )->getCurrentRotationToLocalFrame( ).toRotationMatrix( ).transpose( ) *
                 currentTranslationalAcceleration_;
+        // transpose is taken due to the different definition of quaternion in Eigen
 
         // Add errors to acceleration value
         currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
@@ -423,8 +440,14 @@ private:
     //! Boolean denoting whether a star tracker is present in the spacecraft.
     bool starTrackerAdded_;
 
+    //! Boolean denoting whether an altimeter is present in the spacecraft.
+    bool altimeterAdded_;
+
     //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
     unsigned int sphericalHarmonicsGravityIndex_;
+
+    //! Integer denoting the index of the third body gravity exerted by the Sun.
+    unsigned int thirdBodyGravityIndex_;
 
     //! Vector where the noise generators for the translational accelerations are stored.
     std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > accelerometerNoiseDistribution_;

@@ -93,10 +93,7 @@ public:
         }
     }
 
-    //! Default destructor.
-    /*!
-     *  Default destructor.
-     */
+    //! Destructor.
     ~ExtendedKalmanFilter( ){ }
 
     //! Function to update the filter with the new step data.

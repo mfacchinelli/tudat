@@ -15,11 +15,7 @@ namespace guidance_navigation_control
 void GuidanceSystem::runCorridorEstimator( const double currentTime,
                                            const Eigen::Vector6d& currentEstimatedKeplerianState,
                                            const double planetaryRadius,
-                                           const double planetaryGravitationalParameter,
-                                           const boost::function< std::pair< std::map< double, Eigen::VectorXd >,
-                                           std::map< double, Eigen::VectorXd > >(
-                                               const boost::shared_ptr< propagators::PropagationTerminationSettings >,
-                                               const Eigen::Vector6d& ) >& statePropagationFunction )
+                                           const double planetaryGravitationalParameter )
 {
     // Inform user
     std::cout << "Estimating Periapsis Corridor." << std::endl;
@@ -31,19 +27,19 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
             boost::make_shared< propagators::PropagationTimeTerminationSettings >( terminationTime );
 
     // Create reduced state propagation function where termination settings are already set
-    reducedStatePropagationFunction_ = boost::bind( statePropagationFunction, terminationSettings, _1 );
+    reducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, terminationSettings, _1 );
 
     // Propagate state for two thirds of the orbit
-    std::map< double, Eigen::VectorXd > unchangedPropagatedState =
+    std::map< double, Eigen::VectorXd > unaffectedPropagatedState =
             reducedStatePropagationFunction_( orbital_element_conversions::convertKeplerianToCartesianElements(
                                                   currentEstimatedKeplerianState, planetaryGravitationalParameter ) ).first;
 
     // Retrieve periapsis altitude
     unsigned int i = 0;
     Eigen::VectorXd historyOfAltitudes;
-    historyOfAltitudes.resize( unchangedPropagatedState.size( ) );
-    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = unchangedPropagatedState.begin( );
-          mapIterator != unchangedPropagatedState.end( ); mapIterator++, i++ )
+    historyOfAltitudes.resize( unaffectedPropagatedState.size( ) );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = unaffectedPropagatedState.begin( );
+          mapIterator != unaffectedPropagatedState.end( ); mapIterator++, i++ )
     {
         historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
     }
@@ -118,7 +114,7 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
     scheduledApsoapsisManeuver_.setZero( );
 
     // Compute predicted periapsis radius
-    double predictedPeriapsisAltitude = computeCurrentEstimatedPeriapsisRadius( currentEstimatedKeplerianState ) - planetaryRadius;
+    double predictedPeriapsisAltitude = computeCurrentFirstOrderEstimatedPeriapsisRadius( currentEstimatedKeplerianState ) - planetaryRadius;
     double differenceInPeriapsisAltitude = std::get< 2 >( periapsisTargetingInformation_ ) - predictedPeriapsisAltitude;
 
     // Compute estimated maneuver in y-direction of local orbit frame

@@ -114,8 +114,14 @@ public:
         lastIndependentVariable_ = currentIndependentVariable_;
         lastState_ = currentState_;
 
+        if ( currentState_.rows( ) == 6 )
+            std::cout << "Prev: " << currentState_.transpose( ) << std::endl;
+
         currentState_ += stepSize * this->stateDerivativeFunction_(
                     currentIndependentVariable_, currentState_ );
+
+        if ( currentState_.rows( ) == 6 )
+            std::cout << "Curr: " << currentState_.transpose( ) << std::endl;
 
         stepSize_ = stepSize;
         currentIndependentVariable_ += stepSize_;
@@ -204,7 +210,7 @@ protected:
 
     //! Last independent variable.
     /*!
-     * Last independent variable value as computed by performIntegrationStep().
+     * Last independent variable value as computed by performIntegrationStep( ).
      */
     IndependentVariableType lastIndependentVariable_;
 

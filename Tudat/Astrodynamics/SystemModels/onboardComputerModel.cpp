@@ -14,7 +14,8 @@ using namespace tudat::guidance_navigation_control;
 Eigen::Vector16d onboardSystemModel( const double currentTime,
                                      const Eigen::Vector16d& currentEstimatedStateVector,
                                      const Eigen::Vector3d& currentControlVector,
-                                     const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector,
+                                     const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >&
+                                     currentEstimatedTranslationalAccelerationFunction,
                                      const Eigen::Vector3d& currentMeasuredRotationalVelocityVector )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
@@ -27,13 +28,14 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedStateVector.segment( 3, 3 );
 
     // Translational dynamics
-    currentStateDerivative.segment( 3, 3 ) = currentEstimatedTranslationalAccelerationVector;
+    currentStateDerivative.segment( 3, 3 ) =
+            currentEstimatedTranslationalAccelerationFunction( currentEstimatedStateVector.segment( 0, 6 ) );
 
     // Rotational kinematics
     Eigen::Vector3d currentActualRotationalVelocityVector = removeErrorsFromInertialMeasurementUnitMeasurement(
                 currentMeasuredRotationalVelocityVector, currentEstimatedStateVector.segment( 10, 6 ) );
     currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionDerivative(
-                currentEstimatedStateVector.segment( 6, 4 ), currentActualRotationalVelocityVector );
+                currentEstimatedStateVector.segment( 6, 4 ).normalized( ), currentActualRotationalVelocityVector );
 
     // Give output
     return currentStateDerivative;
@@ -41,7 +43,8 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
 
 //! Function to model the onboard measurements based on the simplified onboard model.
 Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
-                                         const Eigen::Vector3d& currentEstimatedNonGravitationalTranslationalAccelerationVector )
+                                         const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >&
+                                         currentEstimatedNonGravitationalTranslationalAccelerationFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -49,10 +52,11 @@ Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::
     Eigen::Vector7d currentMeasurementVector;
 
     // Add translational acceleration
-    currentMeasurementVector.segment( 0, 3 ) = currentEstimatedNonGravitationalTranslationalAccelerationVector;
+    currentMeasurementVector.segment( 0, 3 ) =
+            currentEstimatedNonGravitationalTranslationalAccelerationFunction( currentEstimatedStateVector.segment( 0, 6 ) );
 
     // Add rotational attitude
-    currentMeasurementVector.segment( 3, 4 ) = currentEstimatedStateVector.segment( 6, 4 );
+    currentMeasurementVector.segment( 3, 4 ) = currentEstimatedStateVector.segment( 6, 4 ).normalized( );
 
     // Return quaternion vector
     return currentMeasurementVector;

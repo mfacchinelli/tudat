@@ -27,6 +27,55 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
             ( currentInertialMeasurementUnitMeasurement - inertialMeasurementUnitErrors.segment( 0, 3 ) );
 }
 
+//! Function to create navigation objects for onboard state estimation.
+void NavigationSystem::createNavigationSystemObjects(
+        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
+        const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
+{
+    // Create filter object
+    navigationFilter_ = filters::createFilter< double, double >( navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel );
+
+    // Set initial time
+    currentTime_ = navigationFilter_->getInitialTime( );
+    currentOrbitCounter_ = 0;
+
+    // Retrieve navigation filter step size and estimated state
+    navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
+    Eigen::Vector16d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+
+    // Set initial rotational state
+    currentEstimatedRotationalState_.setZero( );
+    currentEstimatedRotationalState_.segment( 0, 4 ) = initialEstimatedState.segment( 6, 4 ).normalized( );
+
+    // Set initial translational state
+    setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
+    // this function also automatically stores the full state estimates at the current time
+
+    // Update body and acceleration maps
+    updateOnboardModel( );
+
+    // Create root-finder object for bisection of aerodynamic acceleration curve
+    // The values inserted are the tolerance in independent value (i.e., about twice the difference between
+    // two time steps) and the maximum number of iterations (i.e., 25 iterations)
+    areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >(
+                2.0 * navigationRefreshStepSize_ / currentTime_, 25 );
+
+    // Create object of dependent variables to save
+    std::vector< boost::shared_ptr< propagators::SingleDependentVariableSaveSettings > > dependentVariablesList;
+    dependentVariablesList.push_back( boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
+                                          propagators::local_dynamic_pressure_dependent_variable, spacecraftName_, planetName_ ) );
+    dependentVariablesList.push_back( boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
+                                          propagators::local_aerodynamic_heat_rate_dependent_variable, spacecraftName_, planetName_ ) );
+
+    // Create object for propagation of spacecraft state with user-provided initial conditions
+    onboardIntegratorSettings_ = boost::make_shared< numerical_integrators::IntegratorSettings< double > >(
+                numerical_integrators::rungeKutta4, 0.0, 10.0 );
+    onboardPropagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< double > >(
+                std::vector< std::string >( 1, planetName_ ), onboardAccelerationModelMap_,
+                std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ), 0.0, propagators::cowell,
+                boost::make_shared< propagators::DependentVariableSaveSettings >( dependentVariablesList, false ) );
+}
+
 //! Function to create the onboard environment updater.
 void NavigationSystem::createOnboardEnvironmentUpdater( )
 {
@@ -111,7 +160,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     if ( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.size( ) !=
          static_cast< unsigned int >( estimatedTrueAnomalyBelowAtmosphericInterface.rows( ) ) )
     {
-        throw std::runtime_error( "Error in periapse time estimator. The sizes of the true anomaly and aerodynamic accelerations "
+        throw std::runtime_error( "Error in periapse time estimator. The sizes of the true anomaly and aerodynamic acceleration "
                                   "vectors do not match." );
     }
 
@@ -157,8 +206,8 @@ void NavigationSystem::runPeriapseTimeEstimator(
                  estimatedChangeInSemiMajorAxisDueToChangeInVelocity << " m" << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
-    double estimatedChangeInSemiMajorAxisFromKeplerianStateHistory = initialEstimatedKeplerianState[ 0 ] -
-            estimatedKeplerianStateBelowAtmosphericInterface( 0, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) - 1 );
+    double estimatedChangeInSemiMajorAxisFromKeplerianStateHistory =
+            initialEstimatedKeplerianState[ 0 ] - currentEstimatedKeplerianState_[ 0 ];
     double estimatedErrorInSemiMajorAxis = estimatedChangeInSemiMajorAxisFromKeplerianStateHistory -
             estimatedChangeInSemiMajorAxisDueToChangeInVelocity;
     std::cout << "Estimated Error in Semi-major Axis: " << estimatedErrorInSemiMajorAxis << " m" << std::endl;
@@ -172,8 +221,8 @@ void NavigationSystem::runPeriapseTimeEstimator(
                  estimatedChangeInEccentricityDueToChangeInVelocity << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
-    double estimatedChangeInEccentricityFromKeplerianStateHistory = initialEstimatedKeplerianState[ 1 ] -
-            estimatedKeplerianStateBelowAtmosphericInterface( 1, estimatedKeplerianStateBelowAtmosphericInterface.cols( ) - 1 );
+    double estimatedChangeInEccentricityFromKeplerianStateHistory =
+            initialEstimatedKeplerianState[ 1 ] - currentEstimatedKeplerianState_[ 1 ];
     double estimatedErrorInEccentricity = estimatedChangeInEccentricityFromKeplerianStateHistory -
             estimatedChangeInEccentricityDueToChangeInVelocity;
     std::cout << "Estimated Error in Eccentricity: " << estimatedErrorInEccentricity << std::endl;
@@ -185,34 +234,19 @@ void NavigationSystem::runPeriapseTimeEstimator(
     estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
-    // Compute conditions for propagation
-    double timeFromPeriapsisToCurrentPosition = vectorOfTimesBelowAtmosphericInterface.back( ) - estimatedActualPeriapseTime;
-    initialEstimatedKeplerianState[ 5 ] = 0.0;
-    // set true anomaly to periapsis, to assume that no change in orbital elements has occurred during atmospheric phase
-    Eigen::Vector6d correctedInitialEstimatedKeplerianState = initialEstimatedKeplerianState + estimatedErrorInKeplerianState;
-
-    // Correct latest estimated Keplerian state with new information from PTE
-    Eigen::Vector6d initialEstimatedCartesianElements =
-            orbital_element_conversions::convertKeplerianToCartesianElements( initialEstimatedKeplerianState,
-                                                                              planetaryGravitationalParameter_ );
-    Eigen::Vector6d updatedCurrentEstimatedCartesianState =
-            orbital_element_conversions::convertKeplerianToCartesianElements( correctedInitialEstimatedKeplerianState,
-                                                                              planetaryGravitationalParameter_ );
-    Eigen::Vector6d estimatedErrorInCartesianState = updatedCurrentEstimatedCartesianState - initialEstimatedCartesianElements;
-    double estimatedAltitude = initialEstimatedCartesianElements.segment( 0, 3 ).norm( ) - planetaryRadius_;
-    std::cout << updatedCurrentEstimatedCartesianState.transpose( ) << std::endl;
-    std::cout << onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity( estimatedAltitude, 0.0, 0.0, 0.0 ) << std::endl;
-    updatedCurrentEstimatedCartesianState += stateTransitionMatrixFunction_(
-                updatedCurrentEstimatedCartesianState,
-                onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity( estimatedAltitude, 0.0, 0.0, 0.0 ) ) *
-            estimatedErrorInCartesianState * timeFromPeriapsisToCurrentPosition;
+    // Compute updated estimate in Keplerian state at current time by removing the estimated error
+    Eigen::Vector6d updatedCurrentKeplerianState = initialEstimatedKeplerianState;
+    updatedCurrentKeplerianState.segment( 2, 4 ) = currentEstimatedKeplerianState_.segment( 2, 4 );
+    updatedCurrentKeplerianState -= estimatedErrorInKeplerianState;
+    // the updated state is initially defined as the one with semi-major axis and eccentricity from the time before the
+    // atmospheric pass and inclination, right ascension of ascending node, argument of periapsis and true anomaly from the
+    // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
 
     // Update navigation system state estimates
-    setCurrentEstimatedCartesianState( updatedCurrentEstimatedCartesianState, Eigen::Matrix16d::Identity( ) );
+    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState ); // , Eigen::Matrix16d::Identity( )
     // the covariance matrix is reset to the identity, since the new state is improved in accuracy
 
     std::cout << "Before: " << initialEstimatedKeplerianState.transpose( ) << std::endl;
-    std::cout << "Mid: " << correctedInitialEstimatedKeplerianState.transpose( ) << std::endl;
     std::cout << "After: " << currentEstimatedKeplerianState_.transpose( ) << std::endl;
 }
 

@@ -123,10 +123,7 @@ public:
                                           measurementDimension_, measurementDimension_ ) = measurementUncertainty;
     }
 
-    //! Default destructor.
-    /*!
-     *  Default destructor.
-     */
+    //! Destructor.
     ~UnscentedKalmanFilter( ){ }
 
     //! Function to update the filter with the new step data.
@@ -139,7 +136,7 @@ public:
     {
         // Compute sigma points
         computeSigmaPoints( this->aPosterioriStateEstimate_, this->aPosterioriCovarianceEstimate_ );
-        mapOfMapOfSigmaPoints_[ currentTime ] = mapOfSigmaPoints_; // store points
+        historyOfMapOfSigmaPoints_[ currentTime ] = mapOfSigmaPoints_; // store points
 
         // Prediction step
         // Compute series of state estimates based on sigma points
@@ -155,6 +152,7 @@ public:
         // Compute the weighted average to find the a-priori state vector
         DependentVector aPrioriStateEstimate = DependentVector::Zero( stateDimension_ );
         computeWeightedAverageFromSigmaPointEstimates( aPrioriStateEstimate, sigmaPointsStateEstimates );
+        std::cout << "x_k_k1: " << aPrioriStateEstimate.segment( 0, 6 ).transpose( ) << std::endl;
 
         // Compute the weighted average to find the a-priori covariance matrix
         DependentMatrix aPrioriCovarianceEstimate = DependentMatrix::Zero( stateDimension_, stateDimension_ );
@@ -176,6 +174,7 @@ public:
         // Compute the weighted average to find the expected measurement vector
         DependentVector measurmentEstimate = DependentVector::Zero( measurementDimension_ );
         computeWeightedAverageFromSigmaPointEstimates( measurmentEstimate, sigmaPointsMeasurementEstimates );
+        std::cout << "z_k: " << measurmentEstimate.transpose( ) << std::endl;
 
         // Compute innovation and cross-correlation matrices
         DependentMatrix innovationMatrix = DependentMatrix::Zero( measurementDimension_, measurementDimension_ );
@@ -195,6 +194,7 @@ public:
         // Correction step
         this->correctState( currentTime, aPrioriStateEstimate, currentMeasurementVector, measurmentEstimate, kalmanGain );
         correctCovariance( currentTime, aPrioriCovarianceEstimate, innovationMatrix, kalmanGain );
+        std::cout << "x_k_k: " << this->aPosterioriStateEstimate_.segment( 0, 6 ).transpose( ) << std::endl;
     }
 
     //! Function to return the history of sigma points.
@@ -202,13 +202,13 @@ public:
      *  Function to return the history of sigma points.
      *  \return History of map of sigma points for each time step.
      */
-    std::map< IndependentVariableType, DependentMatrix > getSigmaPointsHistory( )
+    std::map< IndependentVariableType, DependentMatrix > getHistoryOfSigmaPoints( )
     {
         // Convert map of maps into map of Eigen::Matrix
         DependentVector vectorOfSigmaPoints;
         std::map< IndependentVariableType, DependentMatrix > mapOfSigmaPointsHistory;
         for ( typename std::map< IndependentVariableType, std::map< unsigned int, DependentVector > >::const_iterator
-              mapIterator = mapOfMapOfSigmaPoints_.begin( ); mapIterator != mapOfMapOfSigmaPoints_.end( ); mapIterator++ )
+              mapIterator = historyOfMapOfSigmaPoints_.begin( ); mapIterator != historyOfMapOfSigmaPoints_.end( ); mapIterator++ )
         {
             // Extract current map of sigma points and turn it into a vector
             vectorOfSigmaPoints = utilities::createConcatenatedEigenMatrixFromMapValues( mapIterator->second );
@@ -221,6 +221,18 @@ public:
 
         // Give output
         return mapOfSigmaPointsHistory;
+    }
+
+    //! Function to clear the history of stored variables.
+    /*!
+     *  Function to clear the history of stored variables. This function should be called if the history of state, covariance
+     *  and sigma point estimates over time needs to be deleted. This may be useful in case the filter is run for very long times.
+     */
+    void clearFilterHistory( )
+    {
+        this->historyOfStateEstimates_.clear( );
+        this->historyOfCovarianceEstimates_.clear( );
+        historyOfMapOfSigmaPoints_.clear( );
     }
 
 private:
@@ -393,7 +405,7 @@ private:
                             const DependentMatrix& innovationMatrix, const DependentMatrix& kalmanGain )
     {
         this->aPosterioriCovarianceEstimate_ = aPrioriCovarianceEstimate - kalmanGain * innovationMatrix * kalmanGain.transpose( );
-        this->estimatedCovarianceHistory_[ currentTime ] = this->aPosterioriCovarianceEstimate_;
+        this->historyOfCovarianceEstimates_[ currentTime ] = this->aPosterioriCovarianceEstimate_;
     }
 
     //! System function input by user.
@@ -449,7 +461,7 @@ private:
     std::map< unsigned int, DependentVector > mapOfSigmaPoints_;
 
     //! Map of map of sigma points, used to store the history of sigma points.
-    std::map< IndependentVariableType, std::map< unsigned int, DependentVector > > mapOfMapOfSigmaPoints_;
+    std::map< IndependentVariableType, std::map< unsigned int, DependentVector > > historyOfMapOfSigmaPoints_;
 
     //! Constant iterator to loop over sigma points (introduced for convenience).
     typename std::map< unsigned int, DependentVector >::const_iterator sigmaPointConstantIterator_;

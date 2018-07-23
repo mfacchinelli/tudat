@@ -65,14 +65,16 @@ public:
                       const std::string& spacecraftName, const std::string& planetName,
                       const boost::shared_ptr< filters::FilterSettings< > > navigationFilterSettings,
                       const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel,
-                      const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude ) :
+                      const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude,
+                      const double numberOfRequiredAtmosphereSamplesForInitiation ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
         selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel ),
         planetaryGravitationalParameter_( onboardBodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( ) ),
         planetaryRadius_( onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( ) ),
         atmosphericInterfaceRadius_( planetaryRadius_ + atmosphericInterfaceAltitude ),
-        reducedAtmosphericInterfaceRadius_( planetaryRadius_ + reducedAtmosphericInterfaceAltitude )
+        reducedAtmosphericInterfaceRadius_( planetaryRadius_ + reducedAtmosphericInterfaceAltitude ),
+        numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation )
     {
         // Create environment updater
         createOnboardEnvironmentUpdater( );
@@ -121,51 +123,7 @@ public:
      */
     void createNavigationSystemObjects(
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
-            const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel )
-    {
-        // Create filter object
-        navigationFilter_ = filters::createFilter< >( navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel );
-
-        // Set initial time
-        currentTime_ = navigationFilter_->getInitialTime( );
-        currentOrbitCounter_ = 0;
-
-        // Retrieve navigation filter step size and estimated state
-        navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
-        Eigen::Vector16d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-
-        // Set initial rotational state
-        currentEstimatedRotationalState_.setZero( );
-        currentEstimatedRotationalState_.segment( 0, 4 ) = initialEstimatedState.segment( 6, 4 ).normalized( );
-
-        // Set initial translational state
-        setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
-        // this function also automatically stores the full state estimates at the current time
-
-        // Update body and acceleration maps
-        updateOnboardModel( );
-
-        // Create root-finder object for bisection of aerodynamic acceleration curve
-        // The values inserted are the tolerance in independent value (i.e., about twice the difference between
-        // two time steps) and the maximum number of iterations (i.e., 25 iterations)
-        areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >(
-                    2.0 * navigationRefreshStepSize_ / currentTime_, 25 );
-
-        // Create object of dependent variables to save
-        std::vector< boost::shared_ptr< propagators::SingleDependentVariableSaveSettings > > dependentVariablesList;
-        dependentVariablesList.push_back( boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
-                                              propagators::local_dynamic_pressure_dependent_variable, spacecraftName_, planetName_ ) );
-        dependentVariablesList.push_back( boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
-                                              propagators::local_aerodynamic_heat_rate_dependent_variable, spacecraftName_, planetName_ ) );
-
-        // Create object for propagation of spacecraft state with user-provided initial conditions
-        onboardIntegratorSettings_ = boost::make_shared< numerical_integrators::IntegratorSettings< double > >(
-                    numerical_integrators::rungeKutta4, 0.0, 10.0 );
-        onboardPropagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< double > >(
-                    std::vector< std::string >( 1, planetName_ ), onboardAccelerationModelMap_,
-                    std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ), 0.0, propagators::cowell,
-                    boost::make_shared< propagators::DependentVariableSaveSettings >( dependentVariablesList, false ) );
-    }
+            const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel );
 
     //! Function to run the State Estimator (SE).
     void runStateEstimator( const double currentTime, Eigen::Vector7d& currentExternalMeasurementVector,
@@ -262,7 +220,7 @@ public:
             }
 
             // Run periapse time estimator if not the first orbit
-            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) // atmosphereEstimatorInitialized_ )
+            if ( atmosphereEstimatorInitialized_ ) // historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -286,7 +244,7 @@ public:
      *      one is the map of time and dependent variable values.
      */
     std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >
-    propagateStateToTerminationSettings(
+    propagateStateWithCustomTerminationSettings(
             const boost::shared_ptr< propagators::PropagationTerminationSettings > propagationTerminationSettings,
             const Eigen::Vector6d& initialTranslationalCartesianState = Eigen::Vector6d::Zero( ), const double initialTime = -1.0 )
     {
@@ -329,10 +287,14 @@ public:
     /*!
      *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
      *  is computed by using the onboard accelerations model map.
+     *  \param currentEstimatedCartesianState Estimate of the current Cartesian state.
      *  \return Vector denoting the full acceleration vector experienced by the spacecraft.
      */
-    Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( )
+    Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( const Eigen::Vector6d& currentEstimatedCartesianState )
     {
+        // Update environment based on given input
+        updateOnboardModel( currentEstimatedCartesianState );
+
         // Define output and set accelerations to zero
         Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
 
@@ -348,6 +310,7 @@ public:
                 currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
             }
         }
+//        std::cout << "Full Acc: " << currentTranslationalAcceleration.transpose( ) << std::endl;
 
         // Add errors to acceleration value
         return currentTranslationalAcceleration;
@@ -358,12 +321,16 @@ public:
      *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
      *  is computed by using the onboard accelerations model map. Note that this vector represents only the non-gravitational
      *  accelerations (which are supposed to emulated the accelerations measured by the IMU).
-     *  \return Vector denoting only the non-gravitational accelerations.
+     *  \param currentEstimatedCartesianState Estimate of the current Cartesian state.
+     *  \return Vector denoting only the non-gravitational (i.e., aerodynamic) accelerations experienced by the spacecraft.
      */
-    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( )
+    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( const Eigen::Vector6d& currentEstimatedCartesianState )
     {
+        // Update environment based on given input
+        updateOnboardModel( currentEstimatedCartesianState );
+
         // Define output and set accelerations to zero
-        Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
+        Eigen::Vector3d currentNonGravitationalTranslationalAcceleration = Eigen::Vector3d::Zero( );
 
         // Iterate over all accelerations acting on body
         for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -374,17 +341,19 @@ public:
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( ( i != sphericalHarmonicsGravityIndex_ ) || ( accelerationMapIterator_->first != planetName_ ) )
+                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) )
                 {
                     // Calculate acceleration and add to state derivative
-                    currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                    currentNonGravitationalTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
                 }
             }
         }
+//        std::cout << "Non-grav. Acc: " << currentNonGravitationalTranslationalAcceleration.transpose( ) << std::endl;
 
         // Add errors to acceleration value
-        currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] = currentTranslationalAcceleration;
-        return currentTranslationalAcceleration;
+        currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
+                currentNonGravitationalTranslationalAcceleration;
+        return currentNonGravitationalTranslationalAcceleration;
     }
 
     //! Function to retireve current time.
@@ -556,6 +525,7 @@ public:
         currentOrbitHistoryOfEstimatedTranslationalStates_.clear( );
         currentOrbitHistoryOfEstimatedRotationalStates_.clear( );
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.clear( );
+        navigationFilter_->clearFilterHistory( );
     }
 
     //! Integer denoting the current orbit counter.
@@ -568,20 +538,42 @@ private:
 
     //! Function to update the body and acceleration map with the current time and state information.
     /*!
-     *  Function to update the body and acceleration map with the current time and state information.
+     *  Function to update the body and acceleration map with the current time and state information. Optionally, the user can
+     *  provide different estimates on the current translational (Cartesian) and rotational states. Note, however, that these
+     *  states do not replace currentEstimatedCartesianState_ and currentEstimatedRotationalState_.
+     *  \param currentEstimatedCartesianState Estimate of the current Cartesian state.
+     *  \param currentEstimatedRotationalState Estimate of the current rotational state.
      */
-    void updateOnboardModel( )
+    void updateOnboardModel( const Eigen::Vector6d& currentEstimatedCartesianState = Eigen::Vector6d::Zero( ),
+                             const Eigen::Vector7d& currentEstimatedRotationalState = Eigen::Vector7d::Zero( ) )
     {
         // Update environment
         std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
-        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_ +
-                onboardBodyMap_.at( planetName_ )->getState( );
-        mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
-        onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
 
-//        // Update body settings
-//        onboardBodyMap_.at( spacecraftName_ )->setState( currentEstimatedCartesianState_ );
-//        onboardBodyMap_.at( spacecraftName_ )->setCurrentRotationalStateToLocalFrame( currentEstimatedRotationalState_ );
+        if ( currentEstimatedCartesianState.isApprox( Eigen::Vector6d::Zero( ) ) )
+        {
+            // Use navigation system estimate
+            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
+        }
+        else
+        {
+            // Use input value
+            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState;
+        }
+        mapOfStatesToUpdate[ propagators::translational_state ] += onboardBodyMap_.at( planetName_ )->getState( );
+
+        if ( currentEstimatedRotationalState.isApprox( Eigen::Vector7d::Zero( ) ) )
+        {
+            // Use navigation system estimate
+            mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
+        }
+        else
+        {
+            // Use input value
+            mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState;
+        }
+
+        onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
 
         // Loop over bodies exerting accelerations on spacecraft
         for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -592,7 +584,7 @@ private:
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Update acceleration model
-                accelerationMapIterator_->second[ i ]->resetTime( TUDAT_NAN );
+                accelerationMapIterator_->second[ i ]->resetTime( TUDAT_NAN ); // force update by resetting time
                 accelerationMapIterator_->second[ i ]->updateMembers( currentTime_ );
             }
         }
@@ -703,6 +695,14 @@ private:
      */
     const double reducedAtmosphericInterfaceRadius_;
 
+    //! Integer denoting the number of atmosphere samples required for the atmosphere estimator to be considered initiated.
+    /*!
+     *  Integer denoting the number of atmosphere samples required for the atmosphere estimator to be considered initiated.
+     *  Once the number of atmosphere samples is reached, the atmosphere estimator uses the moving average of the last
+     *  numberOfRequiredAtmosphereSamplesForInitiation_ of orbits to estimate the atmosphere model parameters.
+     */
+    const unsigned int numberOfRequiredAtmosphereSamplesForInitiation_;
+
     //! Pointer to the onboard environment updater.
     /*!
      *  Pointer to the onboard environment updater. The environment is updated based on the current state and time.
@@ -712,7 +712,7 @@ private:
     boost::shared_ptr< propagators::EnvironmentUpdater< double, double > > onboardEnvironmentUpdater_;
 
     //! Filter object to be used for estimation of state.
-    boost::shared_ptr< filters::FilterBase< > > navigationFilter_;
+    boost::shared_ptr< filters::FilterBase< double, double > > navigationFilter_;
 
     //! Function to propagate estimated state error.
     boost::function< Eigen::Matrix6d( const Eigen::Vector6d&, const double ) > stateTransitionMatrixFunction_;
@@ -770,14 +770,6 @@ private:
      *  be achieved once at least numberOfRequiredAtmosphereSamplesForInitiation_ orbits have been carried out.
      */
     bool atmosphereEstimatorInitialized_;
-
-    //! Integer denoting the number of atmosphere samples required for the atmosphere estimator to be considered initiated.
-    /*!
-     *  Integer denoting the number of atmosphere samples required for the atmosphere estimator to be considered initiated.
-     *  Once the number of atmosphere samples is reached, the atmosphere estimator uses the moving average of the last
-     *  numberOfRequiredAtmosphereSamplesForInitiation_ of orbits to estimate the atmosphere model parameters.
-     */
-    unsigned int numberOfRequiredAtmosphereSamplesForInitiation_;
 
     //! Hisotry of estimated atmosphere model parameters.
     /*!

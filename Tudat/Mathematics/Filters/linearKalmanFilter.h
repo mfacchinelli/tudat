@@ -113,10 +113,7 @@ public:
                             initialCovarianceMatrix, integratorSettings )
     { }
 
-    //! Default destructor.
-    /*!
-     *  Default destructor.
-     */
+    //! Destructor.
     ~LinearKalmanFilter( ){ }
 
     //! Function to update the filter with the new step data.

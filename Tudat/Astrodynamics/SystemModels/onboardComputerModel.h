@@ -32,12 +32,14 @@ namespace system_models
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
                                      const Eigen::Vector3d& currentControlVector,
-                                     const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector,
+                                     const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >&
+                                     currentEstimatedTranslationalAccelerationFunction,
                                      const Eigen::Vector3d& currentMeasuredRotationalVelocityVector );
 
 //! Function to model the onboard measurements based on the simplified onboard model.
 Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
-                                         const Eigen::Vector3d& currentEstimatedNonGravitationalTranslationalAccelerationVector );
+                                         const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >&
+                                         currentEstimatedNonGravitationalTranslationalAccelerationFunction );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
@@ -52,22 +54,31 @@ public:
         controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem ),
         instrumentsModel_( instrumentsModel )
     {
-        dummyCallCounter_ = 0;
+        dummyCallCounter_ = 0; // <<<<<<<<<----------
 
         // Define internal constants
         maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with no need to perform a maneuver
         atmosphericPhaseComplete_ = false;
         atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
 
-        // Create navigation filter based on user inputs
+        // Create functions to retrieve accelerations from navigation system
+        boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > translationalAccelerationFunction =
+                boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_, _1 );
+        boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > nonGravitationalTranslationalAccelerationFunction =
+                boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration,
+                             navigationSystem_, _1 );
+
+        // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects(
                     boost::bind( &onboardSystemModel, _1, _2,
                                  boost::bind( &ControlSystem::getCurrentAttitudeControlVector, controlSystem_ ),
-                                 boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_ ),
+                                 translationalAccelerationFunction,
                                  boost::bind( &NavigationInstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) ),
-                    boost::bind( &onboardMeasurementModel, _1, _2,
-                                 boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration,
-                                              navigationSystem_ ) ) );
+                    boost::bind( &onboardMeasurementModel, _1, _2, nonGravitationalTranslationalAccelerationFunction ) );
+
+        // Create guidance system objects
+        guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateStateWithCustomTerminationSettings,
+                                                                        navigationSystem_, _1, _2, -1.0 ) );
     }
 
     //! Destructor.
@@ -95,12 +106,6 @@ public:
         currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
         currentExternalMeasurementVector.segment( 3, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
 
-//        std::cout << "Full: " <<
-//                     navigationSystem_->getCurrentEstimatedTranslationalAcceleration( ).transpose( ) << std::endl;
-//        std::cout << "Non-grav.: " <<
-//                     navigationSystem_->getCurrentEstimatedNonGravitationalTranslationalAcceleration( ).transpose( ) << std::endl;
-//        std::cout << "Measurement: " << currentExternalMeasurementVector.transpose( ) << std::endl;
-
         // Update filter from previous time to next time
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
                                               instrumentsModel_->getCurrentGyroscopeMeasurement( ) );
@@ -126,9 +131,7 @@ public:
                                                         navigationSystem_->getAtmosphereInitiationIndicators( ) );
             guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.second,
                                                    navigationSystem_->getRadius( ),
-                                                   navigationSystem_->getStandardGravitationalParameter( ),
-                                                   boost::bind( &NavigationSystem::propagateStateToTerminationSettings,
-                                                                navigationSystem_, _1, _2, -1.0 ) );
+                                                   navigationSystem_->getStandardGravitationalParameter( ) );
 
             // Check whether propagation needs to be stopped
             // Propagation is stopped only if an apoapsis maneuver needs to be performed
@@ -205,7 +208,7 @@ public:
     bool isAerobrakingComplete( )
     {
         dummyCallCounter_++;
-        return ( dummyCallCounter_ > 2 );
+        return ( dummyCallCounter_ > 0 );
     }
 
 private:

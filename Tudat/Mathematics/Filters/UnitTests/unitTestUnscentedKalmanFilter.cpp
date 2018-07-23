@@ -171,7 +171,7 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterFirstCase )
 //    input_output::writeMatrixToFile( measurementNoise, "measurementNoise.dat", 16, "/Users/Michele/Desktop/KF" );
 
 //    // Save sigma points history
-//    std::map< double, Eigen::MatrixXd > sigmaPointHistory = unscentedFilter->getSigmaPointsHistory( );
+//    std::map< double, Eigen::MatrixXd > sigmaPointHistory = unscentedFilter->getHistoryOfSigmaPoints( );
 //    input_output::writeDataMapToTextFile( sigmaPointHistory, "UKFSigmaPoints.dat", "/Users/Michele/Desktop/KF" );
 }
 

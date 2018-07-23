@@ -74,12 +74,24 @@ public:
     //! Destructor.
     ~GuidanceSystem( ) { }
 
+    //! Function to create the guidance system objects.
+    void createGuidanceSystemObjects(
+            const boost::function< std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >(
+                const boost::shared_ptr< propagators::PropagationTerminationSettings >,
+                const Eigen::Vector6d& ) >& statePropagationFunction )
+    {
+        // Create propagation function
+        statePropagationFunction_ = statePropagationFunction;
+    }
+
     //! Function to determine in which aerobraking phase the spacecraft is currently in.
     /*!
      *  Function to determine in which aerobraking phase the spacecraft is currently in. Aerobraking is divided in four phases:
      *  walk-in, main, walk-out and completed. During the walk-in phase, the periapsis is slowly lowered into the atmosphere,
-     *  \param currentEstimatedKeplerianState
-     *  \param pairOfAtmosphereInitiationIndicators
+     *  \param currentEstimatedKeplerianState Current estimated translational Keplerian elements.
+     *  \param pairOfAtmosphereInitiationIndicators Pair of integers, where the first element denotes the number of atmosphere
+     *      samples that have been taken so far, and the second element indicates the number of atmosphere samples required for
+     *      the atmosphere estimator to be considered initialized.
      */
     void determineAerobrakingPhase( const Eigen::Vector6d& currentEstimatedKeplerianState,
                                     const std::pair< unsigned int, unsigned int >& pairOfAtmosphereInitiationIndicators )
@@ -94,11 +106,13 @@ public:
         if ( pairOfAtmosphereInitiationIndicators.first < pairOfAtmosphereInitiationIndicators.second )
         {
             detectedAerobrakingPhase = walk_in_phase;
-            periapsisAltitudeWalkInScaling_ = 1.0;
+            periapsisAltitudeWalkInScaling_ = 1.2 - 0.2 *
+                    static_cast< double >( pairOfAtmosphereInitiationIndicators.first ) /
+                    static_cast< double >( pairOfAtmosphereInitiationIndicators.second );
         }
 
         // Check whether apoapsis is approaching target value
-        double predictedApoapsisRadius = computeCurrentEstimatedApoapsisRadius( currentEstimatedKeplerianState );
+        double predictedApoapsisRadius = computeCurrentFirstOrderEstimatedApoapsisRadius( currentEstimatedKeplerianState );
         if ( std::fabs( predictedApoapsisRadius - targetApoapsisAltitude_ ) < 50e3 )
         {
             detectedAerobrakingPhase = walk_out_phase;
@@ -118,19 +132,16 @@ public:
      *  \param currentEstimatedKeplerianState
      *  \param planetaryRadius
      *  \param planetaryGravitationalParameter
-     *  \param statePropagationFunction
      */
     void runCorridorEstimator( const double currentTime,
                                const Eigen::Vector6d& currentEstimatedKeplerianState,
                                const double planetaryRadius,
-                               const double planetaryGravitationalParameter,
-                               const boost::function< std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >(
-                                   const boost::shared_ptr< propagators::PropagationTerminationSettings >,
-                                   const Eigen::Vector6d& ) >& statePropagationFunction );
+                               const double planetaryGravitationalParameter );
 
     //! Function to run maneuver estimator (ME).
     /*!
-     *  Function to run maneuver estimator (ME).
+     *  Function to run maneuver estimator (ME). Note that since the root-finder uses the propagator defined in the runCorridorEstimator
+     *  function (i.e., reducedStatePropagationFunction_), said function needs to be run before this one.
      *  \param currentEstimatedCartesianState
      *  \param currentEstimatedKeplerianState
      *  \param currentEstimatedMeanAnomaly
@@ -195,13 +206,25 @@ private:
     }
 
     //! Function to compute the current estimated apoapsis radius.
-    double computeCurrentEstimatedApoapsisRadius( const Eigen::Vector6d& currentEstimatedKeplerianState )
+    /*!
+     *  Function to compute the current estimated apoapsis radius, where the assumption of a Kepler orbit (i.e., an unperturbed
+     *  orbit) is taken. The actual result is then going to differ from this very simple first order estimation.
+     *  \param currentEstimatedKeplerianState Current estimated translational Keplerian elements.
+     *  \return First order approximation of the estimated apoapsis radius.
+     */
+    double computeCurrentFirstOrderEstimatedApoapsisRadius( const Eigen::Vector6d& currentEstimatedKeplerianState )
     {
         return currentEstimatedKeplerianState[ 0 ] * ( 1.0 + currentEstimatedKeplerianState[ 1 ] );
     }
 
     //! Function to compute the current estimated periapsis radius.
-    double computeCurrentEstimatedPeriapsisRadius( const Eigen::Vector6d& currentEstimatedKeplerianState )
+    /*!
+     *  Function to compute the current estimated periapsis radius, where the assumption of a Kepler orbit (i.e., an unperturbed
+     *  orbit) is taken. The actual result is then going to differ from this very simple first order estimation.
+     *  \param currentEstimatedKeplerianState Current estimated translational Keplerian elements.
+     *  \return First order approximation of the estimated periapsis radius.
+     */
+    double computeCurrentFirstOrderEstimatedPeriapsisRadius( const Eigen::Vector6d& currentEstimatedKeplerianState )
     {
         return currentEstimatedKeplerianState[ 0 ] * ( 1.0 - currentEstimatedKeplerianState[ 1 ] );
     }
@@ -226,6 +249,15 @@ private:
 
     //! Pointer to root-finder used to esimate the value of the apoapsis maneuver.
     boost::shared_ptr< root_finders::BisectionCore< double > > maneuverBisectionRootFinder_;
+
+    //! Function to propagate state with custom propagation termination settings.
+    /*!
+     *  Function to propagate state with custom propagation termination settings. This function simply refers to the
+     *  propagateStateWithCustomTerminationSettings function of the navigation system, in order to propagate the state from the
+     *  input initial condition, until the custom termination conditions are reached.
+     */
+    boost::function< std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >(
+            const boost::shared_ptr< propagators::PropagationTerminationSettings >, const Eigen::Vector6d& ) > statePropagationFunction_;
 
     //! Enumeration denoting the aerobraking phase belonging to the current orbit.
     AerobrakingPhaseIndicator currentOrbitAerobrakingPhase_;

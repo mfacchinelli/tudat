@@ -126,14 +126,11 @@ public:
         identityMatrix_ = DependentMatrix::Identity( systemUncertainty_.rows( ), systemUncertainty_.cols( ) );
 
         // Add initial values to history
-        estimatedStateHistory_[ initialTime ] = aPosterioriStateEstimate_;
-        estimatedCovarianceHistory_[ initialTime ] = aPosterioriCovarianceEstimate_;
+        historyOfStateEstimates_[ initialTime ] = aPosterioriStateEstimate_;
+        historyOfCovarianceEstimates_[ initialTime ] = aPosterioriCovarianceEstimate_;
     }
 
-    //! Default destructor.
-    /*!
-     *  Default destructor.
-     */
+    //! Destructor.
     virtual ~FilterBase( ){ }
 
     //! Function to update the filter with the data from the new time step.
@@ -235,7 +232,7 @@ public:
      */
     std::map< IndependentVariableType, DependentVector > getEstimatedStateHistory( )
     {
-        return estimatedStateHistory_;
+        return historyOfStateEstimates_;
     }
 
     //! Function to retrieve the history of estimated covariance matrices.
@@ -245,7 +242,7 @@ public:
      */
     std::map< IndependentVariableType, DependentMatrix > getEstimatedCovarianceHistory( )
     {
-        return estimatedCovarianceHistory_;
+        return historyOfCovarianceEstimates_;
     }
 
     //! Function to retrieve the history of system and measurement noise used by the updateFilter function.
@@ -256,6 +253,17 @@ public:
     std::pair< std::vector< DependentVector >, std::vector< DependentVector > > getNoiseHistory( )
     {
         return std::make_pair( systemNoiseHistory_, measurementNoiseHistory_ );
+    }
+
+    //! Function to clear the history of stored variables.
+    /*!
+     *  Function to clear the history of stored variables. This function should be called if the history of state and covariance
+     *  estimates over time needs to be deleted. This may be useful in case the filter is run for very long times.
+     */
+    virtual void clearFilterHistory( )
+    {
+        historyOfStateEstimates_.clear( );
+        historyOfCovarianceEstimates_.clear( );
     }
 
 protected:
@@ -302,7 +310,8 @@ protected:
                        const DependentVector& measurmentEstimate, const DependentMatrix& gainMatrix )
     {
         aPosterioriStateEstimate_ = aPrioriStateEstimate + gainMatrix * ( currentMeasurementVector - measurmentEstimate );
-        estimatedStateHistory_[ currentTime ] = aPosterioriStateEstimate_;
+        std::cout << "Ku: " << ( gainMatrix * ( currentMeasurementVector - measurmentEstimate ) ).segment( 0, 6 ).transpose( ) << std::endl;
+        historyOfStateEstimates_[ currentTime ] = aPosterioriStateEstimate_;
     }
 
     //! Function to correct the covariance for the next time step.
@@ -373,10 +382,10 @@ protected:
     DependentMatrix identityMatrix_;
 
     //! Map of estimated states vectors history.
-    std::map< IndependentVariableType, DependentVector > estimatedStateHistory_;
+    std::map< IndependentVariableType, DependentVector > historyOfStateEstimates_;
 
     //! Map of estimated covariance matrices history.
-    std::map< IndependentVariableType, DependentMatrix > estimatedCovarianceHistory_;
+    std::map< IndependentVariableType, DependentMatrix > historyOfCovarianceEstimates_;
 
 private:
 
@@ -448,8 +457,8 @@ private:
             break;
         }
         default:
-            throw std::runtime_error( "Error in setting up filter. Only Euler and Runge-Kutta 4 "
-                                      "integrators are currently supported." );
+            throw std::runtime_error( "Error in setting up filter. Only constant time step integrators (i.e., Euler and "
+                                      "Runge-Kutta 4) are supported." );
         }
     }
 

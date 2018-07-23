@@ -195,11 +195,13 @@ private:
         Eigen::Matrix3d transformationFromInertialToTrajectoryFrame;
 
         // Find the trajectory x-axis unit vector
-        Eigen::Vector3d xUnitVector = ( currentEstimatedStateVector.segment( 3, 3 ) - Eigen::Vector3d::Zero( ) ).normalized( );
+        Eigen::Vector3d currentRadialVector = currentEstimatedStateVector.segment( 0, 3 );
+        Eigen::Vector3d xUnitVector = ( currentEstimatedStateVector.segment( 3, 3 ) -
+                                        7.07763225880808e-05 * Eigen::Vector3d::UnitZ( ).cross( currentRadialVector ) ).normalized( );
         transformationFromInertialToTrajectoryFrame.col( 0 ) = xUnitVector;
 
         // Find trajectory z-axis unit vector
-        Eigen::Vector3d zUnitVector = currentEstimatedStateVector.segment( 0, 3 ).normalized( );
+        Eigen::Vector3d zUnitVector = currentRadialVector.normalized( );
         zUnitVector -= zUnitVector.dot( xUnitVector ) * xUnitVector;
         transformationFromInertialToTrajectoryFrame.col( 2 ) = zUnitVector;
 
