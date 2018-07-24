@@ -128,7 +128,8 @@ public:
 
     //! Function to update the onboard instruments to the current time.
     /*!
-     *  Function to update the onboard instruments to the current time.
+     *  Function to update the onboard instruments to the current time. Note that this function needs to be called before retrieving
+     *  the measurements at the current time, since the functions to get the measurements do not update the instruments.
      *  \param currentTime Time at which the measurement needs to be taken.
      */
     void updateInstruments( const double currentTime )

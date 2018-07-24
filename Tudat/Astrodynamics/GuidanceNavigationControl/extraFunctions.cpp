@@ -16,50 +16,6 @@ namespace tudat
 namespace guidance_navigation_control
 {
 
-//! Function to compute the state transition matrix function in Cartesian elements.
-Eigen::Matrix6d computeStateTransitionMatrix( const Eigen::Vector6d& cartesianState,
-                                              const double density,
-                                              const double planetGravitationalParameter,
-                                              const double aerodynamicParameters )
-{
-    // Declare state transition matrix and set to zero
-    Eigen::Matrix6d stateTransitionMatrix = Eigen::Matrix6d::Zero( );
-
-    // Pre-compute recurring terms
-    double radialDistance = cartesianState.segment( 0, 3 ).norm( );
-    double radialDistanceSquared = radialDistance * radialDistance;
-    double gravityRecurringTerm = planetGravitationalParameter / radialDistanceSquared / radialDistance;
-
-    // Add terms due to velocity
-    stateTransitionMatrix( 0, 3 ) = 1.0;
-    stateTransitionMatrix( 1, 4 ) = 1.0;
-    stateTransitionMatrix( 2, 5 ) = 1.0;
-
-    // Add terms due to gravitational acceleration
-    stateTransitionMatrix( 3, 0 ) = gravityRecurringTerm * ( 3.0 * cartesianState[ 0 ] *
-            cartesianState[ 0 ] / radialDistanceSquared - 1.0 );
-    stateTransitionMatrix( 4, 0 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 1 ];
-    stateTransitionMatrix( 5, 0 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 2 ];
-
-    stateTransitionMatrix( 3, 1 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 1 ];
-    stateTransitionMatrix( 4, 1 ) = gravityRecurringTerm * ( 3.0 * cartesianState[ 1 ] *
-            cartesianState[ 1 ] / radialDistanceSquared - 1.0 );
-    stateTransitionMatrix( 5, 1 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 1 ] * cartesianState[ 2 ];
-
-    stateTransitionMatrix( 3, 2 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 1 ] * cartesianState[ 2 ];
-    stateTransitionMatrix( 4, 2 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * cartesianState[ 0 ] * cartesianState[ 2 ];
-    stateTransitionMatrix( 5, 2 ) = gravityRecurringTerm * ( 3.0 * cartesianState[ 2 ] *
-            cartesianState[ 2 ] / radialDistanceSquared - 1.0 );
-
-    // Add terms due to aerodynamic acceleration
-    stateTransitionMatrix( 3, 3 ) = - density * aerodynamicParameters * std::fabs( cartesianState[ 3 ] );
-    stateTransitionMatrix( 4, 4 ) = - density * aerodynamicParameters * std::fabs( cartesianState[ 4 ] );
-    stateTransitionMatrix( 5, 5 ) = - density * aerodynamicParameters * std::fabs( cartesianState[ 5 ] );
-
-    // Give output
-    return stateTransitionMatrix;
-}
-
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
 double areaBisectionFunction( const double currentTimeGuess, const double constantTimeStep,
                               const Eigen::VectorXd& onboardTime,

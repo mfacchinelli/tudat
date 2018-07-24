@@ -152,7 +152,6 @@ public:
         // Compute the weighted average to find the a-priori state vector
         DependentVector aPrioriStateEstimate = DependentVector::Zero( stateDimension_ );
         computeWeightedAverageFromSigmaPointEstimates( aPrioriStateEstimate, sigmaPointsStateEstimates );
-        std::cout << "x_k_k1: " << aPrioriStateEstimate.segment( 0, 6 ).transpose( ) << std::endl;
 
         // Compute the weighted average to find the a-priori covariance matrix
         DependentMatrix aPrioriCovarianceEstimate = DependentMatrix::Zero( stateDimension_, stateDimension_ );
@@ -174,7 +173,6 @@ public:
         // Compute the weighted average to find the expected measurement vector
         DependentVector measurmentEstimate = DependentVector::Zero( measurementDimension_ );
         computeWeightedAverageFromSigmaPointEstimates( measurmentEstimate, sigmaPointsMeasurementEstimates );
-        std::cout << "z_k: " << measurmentEstimate.transpose( ) << std::endl;
 
         // Compute innovation and cross-correlation matrices
         DependentMatrix innovationMatrix = DependentMatrix::Zero( measurementDimension_, measurementDimension_ );
@@ -194,7 +192,6 @@ public:
         // Correction step
         this->correctState( currentTime, aPrioriStateEstimate, currentMeasurementVector, measurmentEstimate, kalmanGain );
         correctCovariance( currentTime, aPrioriCovarianceEstimate, innovationMatrix, kalmanGain );
-        std::cout << "x_k_k: " << this->aPosterioriStateEstimate_.segment( 0, 6 ).transpose( ) << std::endl;
     }
 
     //! Function to return the history of sigma points.

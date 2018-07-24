@@ -25,18 +25,6 @@ namespace tudat
 namespace guidance_navigation_control
 {
 
-//! Function to compute the state transition matrix function in Cartesian elements.
-/*!
- *  Function to compute the state transition matrix function in Cartesian elements. The accelerations considered are the
- *  gravitational spherical harmonics up to term (2,0) and the aerodynamic acceleration.
- *  \param cartesianState
- *  \return
- */
-Eigen::Matrix6d computeStateTransitionMatrix( const Eigen::Vector6d& cartesianState,
-                                              const double density,
-                                              const double planetGravitationalParameter,
-                                              const double aerodynamicParameters );
-
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
 /*!
  *  Function to be used as input to the root-finder to determine the centroid of the acceleration curve.

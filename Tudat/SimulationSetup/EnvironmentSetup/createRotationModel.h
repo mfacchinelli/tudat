@@ -23,8 +23,6 @@
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
 #include "Tudat/External/SofaInterface/earthOrientation.h"
 
-
-
 namespace tudat
 {
 

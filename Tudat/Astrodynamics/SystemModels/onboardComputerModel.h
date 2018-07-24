@@ -100,7 +100,7 @@ public:
         // Define output value
         bool isPropagationToBeStopped = false;
 
-        // Update measurement model and extract measurements
+        // Update instrument models and extract measurements
         instrumentsModel_->updateInstruments( currentTime );
         Eigen::Vector7d currentExternalMeasurementVector;
         currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );

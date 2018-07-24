@@ -79,16 +79,11 @@ public:
         // Create environment updater
         createOnboardEnvironmentUpdater( );
 
-        // State transition matrix function
-        double spacecraftMass = onboardBodyMap_.at( spacecraftName_ )->getBodyMass( );
-        double referenceAerodynamicArea = onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getReferenceArea( );
-        double aerodynamicCoefficientsNorm =
-                onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getCurrentForceCoefficients( ).norm( );
-        stateTransitionMatrixFunction_ = boost::bind( &computeStateTransitionMatrix, _1, _2, planetaryGravitationalParameter_,
-                                                      referenceAerodynamicArea * aerodynamicCoefficientsNorm / spacecraftMass  );
-
         // Atmosphere estimator initialization
         atmosphereEstimatorInitialized_ = false;
+
+        // Set initial estimated accelerometer errors to zero
+        estimatedAccelerometerErrors_.setZero( );
 
         // Get index of central body acceleration (which is not measured by the IMUs)
         for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -133,10 +128,11 @@ public:
         currentTime_ = currentTime;
 
         // Convert translational acceleration to inertial frame
-        currentExternalMeasurementVector.segment( 0, 3 ) =
-                linear_algebra::convertVectorToQuaternionFormat(
+        currentExternalMeasurementVector.segment( 0, 3 ) = linear_algebra::convertVectorToQuaternionFormat(
                     currentEstimatedRotationalState_.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
-                currentExternalMeasurementVector.segment( 0, 3 );
+                removeErrorsFromInertialMeasurementUnitMeasurement( currentExternalMeasurementVector.segment( 0, 3 ),
+                                                                    estimatedAccelerometerErrors_ );
+        // transpose is taken due to the different definition of quaternion in Eigen
 
         // Update filter
         navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
@@ -293,7 +289,7 @@ public:
     Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( const Eigen::Vector6d& currentEstimatedCartesianState )
     {
         // Update environment based on given input
-        updateOnboardModel( currentEstimatedCartesianState );
+//        updateOnboardModel( currentEstimatedCartesianState );
 
         // Define output and set accelerations to zero
         Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
@@ -310,7 +306,6 @@ public:
                 currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
             }
         }
-//        std::cout << "Full Acc: " << currentTranslationalAcceleration.transpose( ) << std::endl;
 
         // Add errors to acceleration value
         return currentTranslationalAcceleration;
@@ -327,7 +322,7 @@ public:
     Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( const Eigen::Vector6d& currentEstimatedCartesianState )
     {
         // Update environment based on given input
-        updateOnboardModel( currentEstimatedCartesianState );
+//        updateOnboardModel( currentEstimatedCartesianState );
 
         // Define output and set accelerations to zero
         Eigen::Vector3d currentNonGravitationalTranslationalAcceleration = Eigen::Vector3d::Zero( );
@@ -348,7 +343,6 @@ public:
                 }
             }
         }
-//        std::cout << "Non-grav. Acc: " << currentNonGravitationalTranslationalAcceleration.transpose( ) << std::endl;
 
         // Add errors to acceleration value
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
@@ -713,9 +707,6 @@ private:
 
     //! Filter object to be used for estimation of state.
     boost::shared_ptr< filters::FilterBase< double, double > > navigationFilter_;
-
-    //! Function to propagate estimated state error.
-    boost::function< Eigen::Matrix6d( const Eigen::Vector6d&, const double ) > stateTransitionMatrixFunction_;
 
     //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
     unsigned int sphericalHarmonicsGravityIndex_;

@@ -310,7 +310,6 @@ protected:
                        const DependentVector& measurmentEstimate, const DependentMatrix& gainMatrix )
     {
         aPosterioriStateEstimate_ = aPrioriStateEstimate + gainMatrix * ( currentMeasurementVector - measurmentEstimate );
-        std::cout << "Ku: " << ( gainMatrix * ( currentMeasurementVector - measurmentEstimate ) ).segment( 0, 6 ).transpose( ) << std::endl;
         historyOfStateEstimates_[ currentTime ] = aPosterioriStateEstimate_;
     }
 
