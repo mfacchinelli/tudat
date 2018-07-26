@@ -23,9 +23,6 @@ namespace tudat
 namespace sparta_interface
 {
 
-// Inherit independent variables and vehicle characteristics from aerodynamic coefficient generator
-using aerodynamics::AerodynamicCoefficientGenerator;
-
 //! Function to sort the rows of a matrix, based on the specified column and specified order.
 Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor > sortMatrixRows(
         const Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor >& matrixToBeSorted,
@@ -188,8 +185,7 @@ void SpartaInterface::runSpartaSimulation( const unsigned int h, const unsigned 
 
     // Get velocity vector
     velocityVector_ = Eigen::Vector3d::Zero( );
-    velocityVector_( referenceDimension_ ) = ( ( referenceAxis_ >= 0 ) ? - 1.0 : 1.0 ) *
-            freeStreamVelocities_( h, m );
+    velocityVector_( referenceDimension_ ) = ( ( referenceAxis_ >= 0 ) ? - 1.0 : 1.0 ) * freeStreamVelocities_( h, m );
 
     // Print to file (each line corresponds to a different line in the file)
     FILE * fileIdentifier = std::fopen( input_output::getSpartaInputFile( ).c_str( ), "w" );
@@ -211,8 +207,7 @@ void SpartaInterface::runSpartaSimulation( const unsigned int h, const unsigned 
     systemStatus_ = std::system( runSPARTACommandString.c_str( ) );
     if ( systemStatus_ != 0 )
     {
-        throw std::runtime_error( "Error in SPARTA rarefied flow analysis. "
-                                  "SPARTA Simulation failed. See the log.sparta file in "
+        throw std::runtime_error( "Error in SPARTA rarefied flow analysis. SPARTA Simulation failed. See the log.sparta file in "
                                   "Tudat/External/SPARTA/ for more details." );
     }
 }
@@ -227,8 +222,7 @@ Eigen::Vector6d SpartaInterface::processSpartaOutput( const double referenceArea
     for ( unsigned int i = 0; i < outputFileExtensions_.size( ); i++ )
     {
         // Read file
-        outputMatrix_ = input_output::readMatrixFromFile( temporaryOutputFile_ + outputFileExtensions_.at( i ),
-                                                          "\t ;,", "%", 9 );
+        outputMatrix_ = input_output::readMatrixFromFile( temporaryOutputFile_ + outputFileExtensions_.at( i ), "\t ;,", "%", 9 );
 
         // Sort rows, since with multiple cores running, row order is scrambled
         outputMatrix_ = sortMatrixRows( outputMatrix_, 0 );
@@ -251,16 +245,9 @@ Eigen::Vector6d SpartaInterface::processSpartaOutput( const double referenceArea
 
     // Convert pressure and shear forces to aerodynamic coefficients
     return aerodynamics::computeAerodynamicCoefficientsFromPressureShearForces(
-                meanPressureValues_,
-                meanShearValues_,
-                atmosphericConditions_[ density_index ].at( h ),
-                atmosphericConditions_[ pressure_index ].at( h ),
-                freeStreamVelocities_( h, m ),
-                elementSurfaceNormal_,
-                elementSurfaceArea_,
-                elementMomentArm_,
-                referenceArea,
-                referenceLength );
+                meanPressureValues_, meanShearValues_, atmosphericConditions_[ density_index ].at( h ),
+                atmosphericConditions_[ pressure_index ].at( h ), freeStreamVelocities_( h, m ), elementSurfaceNormal_,
+                elementSurfaceArea_, elementMomentArm_, referenceArea, referenceLength );
 }
 
 } // namespace sparta_interface

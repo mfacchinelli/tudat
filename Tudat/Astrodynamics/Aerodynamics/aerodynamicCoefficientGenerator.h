@@ -30,10 +30,6 @@
 #include "Tudat/Mathematics/Interpolators/multiLinearInterpolator.h"
 #include "Tudat/Basics/basicTypedefs.h"
 
-#ifdef USE_SPARTA
-#include "Tudat/External/SpartaInterface/spartaInterface.h"
-#endif // USE_SPARTA
-
 namespace tudat
 {
 
@@ -226,11 +222,6 @@ public:
         currentForceCoefficients_ = currentCoefficients.segment( 0, 3 );
         currentMomentCoefficients_ = currentCoefficients.segment( 3, 3 );
     }
-
-    //! Share protected variables with SPARTA interface
-#ifdef USE_SPARTA
-    friend class sparta_interface::SpartaInterface;
-#endif // USE_SPARTA
 
 protected:
 

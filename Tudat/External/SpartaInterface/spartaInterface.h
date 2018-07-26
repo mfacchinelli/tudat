@@ -70,9 +70,13 @@ public:
     /*!
      *  Constructor.
      */
-    SpartaInterface( const std::string& SPARTAExecutable = "~/sparta/src/spa_mpi",
+    SpartaInterface( const std::vector< std::vector< double > >& dataPointsOfIndependentVariables,
+                     const std::string& SPARTAExecutable = "~/sparta/src/spa_mpi",
                      const std::string& MPIExecutable = "mpirun" ) :
-        SPARTAExecutable_( SPARTAExecutable ), MPIExecutable_( MPIExecutable )
+        SPARTAExecutable_( SPARTAExecutable ), MPIExecutable_( MPIExecutable ),
+        dataPointsOfIndependentVariables_( dataPointsOfIndependentVariables ),
+        temporaryOutputFile_( input_output::getSpartaOutputPath( ) + "/coeff" ),
+        outputFileExtensions_( { ".400", ".600", ".800", ".1000" } )
     {
         // Check executables
         checkExecutableValidity( );
@@ -116,6 +120,20 @@ protected:
     Eigen::Vector6d processSpartaOutput( const double referenceArea, const double referenceLength,
                                          const unsigned int h, const unsigned int m );
 
+    //! Path to SPARTA executable.
+    /*!
+     *  Path to SPARTA executable. Note that SPARTA is an external software and needs to be compiled before
+     *  it can be used in Tudat. See the instructions in the manual [2].
+     */
+    const std::string SPARTAExecutable_;
+
+    //! Path to open MPI executable.
+    /*!
+     *  Path to open MPI executable. Note that open MPI is an external software and needs to be compiled before
+     *  it can be used in Tudat. See the instructions on the website https://www.open-mpi.org.
+     */
+    std::string MPIExecutable_;
+
     //! String of gases making up the atmosphere of the target planet.
     std::string simulationGases_;
 
@@ -150,20 +168,6 @@ protected:
      *  details, and during the simulation it prints statistics on the progress. This value is set to false by default.
      */
     bool printProgressInCommandWindow_;
-
-    //! Path to SPARTA executable.
-    /*!
-     *  Path to SPARTA executable. Note that SPARTA is an external software and needs to be compiled before
-     *  it can be used in Tudat. See the instructions in the manual [2].
-     */
-    std::string SPARTAExecutable_;
-
-    //! Path to open MPI executable.
-    /*!
-     *  Path to open MPI executable. Note that open MPI is an external software and needs to be compiled before
-     *  it can be used in Tudat. See the instructions on the website https://www.open-mpi.org.
-     */
-    std::string MPIExecutable_;
 
     //! Number of cores to be used to run the simulation with open MPI.
     /*!
@@ -274,8 +278,7 @@ private:
         // Check that SPARTA executable exists and create it otherwise
         if ( !boost::filesystem::exists( boost::filesystem::system_complete( SPARTAExecutable_ ) ) )
         {
-            std::cerr << "SPARTA executable not found. "
-                         "Cloning and building SPARTA from scratch." << std::endl;
+            std::cerr << "SPARTA executable not found. Cloning and building SPARTA from scratch." << std::endl;
             std::string cloneAndBuildSPARTACommandString =
                     "mkdir ~/sparta/; "
                     "cd ~/sparta/; git clone https://github.com/mfacchinelli/sparta.git; "
@@ -283,13 +286,13 @@ private:
 //            std::system( cloneAndBuildSPARTACommandString.c_str( ) );
         }
 
-        // Check try running a dummy MPI example
+        // Try running a dummy MPI example
         std::string testMPICommandString = "info " + MPIExecutable_;
         int systemStatus = std::system( testMPICommandString.c_str( ) );
         if ( systemStatus != 0 )
         {
             std::cerr <<  "Error in SPARTA interface. MPI executable not found. "
-                          "Simulation will be run with one core only.";
+                          "Simulation will be run with one core only." << std::endl;
             MPIExecutable_ = "";
         }
 
@@ -300,17 +303,26 @@ private:
         }
     }
 
+    //! Data points of the independent variables at which the coefficients are calculated.
+    /*!
+     *  Data points of the independent variables at which the coefficients are calculated. The
+     *  k-th vector contains the vector of data points to which the k-th independent variables
+     *  (defined by independentVariableNames_) are set during the calculation of the aerodynamic
+     *  coefficients.
+     */
+    const std::vector< std::vector< double > > dataPointsOfIndependentVariables_;
+
+    //! Path to files output by SPARTA simulation.
+    const std::string temporaryOutputFile_;
+
+    //! Extensions of files output by SPARTA simulation.
+    const std::vector< std::string > outputFileExtensions_;
+
     //! Integer output by system command, specifying whether command was successfully executed.
     int systemStatus_;
 
     //! Velocity vector of air flow during simulation.
     Eigen::Vector3d velocityVector_;
-
-    //! Path to files output by SPARTA simulation.
-    std::string temporaryOutputFile_ = input_output::getSpartaOutputPath( ) + "/coeff";
-
-    //! Extensions of files output by SPARTA simulation.
-    std::vector< std::string > outputFileExtensions_ = { ".400", ".600", ".800", ".1000" };
 
     //! Matrix where output of SPARTA simulation is stored.
     Eigen::Matrix< double, Eigen::Dynamic, 7, Eigen::RowMajor > outputMatrix_;

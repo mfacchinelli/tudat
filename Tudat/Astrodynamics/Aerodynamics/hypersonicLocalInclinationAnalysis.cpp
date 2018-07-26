@@ -126,15 +126,15 @@ HypersonicLocalInclinationAnalysis::HypersonicLocalInclinationAnalysis(
         const std::vector< std::vector< int > >& selectedMethods,
         const double referenceArea,
         const double referenceLength,
-        const Eigen::Vector3d& momentReferencePoint )
-    : AerodynamicCoefficientGenerator< 3, 6 >(
-          dataPointsOfIndependentVariables, referenceLength, referenceArea, referenceLength,
-          momentReferencePoint,
-          boost::assign::list_of( mach_number_dependent )( angle_of_attack_dependent )
-          ( angle_of_sideslip_dependent ), true, false ),
-      stagnationPressureCoefficient( 2.0 ),
-      ratioOfSpecificHeats( 1.4 ),
-      selectedMethods_( selectedMethods )
+        const Eigen::Vector3d& momentReferencePoint ) :
+    AerodynamicCoefficientGenerator< 3, 6 >(
+        dataPointsOfIndependentVariables, referenceLength, referenceArea, referenceLength,
+        momentReferencePoint,
+        boost::assign::list_of( mach_number_dependent )( angle_of_attack_dependent )
+        ( angle_of_sideslip_dependent ), true, false ),
+    stagnationPressureCoefficient( 2.0 ),
+    ratioOfSpecificHeats( 1.4 ),
+    selectedMethods_( selectedMethods )
 {
     // Set geometry if it is a single surface.
     if ( boost::dynamic_pointer_cast< SingleSurfaceGeometry > ( inputVehicleSurface ) !=

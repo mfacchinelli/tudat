@@ -71,9 +71,9 @@ std::vector< double > getDefaultRarefiedFlowAngleOfAttackPoints(
  *  shear forces acting on each element of the vehicle. These values are output by default every 200
  *  time steps, and are used to compute the average pressure and friction coefficients on each surface
  *  element, which are then translated to aerodynamic coefficients for the whole surface. One can
- *  find a description of the SPARTA software in references [1,2], where the second reference is the
- *  official user manual. The user should also pay careful attention to the requirements for the geometry
- *  of the vehicle to be analyzed.
+ *  find a description of the SPARTA software in references [Klothakis and Nikolos, 2015, Plimpton and
+ *  Gallis, 2017], where the second reference is the official user manual. The user should also pay careful
+ *  attention to the requirements for the geometry of the vehicle to be analyzed.
  */
 class RarefiedFlowAnalysis: public AerodynamicCoefficientGenerator< 3, 6 >, public sparta_interface::SpartaInterface
 {
@@ -102,7 +102,7 @@ public:
      *  \param gridSpacing Grid size for simulation environment, used to define the size of each cell, and
      *          the number of cells in the environment.
      *  \param simulatedParticlesPerCell Number of simulated particles per cell.
-     *  \param wallTemperature Temperature of the surface of the vehicle (default value is 300 K [3]).
+     *  \param wallTemperature Temperature of the surface of the vehicle (default value is 300 K [Liechty, 2007]).
      *  \param accommodationCoefficient Accommodation coefficient of the surface of the vehicle. This
      *          value indicates the degree of diffusivity during molecular-surface collisions (default value
      *          is 1.0, i.e., diffuse reflection).

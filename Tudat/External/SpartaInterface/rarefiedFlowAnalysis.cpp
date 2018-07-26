@@ -6,12 +6,6 @@
  *    under the terms of the Modified BSD license. You should have received
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
- *
- *    References
- *      Klothakis, A. and Nikolos, I., “Modeling of Rarefied Hypersonic Flows Using the Massively
- *        Parallel DSMC Kernel “SPARTA”,” in 8th GRACM International Congress on Computational Mechanics,
- *        Volos, Greece, July 2015.
- *      Dirkx, D. and Mooij, E., Conceptual Shape Optimization of Entry Vehicles. Springer, 2017.
  */
 
 #include <boost/make_shared.hpp>
@@ -32,8 +26,7 @@ namespace aerodynamics
 using namespace unit_conversions;
 
 //! Returns default values of altitude for use in RarefiedFlowAnalysis.
-std::vector< double > getDefaultRarefiedFlowAltitudePoints(
-        const std::string& targetPlanet )
+std::vector< double > getDefaultRarefiedFlowAltitudePoints( const std::string& targetPlanet )
 {
     std::vector< double > altitudePoints;
 
@@ -67,8 +60,7 @@ std::vector< double > getDefaultRarefiedFlowAltitudePoints(
 }
 
 //! Returns default values of Mach number for use in RarefiedFlowAnalysis.
-std::vector< double > getDefaultRarefiedFlowMachPoints(
-        const std::string& machRegime )
+std::vector< double > getDefaultRarefiedFlowMachPoints( const std::string& machRegime )
 {
     std::vector< double > machPoints;
 
@@ -107,17 +99,16 @@ std::vector< double > getDefaultRarefiedFlowMachPoints(
 }
 
 //! Returns default values of angle of attack for use in RarefiedFlowAnalysis.
-std::vector< double > getDefaultRarefiedFlowAngleOfAttackPoints(
-        const std::string& angleOfAttackRegime )
+std::vector< double > getDefaultRarefiedFlowAngleOfAttackPoints( const std::string& angleOfAttackRegime )
 {
     std::vector< double > angleOfAttackPoints;
 
     // Set default angles of attack
-    double a = - 35;
-    while ( a <= 35 )
+    double a = -35.0;
+    while ( a <= 35.0 )
     {
         angleOfAttackPoints.push_back( convertDegreesToRadians( a ) );
-        a += 5;
+        a += 5.0;
     }
 
     // Add extra points if required
@@ -141,26 +132,19 @@ std::vector< double > getDefaultRarefiedFlowAngleOfAttackPoints(
 RarefiedFlowAnalysis::RarefiedFlowAnalysis(
         const std::vector< std::vector< double > >& dataPointsOfIndependentVariables,
         boost::shared_ptr< TabulatedAtmosphere > atmosphereModel,
-        const std::string& simulationGases,
-        const std::string& geometryFileUser,
-        const double referenceArea,
-        const double referenceLength,
-        const int referenceAxis,
+        const std::string& simulationGases, const std::string& geometryFileUser,
+        const double referenceArea, const double referenceLength, const int referenceAxis,
         const Eigen::Vector3d& momentReferencePoint,
-        const double gridSpacing,
-        const double simulatedParticlesPerCell,
-        const double wallTemperature,
-        const double accommodationCoefficient,
+        const double gridSpacing, const double simulatedParticlesPerCell,
+        const double wallTemperature, const double accommodationCoefficient,
         const bool printProgressInCommandWindow,
-        const std::string& SPARTAExecutable,
-        const std::string& MPIExecutable,
-        const unsigned int numberOfCores ) :
+        const std::string& SPARTAExecutable, const std::string& MPIExecutable, const unsigned int numberOfCores ) :
     AerodynamicCoefficientGenerator< 3, 6 >(
         dataPointsOfIndependentVariables, referenceLength, referenceArea, referenceLength,
         momentReferencePoint,
         boost::assign::list_of( altitude_dependent )( mach_number_dependent )( angle_of_attack_dependent ),
         true, true ),
-    SpartaInterface( SPARTAExecutable, MPIExecutable ),
+    sparta_interface::SpartaInterface( dataPointsOfIndependentVariables, SPARTAExecutable, MPIExecutable ),
     simulationGases_( simulationGases ), referenceAxis_( referenceAxis ),
     gridSpacing_( gridSpacing ), simulatedParticlesPerCell_( simulatedParticlesPerCell ),
     wallTemperature_( wallTemperature ), accommodationCoefficient_( accommodationCoefficient ),
@@ -201,7 +185,7 @@ RarefiedFlowAnalysis::RarefiedFlowAnalysis(
     generateCoefficients( );
 
     // Create interpolator object
-    createInterpolator( );
+    this->createInterpolator( );
 }
 
 //! Generate aerodynamic database.
@@ -239,8 +223,7 @@ void RarefiedFlowAnalysis::generateCoefficients( )
                 this->runSpartaSimulation( h, m, a );
 
                 // Process SPARTA output
-                aerodynamicCoefficients_[ h ][ m ][ a ] = this->processSpartaOutput( referenceArea_, referenceLength_,
-                                                                                     h, m );
+                aerodynamicCoefficients_[ h ][ m ][ a ] = this->processSpartaOutput( referenceArea_, referenceLength_, h, m );
             }
         }
     }
@@ -250,8 +233,7 @@ void RarefiedFlowAnalysis::generateCoefficients( )
 }
 
 //! Get aerodynamic coefficients at specific conditions.
-Eigen::Vector6d RarefiedFlowAnalysis::getAerodynamicCoefficientsDataPoint(
-        const boost::array< int, 3 > independentVariables )
+Eigen::Vector6d RarefiedFlowAnalysis::getAerodynamicCoefficientsDataPoint( const boost::array< int, 3 > independentVariables )
 {
     // Return requested coefficients.
     return aerodynamicCoefficients_( independentVariables );
