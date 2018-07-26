@@ -19,6 +19,7 @@
 #include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
+#include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
 #include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
@@ -26,7 +27,8 @@
 #include "Tudat/Mathematics/Filters/createFilter.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen { typedef Eigen::Matrix< double, 16, 1 > Vector16d; typedef Eigen::Matrix< double, 16, 16 > Matrix16d; }
+namespace Eigen { typedef Eigen::Matrix< double, 22, 1 > Vector22d; typedef Eigen::Matrix< double, 5, 5 > Matrix5d;
+                  typedef Eigen::Matrix< double, 22, 22 > Matrix22d; }
 
 namespace tudat
 {
@@ -34,9 +36,15 @@ namespace tudat
 namespace guidance_navigation_control
 {
 
-//! Function to remove the error in gyroscope measurement based on the estimated bias and scale factors.
+//! Function to remove errors in inertial measurement unit measurements based on the estimated bias and scale factors.
 Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
                                                                     const Eigen::Vector6d& inertialMeasurementUnitErrors );
+
+//! Function to remove errors in the altimeter measurements based on the current orientation.
+void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const Eigen::Vector3d& currentRadiusVector,
+                                           const Eigen::Vector4d& currentQuaternionToInertialFrame,
+                                           const Eigen::Vector3d& altimeterBodyFixedPointingDirection,
+                                           const double planetaryRadius );
 
 //! Class for the navigation system of an aerobraking maneuver.
 class NavigationSystem
@@ -50,8 +58,18 @@ public:
         cartesian_velocity_index = 3,
         quaternion_real_index = 6,
         quaternion_imaginary_index = 7,
-        gyroscope_bias_index = 10,
-        gyroscope_scale_factor_index = 13
+        accelerometer_bias_index = 10,
+        accelerometer_scale_factor_index = 13,
+        gyroscope_bias_index = 16,
+        gyroscope_scale_factor_index = 19
+    };
+
+    //! Enumeration for navigation phases.
+    enum NavigationPhaseIndicator
+    {
+        unaided_navigation_phase = 0,
+        optical_navigation_phase = 1,
+        altimeter_navigation_phase = 2
     };
 
     //! Constructor.
@@ -66,7 +84,9 @@ public:
                       const boost::shared_ptr< filters::FilterSettings< > > navigationFilterSettings,
                       const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel,
                       const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude,
-                      const double numberOfRequiredAtmosphereSamplesForInitiation ) :
+                      const double numberOfRequiredAtmosphereSamplesForInitiation,
+                      const Eigen::Vector3d& altimeterBodyFixedPointingDirection,
+                      const std::pair< double, double > altimeterAltitudeRange ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
         selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel ),
@@ -74,7 +94,8 @@ public:
         planetaryRadius_( onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( ) ),
         atmosphericInterfaceRadius_( planetaryRadius_ + atmosphericInterfaceAltitude ),
         reducedAtmosphericInterfaceRadius_( planetaryRadius_ + reducedAtmosphericInterfaceAltitude ),
-        numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation )
+        numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation ),
+        altimeterBodyFixedPointingDirection_( altimeterBodyFixedPointingDirection ), altimeterAltitudeRange_( altimeterAltitudeRange )
     {
         // Create environment updater
         createOnboardEnvironmentUpdater( );
@@ -120,30 +141,100 @@ public:
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
             const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel );
 
+    //! Function to determine the navigation phase.
+    void determineNavigationPhase( )
+    {
+        // Declare navigation phase indicator and set value to unaided phase
+        NavigationPhaseIndicator detectedNavigationPhase = unaided_navigation_phase;
+
+        // Store previous navigation phase
+        previousNavigationPhase_ = currentNavigationPhase_;
+
+        // Compute current altitude
+        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
+
+        // Check whether altitude is within altimeter operational altitude
+        if ( ( currentAltitude > altimeterAltitudeRange_.first ) && ( currentAltitude < altimeterAltitudeRange_.second ) )
+        {
+            detectedNavigationPhase = altimeter_navigation_phase;
+        }
+
+//        // Check whether altitude is above optical navigation camera limiting altitude
+//        if ( currentAltitude > 30.0e6 )
+//        {
+//            detectedNavigationPhase = optical_navigation_phase;
+//        }
+
+        // Set current navigation phase
+        currentNavigationPhase_ = detectedNavigationPhase;
+    }
+
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const double currentTime, Eigen::Vector7d& currentExternalMeasurementVector,
+    void runStateEstimator( const double currentTime, Eigen::Vector5d& currentExternalMeasurementVector,
                             const Eigen::Vector3d& currentGyroscopeMeasurement )
     {
         // Set time
         currentTime_ = currentTime;
 
-        // Convert translational acceleration to inertial frame
-        currentExternalMeasurementVector.segment( 0, 3 ) = linear_algebra::convertVectorToQuaternionFormat(
-                    currentEstimatedRotationalState_.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
-                removeErrorsFromInertialMeasurementUnitMeasurement( currentExternalMeasurementVector.segment( 0, 3 ),
-                                                                    estimatedAccelerometerErrors_ );
-        // transpose is taken due to the different definition of quaternion in Eigen
+        // Correct altitude measurement to account for possible pointing angle
+        removeErrorsFromAltimeterMeasurement( currentExternalMeasurementVector[ 0 ], currentEstimatedCartesianState_.segment( 0, 3 ),
+                currentEstimatedRotationalState_.segment( 0, 4 ), altimeterBodyFixedPointingDirection_, planetaryRadius_ );
 
-        // Update filter
-        navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
+        // Update navigation estimates based on current navigation phase
+        switch ( currentNavigationPhase_ )
+        {
+        case unaided_navigation_phase:
+        {
+            // Propagate translational motion
+            Eigen::Vector6d currentTranslationalStateDerivative;
+            currentTranslationalStateDerivative.segment( 0, 3 ) = currentEstimatedCartesianState_.segment( 3, 3 );
+            currentTranslationalStateDerivative.segment( 3, 3 ) = currentTranslationalAcceleration_;
+            currentEstimatedCartesianState_ += currentTranslationalStateDerivative * navigationRefreshStepSize_;
 
-        // Extract estimated state and update navigation estimates
-        Eigen::Vector16d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-        currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 ).normalized( );
-        currentEstimatedRotationalState_.segment( 4, 3 ) =
-                removeErrorsFromInertialMeasurementUnitMeasurement( currentGyroscopeMeasurement, updatedEstimatedState.segment( 10, 6 ) );
-        setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
-        // this function also automatically stores the full state estimates at the current time
+            // Propagate rotational motion
+            Eigen::Vector3d currentActualGyroscopeMeasurement = removeErrorsFromInertialMeasurementUnitMeasurement(
+                        currentGyroscopeMeasurement, Eigen::Vector6d::Zero( ) );
+            currentEstimatedRotationalState_.segment( 0, 4 ) +=
+                    propagators::calculateQuaternionDerivative( currentEstimatedRotationalState_.segment( 0, 4 ).normalized( ),
+                                                                currentActualGyroscopeMeasurement ) * navigationRefreshStepSize_;
+            currentEstimatedRotationalState_.segment( 4, 3 ) = currentActualGyroscopeMeasurement;
+
+            // Update navigation estimated
+            setCurrentEstimatedCartesianState( currentEstimatedCartesianState_ );
+            break;
+        }
+        case optical_navigation_phase:
+        {
+            throw std::runtime_error( "Error in state estimation. Optical navigation not yet supported." );
+            break;
+        }
+        case altimeter_navigation_phase:
+        {
+            // Set navigation states based on previous estimate
+            if ( currentNavigationPhase_ != previousNavigationPhase_ )
+            {
+                Eigen::Vector22d estimatedState = Eigen::Vector22d::Zero( );
+                estimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
+                estimatedState.segment( 6, 4 ) = currentEstimatedRotationalState_;
+                navigationFilter_->modifyCurrentStateAndCovarianceEstimates( estimatedState, Eigen::Matrix22d::Identity( ) );
+            }
+
+            // Update filter
+            navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
+
+            // Extract estimated state and update navigation estimates
+            Eigen::Vector22d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+            currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 ).normalized( );
+            currentEstimatedRotationalState_.segment( 4, 3 ) =
+                    removeErrorsFromInertialMeasurementUnitMeasurement( currentGyroscopeMeasurement,
+                                                                        updatedEstimatedState.segment( 16, 6 ) );
+            setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
+            // this function also automatically stores the full state estimates at the current time
+            break;
+        }
+        default:
+            throw std::runtime_error( "Error in state estimation. Current navigation phase not recognized." );
+        }
 
         // Update body and acceleration maps
         updateOnboardModel( );
@@ -283,81 +374,39 @@ public:
     /*!
      *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
      *  is computed by using the onboard accelerations model map.
-     *  \param currentEstimatedCartesianState Estimate of the current Cartesian state.
      *  \return Vector denoting the full acceleration vector experienced by the spacecraft.
      */
-    Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( const Eigen::Vector6d& currentEstimatedCartesianState )
+    Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( ) { return currentTranslationalAcceleration_; }
+
+    //! Function to retrieve current estimated gravitational translational accelerations exerted on the spacecraft.
+    /*!
+     *  Function to retrieve current estimated gravitational translational accelerations exerted on the spacecraft. The
+     *  acceleration is computed by using the onboard accelerations model map. Note that this vector represents only the
+     *  gravitational accelerations.
+     *  \return Vector denoting only the gravitational accelerations experienced by the spacecraft.
+     */
+    Eigen::Vector3d getCurrentEstimatedGravitationalTranslationalAcceleration( )
     {
-        // Update environment based on given input
-//        updateOnboardModel( currentEstimatedCartesianState );
-
-        // Define output and set accelerations to zero
-        Eigen::Vector3d currentTranslationalAcceleration = Eigen::Vector3d::Zero( );
-
-        // Iterate over all accelerations acting on body
-        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
-              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
-              accelerationMapIterator_++ )
-        {
-            // Loop over each accelerations
-            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
-            {
-                // Calculate acceleration and add to state derivative
-                currentTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
-            }
-        }
-
-        // Add errors to acceleration value
-        return currentTranslationalAcceleration;
+        return currentGravitationalTranslationalAcceleration_;
     }
 
     //! Function to retrieve current estimated non-gravitational translational accelerations exerted on the spacecraft.
     /*!
-     *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
-     *  is computed by using the onboard accelerations model map. Note that this vector represents only the non-gravitational
-     *  accelerations (which are supposed to emulated the accelerations measured by the IMU).
-     *  \param currentEstimatedCartesianState Estimate of the current Cartesian state.
+     *  Function to retrieve current estimated non-gravitational translational accelerations exerted on the spacecraft. The
+     *  acceleration is computed by using the onboard accelerations model map. Note that this vector represents only the
+     *  non-gravitational accelerations (which are supposed to emulate the accelerations measured by the IMU).
      *  \return Vector denoting only the non-gravitational (i.e., aerodynamic) accelerations experienced by the spacecraft.
      */
-    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( const Eigen::Vector6d& currentEstimatedCartesianState )
+    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( )
     {
-        // Update environment based on given input
-//        updateOnboardModel( currentEstimatedCartesianState );
-
-        // Define output and set accelerations to zero
-        Eigen::Vector3d currentNonGravitationalTranslationalAcceleration = Eigen::Vector3d::Zero( );
-
-        // Iterate over all accelerations acting on body
-        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
-              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
-              accelerationMapIterator_++ )
-        {
-            // Loop over each accelerations
-            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
-            {
-                // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) )
-                {
-                    // Calculate acceleration and add to state derivative
-                    currentNonGravitationalTranslationalAcceleration += accelerationMapIterator_->second[ i ]->getAcceleration( );
-                }
-            }
-        }
-
-        // Add errors to acceleration value
-        currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
-                currentNonGravitationalTranslationalAcceleration;
-        return currentNonGravitationalTranslationalAcceleration;
+        return currentNonGravitationalTranslationalAcceleration_;
     }
 
     //! Function to retireve current time.
     double getCurrentTime( ) { return currentTime_; }
 
     //! Function to retireve current state.
-    Eigen::Vector16d getCurrentEstimatedState( )
-    {
-        return navigationFilter_->getCurrentStateEstimate( );
-    }
+    Eigen::Vector22d getCurrentEstimatedState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
 
     //! Function to retrieve the history of estimated states directly from the navigation filter.
     std::map< double, Eigen::VectorXd > getHistoryOfEstimatedStatesFromNavigationFilter( )
@@ -452,7 +501,7 @@ public:
      *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
      */
     void setCurrentEstimatedCartesianState( const Eigen::Vector6d& newCurrentCartesianState,
-                                            const Eigen::Matrix16d& newCurrentCovarianceMatrix = Eigen::Matrix16d::Zero( ) )
+                                            const Eigen::Matrix22d& newCurrentCovarianceMatrix = Eigen::Matrix22d::Zero( ) )
     {
         // Update navigation system current value
         currentEstimatedCartesianState_ = newCurrentCartesianState;
@@ -461,12 +510,12 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector16d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        Eigen::Vector22d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix16d::Zero( ) ) )
+        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix22d::Zero( ) ) )
         {
             // Use previous value
-            Eigen::Matrix16d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            Eigen::Matrix22d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
             navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                          oldCurrentCovarianceMatrix );
         }
@@ -487,7 +536,7 @@ public:
      *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
      */
     void setCurrentEstimatedKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState,
-                                            const Eigen::Matrix16d& newCurrentCovarianceMatrix = Eigen::Matrix16d::Zero( ) )
+                                            const Eigen::Matrix22d& newCurrentCovarianceMatrix = Eigen::Matrix22d::Zero( ) )
     {
         // Update navigation system current value
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
@@ -496,12 +545,12 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector16d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        Eigen::Vector22d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix16d::Zero( ) ) )
+        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix22d::Zero( ) ) )
         {
             // Use previous value
-            Eigen::Matrix16d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            Eigen::Matrix22d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
             navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                          oldCurrentCovarianceMatrix );
         }
@@ -532,41 +581,15 @@ private:
 
     //! Function to update the body and acceleration map with the current time and state information.
     /*!
-     *  Function to update the body and acceleration map with the current time and state information. Optionally, the user can
-     *  provide different estimates on the current translational (Cartesian) and rotational states. Note, however, that these
-     *  states do not replace currentEstimatedCartesianState_ and currentEstimatedRotationalState_.
-     *  \param currentEstimatedCartesianState Estimate of the current Cartesian state.
-     *  \param currentEstimatedRotationalState Estimate of the current rotational state.
+     *  Function to update the body and acceleration map with the current time and state information.
      */
-    void updateOnboardModel( const Eigen::Vector6d& currentEstimatedCartesianState = Eigen::Vector6d::Zero( ),
-                             const Eigen::Vector7d& currentEstimatedRotationalState = Eigen::Vector7d::Zero( ) )
+    void updateOnboardModel( )
     {
         // Update environment
         std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
-
-        if ( currentEstimatedCartesianState.isApprox( Eigen::Vector6d::Zero( ) ) )
-        {
-            // Use navigation system estimate
-            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
-        }
-        else
-        {
-            // Use input value
-            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState;
-        }
-        mapOfStatesToUpdate[ propagators::translational_state ] += onboardBodyMap_.at( planetName_ )->getState( );
-
-        if ( currentEstimatedRotationalState.isApprox( Eigen::Vector7d::Zero( ) ) )
-        {
-            // Use navigation system estimate
-            mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
-        }
-        else
-        {
-            // Use input value
-            mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState;
-        }
-
+        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_ +
+                onboardBodyMap_.at( planetName_ )->getState( );
+        mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
 
         // Loop over bodies exerting accelerations on spacecraft
@@ -582,6 +605,57 @@ private:
                 accelerationMapIterator_->second[ i ]->updateMembers( currentTime_ );
             }
         }
+
+        // Compute accelerations based on new translational state estimate
+        getCurrentEstimatedAccelerations( );
+    }
+
+    //! Function to retrieve current estimated accelerations exerted on the spacecraft.
+    /*!
+     *  Function to retrieve current estimated accelerations exerted on the spacecraft. The acceleration is computed by using
+     *  the onboard accelerations model map, and is stored in three different vectors: one with the full acceleration, one with
+     *  only gravitational accelerations, and the last one with only non-gravitational accelerations. These can be retrieved with
+     *  their respective getCurrentEstimatedTranslationalXXXAcceleration function.
+     */
+    void getCurrentEstimatedAccelerations( )
+    {
+        // Define output and set accelerations to zero
+        currentTranslationalAcceleration_.setZero( );
+        currentGravitationalTranslationalAcceleration_.setZero( );
+        currentNonGravitationalTranslationalAcceleration_.setZero( );
+
+        // Iterate over all accelerations acting on body
+        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
+              accelerationMapIterator_++ )
+        {
+            // Loop over each accelerations
+            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
+            {
+                // Calculate acceleration and add to state derivative
+                currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+
+                // Only add the gravitational accelerations
+                if ( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) )
+                {
+                    // Calculate acceleration and add to state derivative
+                    currentGravitationalTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                }
+
+                // Disregard the central gravitational accelerations, since IMUs do not measure them
+                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) )
+                {
+                    // Calculate acceleration and add to state derivative
+                    currentNonGravitationalTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                }
+            }
+        }
+
+        // Store acceleration value
+        //        currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_[ currentTime_ ] =
+        //                currentGravitationalTranslationalAcceleration_;
+        currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
+                currentNonGravitationalTranslationalAcceleration_;
     }
 
     //! Function to post-process the accelerometer measurements.
@@ -697,6 +771,12 @@ private:
      */
     const unsigned int numberOfRequiredAtmosphereSamplesForInitiation_;
 
+    //! Vector denoting the direction in the body frame along which the altimeter instrument is pointing.
+    const Eigen::Vector3d altimeterBodyFixedPointingDirection_;
+
+    //! Pair denoting the lowest and highest operation altitudes of the altimeter.
+    std::pair< double, double > altimeterAltitudeRange_;
+
     //! Pointer to the onboard environment updater.
     /*!
      *  Pointer to the onboard environment updater. The environment is updated based on the current state and time.
@@ -748,6 +828,21 @@ private:
      *  systems to predict the spacecraft position at a future time.
      */
     boost::shared_ptr< propagators::TranslationalStatePropagatorSettings< double > > onboardPropagatorSettings_;
+
+    //! Enumeration denoting the previous navigation phase.
+    NavigationPhaseIndicator previousNavigationPhase_;
+
+    //! Enumeration denoting the current navigation phase.
+    NavigationPhaseIndicator currentNavigationPhase_;
+
+    //! Vector denoting the current estimated translational accelerations.
+    Eigen::Vector3d currentTranslationalAcceleration_;
+
+    //! Vector denoting the current estimated gravitational translational accelerations.
+    Eigen::Vector3d currentGravitationalTranslationalAcceleration_;
+
+    //! Vector denoting the current estimated non-gravitational translational accelerations.
+    Eigen::Vector3d currentNonGravitationalTranslationalAcceleration_;
 
     //! Vector denoting the bias and scale errors of the accelerometer after calibration.
     Eigen::Vector6d estimatedAccelerometerErrors_;

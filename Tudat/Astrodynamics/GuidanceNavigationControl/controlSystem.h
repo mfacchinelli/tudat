@@ -19,7 +19,7 @@
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen { typedef Eigen::Matrix< double, 16, 1 > Vector16d; }
+namespace Eigen { typedef Eigen::Matrix< double, 22, 1 > Vector22d; }
 
 namespace tudat
 {
@@ -92,7 +92,7 @@ public:
      *  \param navigationRefreshStepSize Refresh step size of the navigation system.
      *  \param currentMeanMotion Current mean motion as provided by the navigation system.
      */
-    void updateAttitudeController( const Eigen::Vector16d& currentEstimatedStateVector,
+    void updateAttitudeController( const Eigen::Vector22d& currentEstimatedStateVector,
                                    const Eigen::Vector3d& currentMeasuredRotationalVelocityVector,
                                    const double navigationRefreshStepSize,
                                    const double currentMeanMotion )
@@ -189,7 +189,7 @@ private:
      *  \return Quaternion representing the estimated rotation from trajectory to inertial frame. Thus the commanded
      *      quaternion corresponds to a state with zero angle of attack, angle of side-slip and bank angle.
      */
-    Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::Vector16d& currentEstimatedStateVector )
+    Eigen::Vector4d computeCurrentCommandedQuaternionState( const Eigen::Vector22d& currentEstimatedStateVector )
     {
         // Declare direction cosine matrix
         Eigen::Matrix3d transformationFromInertialToTrajectoryFrame;
@@ -226,7 +226,7 @@ private:
      *  \return Quaternion derivative representing the rotational rate equal to the mean motion of the spacecraft, applied
      *      around the y-axis (body-fixed).
      */
-    Eigen::Vector4d computeCurrentCommandedQuaternionDerivative( const Eigen::Vector16d& currentEstimatedStateVector,
+    Eigen::Vector4d computeCurrentCommandedQuaternionDerivative( const Eigen::Vector22d& currentEstimatedStateVector,
                                                                  const Eigen::Vector4d& transformationFromInertialToTrajectoryFrame,
                                                                  const double currentMeanMotion )
     {

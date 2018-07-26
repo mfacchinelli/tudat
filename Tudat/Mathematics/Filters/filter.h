@@ -304,12 +304,16 @@ protected:
      *  Function to predict the state for the next time step, by overwriting previous state, with the either the use of
      *  the integrator provided in the integratorSettings, or the systemFunction_ input by the user.
      *  \param currentTime Scalar representing the current time.
+     *  \param aPrioriStateEstimate Vector denoting the a-priori state estimate.
+     *  \param currentMeasurementVector Vector denoting the external measurement.
+     *  \param measurementEstimate Vector denoting the measurement estimate.
+     *  \param gainMatrix Gain matrix, such as Kalman gain (for Kalman filters).
      */
     void correctState( const IndependentVariableType currentTime,
                        const DependentVector& aPrioriStateEstimate, const DependentVector& currentMeasurementVector,
-                       const DependentVector& measurmentEstimate, const DependentMatrix& gainMatrix )
+                       const DependentVector& measurementEstimate, const DependentMatrix& gainMatrix )
     {
-        aPosterioriStateEstimate_ = aPrioriStateEstimate + gainMatrix * ( currentMeasurementVector - measurmentEstimate );
+        aPosterioriStateEstimate_ = aPrioriStateEstimate + gainMatrix * ( currentMeasurementVector - measurementEstimate );
         historyOfStateEstimates_[ currentTime ] = aPosterioriStateEstimate_;
     }
 

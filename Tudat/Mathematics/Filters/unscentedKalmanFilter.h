@@ -171,26 +171,26 @@ public:
         }
 
         // Compute the weighted average to find the expected measurement vector
-        DependentVector measurmentEstimate = DependentVector::Zero( measurementDimension_ );
-        computeWeightedAverageFromSigmaPointEstimates( measurmentEstimate, sigmaPointsMeasurementEstimates );
+        DependentVector measurementEstimate = DependentVector::Zero( measurementDimension_ );
+        computeWeightedAverageFromSigmaPointEstimates( measurementEstimate, sigmaPointsMeasurementEstimates );
 
         // Compute innovation and cross-correlation matrices
         DependentMatrix innovationMatrix = DependentMatrix::Zero( measurementDimension_, measurementDimension_ );
-        computeWeightedAverageFromSigmaPointEstimates( innovationMatrix, measurmentEstimate, sigmaPointsMeasurementEstimates );
+        computeWeightedAverageFromSigmaPointEstimates( innovationMatrix, measurementEstimate, sigmaPointsMeasurementEstimates );
         DependentMatrix crossCorrelationMatrix = DependentMatrix::Zero( stateDimension_, measurementDimension_ );
         for ( sigmaPointConstantIterator_ = sigmaPointsStateEstimates.begin( );
               sigmaPointConstantIterator_ != sigmaPointsStateEstimates.end( ); sigmaPointConstantIterator_++ )
         {
             crossCorrelationMatrix += covarianceEstimationWeights_.at( sigmaPointConstantIterator_->first ) *
                     ( sigmaPointConstantIterator_->second - aPrioriStateEstimate ) *
-                    ( sigmaPointsMeasurementEstimates[ sigmaPointConstantIterator_->first ] - measurmentEstimate ).transpose( );
+                    ( sigmaPointsMeasurementEstimates[ sigmaPointConstantIterator_->first ] - measurementEstimate ).transpose( );
         }
 
         // Compute Kalman gain
         DependentMatrix kalmanGain = crossCorrelationMatrix * innovationMatrix.inverse( );
 
         // Correction step
-        this->correctState( currentTime, aPrioriStateEstimate, currentMeasurementVector, measurmentEstimate, kalmanGain );
+        this->correctState( currentTime, aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
         correctCovariance( currentTime, aPrioriCovarianceEstimate, innovationMatrix, kalmanGain );
     }
 

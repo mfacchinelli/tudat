@@ -11,29 +11,34 @@ namespace system_models
 using namespace tudat::guidance_navigation_control;
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector16d onboardSystemModel( const double currentTime,
-                                     const Eigen::Vector16d& currentEstimatedStateVector,
+Eigen::Vector22d onboardSystemModel( const double currentTime,
+                                     const Eigen::Vector22d& currentEstimatedStateVector,
                                      const Eigen::Vector3d& currentControlVector,
-                                     const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >&
-                                     currentEstimatedTranslationalAccelerationFunction,
+                                     const Eigen::Vector3d& currentEstimatedGravitationalTranslationalAccelerationVector,
+                                     const Eigen::Vector3d& currentMeasuredNonGravitationalTranslationalAccelerationVector,
                                      const Eigen::Vector3d& currentMeasuredRotationalVelocityVector )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
     TUDAT_UNUSED_PARAMETER( currentControlVector );
 
     // Declare state derivative vector
-    Eigen::Vector16d currentStateDerivative = Eigen::Vector16d::Zero( );
+    Eigen::Vector22d currentStateDerivative = Eigen::Vector22d::Zero( );
 
     // Translational kinematics
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedStateVector.segment( 3, 3 );
 
     // Translational dynamics
-    currentStateDerivative.segment( 3, 3 ) =
-            currentEstimatedTranslationalAccelerationFunction( currentEstimatedStateVector.segment( 0, 6 ) );
+    Eigen::Vector3d currentActualNonGravitationalTranslationalAccelerationVector = removeErrorsFromInertialMeasurementUnitMeasurement(
+                currentMeasuredNonGravitationalTranslationalAccelerationVector, currentEstimatedStateVector.segment( 10, 6 ) );
+    currentStateDerivative.segment( 3, 3 ) = ( linear_algebra::convertVectorToQuaternionFormat(
+                                                   currentEstimatedStateVector.segment( 6, 4 ) ).toRotationMatrix( ).transpose( ) *
+                                               currentActualNonGravitationalTranslationalAccelerationVector ) +
+            currentEstimatedGravitationalTranslationalAccelerationVector;
+    // transpose is taken due to the different definition of quaternion in Eigen
 
     // Rotational kinematics
     Eigen::Vector3d currentActualRotationalVelocityVector = removeErrorsFromInertialMeasurementUnitMeasurement(
-                currentMeasuredRotationalVelocityVector, currentEstimatedStateVector.segment( 10, 6 ) );
+                currentMeasuredRotationalVelocityVector, currentEstimatedStateVector.segment( 16, 6 ) );
     currentStateDerivative.segment( 6, 4 ) = propagators::calculateQuaternionDerivative(
                 currentEstimatedStateVector.segment( 6, 4 ).normalized( ), currentActualRotationalVelocityVector );
 
@@ -42,21 +47,19 @@ Eigen::Vector16d onboardSystemModel( const double currentTime,
 }
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
-                                         const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >&
-                                         currentEstimatedNonGravitationalTranslationalAccelerationFunction )
+Eigen::Vector5d onboardMeasurementModel( const double currentTime, const Eigen::Vector22d& currentEstimatedStateVector,
+                                         const double planetaryRadius )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare output vector
-    Eigen::Vector7d currentMeasurementVector;
+    Eigen::Vector5d currentMeasurementVector;
 
     // Add translational acceleration
-    currentMeasurementVector.segment( 0, 3 ) =
-            currentEstimatedNonGravitationalTranslationalAccelerationFunction( currentEstimatedStateVector.segment( 0, 6 ) );
+    currentMeasurementVector[ 0 ] = currentEstimatedStateVector.segment( 0, 3 ).norm( ) - planetaryRadius;
 
     // Add rotational attitude
-    currentMeasurementVector.segment( 3, 4 ) = currentEstimatedStateVector.segment( 6, 4 ).normalized( );
+    currentMeasurementVector.segment( 1, 4 ) = currentEstimatedStateVector.segment( 6, 4 ).normalized( );
 
     // Return quaternion vector
     return currentMeasurementVector;

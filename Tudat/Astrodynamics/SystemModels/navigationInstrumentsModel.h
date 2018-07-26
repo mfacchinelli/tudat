@@ -20,6 +20,7 @@
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModel.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModelTypes.h"
 #include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
+#include "Tudat/Mathematics/Statistics/basicStatistics.h"
 #include "Tudat/SimulationSetup/EnvironmentSetup/body.h"
 
 namespace tudat
@@ -59,6 +60,7 @@ public:
         // Set instrument presence to false
         inertialMeasurementUnitAdded_ = false;
         starTrackerAdded_ = false;
+        altimeterAdded_ = false;
 
         // Get index of central body acceleration (which is not measured by the IMUs)
         for ( accelerationMapIterator_ = accelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -120,11 +122,13 @@ public:
     //! Function to add an altimeter to the spacecraft set of instruments.
     /*!
      *  Function to add an altimeter to the spacecraft set of instruments.
+     *  \param fixedBodyFramePointingDirection
+     *  \param altitudeRange
+     *  \param altimeterAccuracyAsAFunctionOfAltitude
      */
-    void addAltimeter( const Eigen::Vector3d& pointingDirectionInBodyFrame,
+    void addAltimeter( const Eigen::Vector3d& fixedBodyFramePointingDirection,
                        const std::pair< double, double >& altitudeRange,
-                       const double fieldOfView,
-                       const double altimeterAccuracy );
+                       const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude );
 
     //! Function to update the onboard instruments to the current time.
     /*!
@@ -158,6 +162,14 @@ public:
                 // Update and save attitude measurement
                 starTrackerOrientationFunction_( );
                 currentOrbitHistoryOfStarTrackerMeasurements_[ currentTime_ ] = currentQuaternionToBaseFrame_;
+            }
+
+            // Update altimeter
+            if ( altimeterAdded_ )
+            {
+                // Update and save altimeter measurement
+                altimeterFunction_( );
+                currentOrbitHistoryOfAltimeterMeasurements_[ currentTime_ ] = currentAltitude_;
             }
         }
     }
@@ -231,7 +243,7 @@ public:
      */
     Eigen::Vector4d getCurrentStarTrackerMeasurement( )
     {
-        // Check that an inertial measurement unit is present in the spacecraft
+        // Check that a star tracker is present in the spacecraft
         if ( starTrackerAdded_ )
         {
             return currentQuaternionToBaseFrame_;
@@ -241,6 +253,42 @@ public:
             throw std::runtime_error( "Error while retrieving attitude from onboard instrument system. No "
                                       "star trackers are present." );
         }
+    }
+
+    //! Function to retrieve current altimeter measurement.
+    /*!
+     *  Function to retrieve current altimeter measurement.
+     *  \return
+     */
+    double getCurrentAltimeterMeasurement( )
+    {
+        // Check that an altimeter is present in the spacecraft
+        if ( altimeterAdded_ )
+        {
+            return currentAltitude_;
+        }
+        else
+        {
+            throw std::runtime_error( "Error while retrieving altitude from onboard instrument system. No "
+                                      "altimeter is present." );
+        }
+    }
+
+    //! Get standard deviation of the norm of accelerations measured by the accelerometer.
+    double getStandardDeviationOfNormOfAccelerometerMeasurements( )
+    {
+        // Retrieve norm of accelerometer measurements
+        std::vector< double > vectorOfNormOfAccelerometerMeasurements;
+        for ( inertialMeasurementUnitMeasurementIterator_ = currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.begin( );
+              inertialMeasurementUnitMeasurementIterator_ != currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.end( );
+              inertialMeasurementUnitMeasurementIterator_++ )
+        {
+            vectorOfNormOfAccelerometerMeasurements.push_back(
+                        inertialMeasurementUnitMeasurementIterator_->second.segment( 0, 3 ).norm( ) );
+        }
+
+        // Compute and output standard deviation
+        return statistics::computeSampleVariance( vectorOfNormOfAccelerometerMeasurements );
     }
 
     //! Get history of inertial measurement unit measurements for the current orbit.
@@ -255,6 +303,12 @@ public:
         return currentOrbitHistoryOfStarTrackerMeasurements_;
     }
 
+    //! Get history of altimeter measurements for the current orbit.
+    std::map< double, double > getCurrentOrbitHistoryOfAltimeterMeasurements( )
+    {
+        return currentOrbitHistoryOfAltimeterMeasurements_;
+    }
+
     //! Clear histories of inertial measurmenet and star tracker measurements for current orbit.
     void clearCurrentOrbitMeasurementHistories( )
     {
@@ -265,6 +319,10 @@ public:
         if ( starTrackerAdded_ )
         {
             currentOrbitHistoryOfStarTrackerMeasurements_.clear( );
+        }
+        if ( altimeterAdded_ )
+        {
+            currentOrbitHistoryOfAltimeterMeasurements_.clear( );
         }
     }
 
@@ -319,12 +377,71 @@ private:
     //! Function to retrieve current inertial orientation of the spacecraft.
     void getCurrentAttitude( )
     {
-        // Iterate over all accelerations acting on body
+        // Get current attitude of spacecraft
         currentQuaternionToBaseFrame_ = linear_algebra::convertQuaternionToVectorFormat(
                     bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( ) );
 
-        // Add errors to acceleration value
+        // Add errors to attitude value
         sumQuaternionUncertainty( currentQuaternionToBaseFrame_, produceStarTrackerNoise( ) );
+    }
+
+    //! Function to retrieve current altitude of the spacecraft.
+    void getCurrentAltitude( const Eigen::Vector3d& fixedBodyFramePointingDirection,
+                             const std::pair< double, double >& altitudeRange,
+                             const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude )
+    {
+        // Get current altitude of spacecraft
+        Eigen::Vector3d currentRadialVector = bodyMap_.at( spacecraftName_ )->getState( ).segment( 0, 3 ) -
+                bodyMap_.at( planetName_ )->getState( ).segment( 0, 3 );
+        double currentRadialDistance = currentRadialVector.norm( );
+        double planetaryRadius = bodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( );
+
+        // Get current transformation to inertial frame
+        Eigen::Matrix3d tranformationFromBodyFixedToInertialFrame =
+                bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( ).toRotationMatrix( ).transpose( );
+        // transpose is taken due to the different definition of quaternion in Eigen
+
+        // Get current altimeter line-of-sight in inertial frame
+        Eigen::Vector3d altimeterPointingDirectionInInertialFrame =
+                tranformationFromBodyFixedToInertialFrame * fixedBodyFramePointingDirection;
+
+        // Find current angle between altimeter LOS and radial distance
+        double currentPointingAngle = linear_algebra::computeAngleBetweenVectors( altimeterPointingDirectionInInertialFrame,
+                                                                                  currentRadialVector );
+        currentPointingAngle = 0.0; // <<<<<<<<<---------- remove once 6DOF modeling is implemented
+
+        // Check that pointing angle is not too large, i.e., if Mars is still in sight
+        double maximumPointingAngle = std::asin( planetaryRadius / currentRadialDistance );
+        if ( currentPointingAngle < maximumPointingAngle )
+        {
+            // Get actual altitude measurement (i.e., accounting for the pointing angle)
+            if ( std::fabs( currentPointingAngle ) < std::numeric_limits< double >::epsilon( ) )
+            {
+                currentAltitude_ = currentRadialDistance - planetaryRadius;
+            }
+            else
+            {
+                double sineOfCurrentPointingAngle = std::sin( currentPointingAngle );
+                currentAltitude_ = planetaryRadius / sineOfCurrentPointingAngle *
+                        std::sin( std::asin( currentRadialDistance / planetaryRadius * sineOfCurrentPointingAngle ) -
+                                  currentPointingAngle );
+            }
+        }
+        else
+        {
+            // Altimeter does not have Mars in sight
+            currentAltitude_ = TUDAT_NAN;
+        }
+
+        // Check that altitude is within altimeter limits
+        if ( ( currentAltitude_ < altitudeRange.first ) || ( currentAltitude_ > altitudeRange.second ) )
+        {
+            // Altitude cannot be measured
+//            currentAltitude_ = TUDAT_NAN; // replace with function that gives large errors?
+        }
+
+        // Add errors to altitude value
+        currentAltitude_ += produceAltimeterNoise( ) * altimeterAccuracyAsAFunctionOfAltitude( currentAltitude_ );
     }
 
     //! Function to generate the noise distributions for the inertial measurement unit.
@@ -345,6 +462,14 @@ private:
      *  \param starTrackerAccuracy Accuracy of star tracker along each axis (3 sigma).
      */
     void generateStarTrackerRandomNoiseDistribution( const Eigen::Vector3d& starTrackerAccuracy );
+
+    //! Function to generate the noise distributions for the altimeter.
+    /*!
+     *  Function to generate the noise distributions for the altimeter, which uses a Gaussian distribution,
+     *  with zero mean and standard deviation given by the accuracy of the altimeter.
+     *  \param altimeterAccuracy Accuracy of altimeter (3 sigma).
+     */
+    void generateAltimeterRandomNoiseDistribution( const double altimeterAccuracy );
 
     //! Function to produce accelerometer noise.
     /*!
@@ -420,6 +545,27 @@ private:
         return starTrackerNoise;
     }
 
+    //! Function to produce altimeter noise.
+    /*!
+     *  Function to produce altimeter noise.
+     *  \return Double where the noise for the altimeter is stored.
+     */
+    double produceAltimeterNoise( )
+    {
+        // Declare noise value
+        double altimeterNoise = 0;
+
+        // Add noise
+        if ( altimeterNoiseDistribution_ != NULL )
+        {
+            altimeterNoise = altimeterNoiseDistribution_->getRandomVariableValue( );
+        }
+
+        // Give back noise
+        //        altimeterNoiseHistory_.push_back( altimeterNoise );
+        return altimeterNoise;
+    }
+
     //! Body map of the simulation.
     const simulation_setup::NamedBodyMap bodyMap_;
 
@@ -450,17 +596,17 @@ private:
     //! Integer denoting the index of the third body gravity exerted by the Sun.
     unsigned int thirdBodyGravityIndex_;
 
-    //! Vector where the noise generators for the translational accelerations are stored.
+    //! Vector where the noise generators for the translational accelerations measurement are stored.
     std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > accelerometerNoiseDistribution_;
 
-    //! Vector where the noise generators for the rotational velocity are stored.
+    //! Vector where the noise generators for the rotational velocity measurement are stored.
     std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > gyroscopeNoiseDistribution_;
 
-    //! Vector where the noise generators for the spacecraft attitude are stored.
+    //! Vector where the noise generators for the spacecraft attitude measurement are stored.
     std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > starTrackerNoiseDistribution_;
 
-    //! Predefined iterator to save (de)allocation time.
-    basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationMapIterator_;
+    //! Noise generator for the spacecraft altitude measurement.
+    boost::shared_ptr< statistics::RandomVariableGenerator< double > > altimeterNoiseDistribution_;
 
     //! Vector denoting current translational accelerations as measured by the accelerometer.
     Eigen::Vector3d currentTranslationalAcceleration_;
@@ -471,14 +617,20 @@ private:
     //! Vector denoting current quaternion to base frame as measured by the star tracker.
     Eigen::Vector4d currentQuaternionToBaseFrame_;
 
+    //! Vector denoting current altitude as measured by the altimeter.
+    double currentAltitude_;
+
     //! Function to compute the translational acceleration measured by the inertial measurement unit.
     boost::function< void( ) > inertialMeasurementUnitTranslationalAccelerationFunction_;
 
     //! Function to compute the rotational velocity measured by the inertial measurement unit.
     boost::function< void( ) > inertialMeasurementUnitRotationalVelocityFunction_;
 
-    //! Function to compute the rotational velocity measured by the inertial measurement unit.
+    //! Function to compute the attitude measured by the star tracker.
     boost::function< void( ) > starTrackerOrientationFunction_;
+
+    //! Function to compute the altitude measured by the altimeter.
+    boost::function< void( ) > altimeterFunction_;
 
     //! Map of translational accelerations and rotational velocities measured by the inertial measurment unit
     //! during the current orbit.
@@ -486,6 +638,15 @@ private:
 
     //! Map of attitude measured by the star tracker during the current orbit.
     std::map< double, Eigen::Vector4d > currentOrbitHistoryOfStarTrackerMeasurements_;
+
+    //! Map of attitude measured by the star tracker during the current orbit.
+    std::map< double, double > currentOrbitHistoryOfAltimeterMeasurements_;
+
+    //! Predefined iterator to save (de)allocation time.
+    basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationMapIterator_;
+
+    //! Predefined iterator to save (de)allocation time.
+    std::map< double, Eigen::Vector6d >::const_iterator inertialMeasurementUnitMeasurementIterator_;
 
 };
 

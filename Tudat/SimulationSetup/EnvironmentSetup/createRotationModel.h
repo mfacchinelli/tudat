@@ -205,7 +205,6 @@ struct EopCorrectionSettings
     std::vector< std::string > argumentMultipliersFile_;
 };
 
-
 //! Settings for creating a GCRS<->ITRS rotation model
 class GcrsToItrsRotationModelSettings: public RotationModelSettings
 {

@@ -18,13 +18,41 @@ namespace tudat
 namespace guidance_navigation_control
 {
 
-//! Function to remove the error in gyroscope measurement based on the estimated bias and scale factors.
+//! Function to remove errors in inertial measurement unit measurements based on the estimated bias and scale factors.
 Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
                                                                     const Eigen::Vector6d& inertialMeasurementUnitErrors )
 {
     return ( Eigen::Matrix3d::Identity( ) -
              Eigen::Matrix3d( inertialMeasurementUnitErrors.segment( 3, 3 ).asDiagonal( ) ) ) * // binomial approximation
             ( currentInertialMeasurementUnitMeasurement - inertialMeasurementUnitErrors.segment( 0, 3 ) );
+}
+
+//! Function to remove errors in the altimeter measurements based on the current orientation.
+void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const Eigen::Vector3d& currentRadiusVector,
+                                           const Eigen::Vector4d& currentQuaternionToInertialFrame,
+                                           const Eigen::Vector3d& altimeterBodyFixedPointingDirection,
+                                           const double planetaryRadius )
+{
+    // Get current altimeter pointing direction in inertial frame
+    Eigen::Vector3d altimeterPointingDirectionInInertialFrame =
+            linear_algebra::convertVectorToQuaternionFormat( currentQuaternionToInertialFrame ).toRotationMatrix( ).transpose( ) *
+            altimeterBodyFixedPointingDirection;
+
+    // Get current pointing angle
+    double currentPointingAngle = linear_algebra::computeAngleBetweenVectors( altimeterPointingDirectionInInertialFrame,
+                                                                              currentRadiusVector );
+    currentPointingAngle = 0.0; // <<<<<<<<<---------- remove once 6DOF modeling is implemented
+
+    // If pointing angle is larger than the singularity
+    if ( std::fabs( currentPointingAngle ) > std::numeric_limits< double >::epsilon( ) )
+    {
+        // Remove pointing error from altimeter
+        double sineOfCurrentPointingAngle = std::sin( currentPointingAngle );
+        currentMeasuredAltitude = planetaryRadius * (
+                    std::sin( mathematical_constants::PI - currentPointingAngle -
+                              std::asin( currentMeasuredAltitude / planetaryRadius *
+                                         sineOfCurrentPointingAngle ) ) / sineOfCurrentPointingAngle - 1.0 );
+    }
 }
 
 //! Function to create navigation objects for onboard state estimation.
@@ -41,7 +69,7 @@ void NavigationSystem::createNavigationSystemObjects(
 
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
-    Eigen::Vector16d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+    Eigen::Vector22d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial rotational state
     currentEstimatedRotationalState_.setZero( );
@@ -125,6 +153,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
                                                           utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
                                                               mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
     }
+    std::cout << "UKF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 10, 6 ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     unsigned int i = 0;
@@ -243,7 +272,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
 
     // Update navigation system state estimates
-    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState ); // , Eigen::Matrix16d::Identity( )
+    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState ); // , Eigen::Matrix22d::Identity( )
     // the covariance matrix is reset to the identity, since the new state is improved in accuracy
 
     std::cout << "Before: " << initialEstimatedKeplerianState.transpose( ) << std::endl;
@@ -300,10 +329,10 @@ void NavigationSystem::runAtmosphereEstimator(
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
-//        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
-//        std::cout << "Altitudes: " << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
-//        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
-//        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
+        //        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
+        //        std::cout << "Altitudes: " << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
+        //        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
+        //        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
 
         // Run least squares estimation process based on selected atmosphere model
         Eigen::VectorXd modelSpecificParameters;

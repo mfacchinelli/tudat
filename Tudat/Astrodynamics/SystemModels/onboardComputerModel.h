@@ -20,7 +20,7 @@
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen { typedef Eigen::Matrix< double, 16, 1 > Vector16d; }
+namespace Eigen { typedef Eigen::Matrix< double, 22, 1 > Vector22d; }
 using namespace tudat::guidance_navigation_control;
 
 namespace tudat
@@ -30,16 +30,15 @@ namespace system_models
 {
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector16d onboardSystemModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
+Eigen::Vector22d onboardSystemModel( const double currentTime, const Eigen::Vector22d& currentEstimatedStateVector,
                                      const Eigen::Vector3d& currentControlVector,
-                                     const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >&
-                                     currentEstimatedTranslationalAccelerationFunction,
+                                     const Eigen::Vector3d& currentEstimatedGravitationalTranslationalAccelerationVector,
+                                     const Eigen::Vector3d& currentMeasuredNonGravitationalTranslationalAccelerationVector,
                                      const Eigen::Vector3d& currentMeasuredRotationalVelocityVector );
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector7d onboardMeasurementModel( const double currentTime, const Eigen::Vector16d& currentEstimatedStateVector,
-                                         const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >&
-                                         currentEstimatedNonGravitationalTranslationalAccelerationFunction );
+Eigen::Vector5d onboardMeasurementModel( const double currentTime, const Eigen::Vector22d& currentEstimatedStateVector,
+                                         const double planetaryRadius );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
@@ -61,24 +60,19 @@ public:
         atmosphericPhaseComplete_ = false;
         atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
 
-        // Create functions to retrieve accelerations from navigation system
-        boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > translationalAccelerationFunction =
-                boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_, _1 );
-        boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > nonGravitationalTranslationalAccelerationFunction =
-                boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration,
-                             navigationSystem_, _1 );
-
         // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects(
                     boost::bind( &onboardSystemModel, _1, _2,
                                  boost::bind( &ControlSystem::getCurrentAttitudeControlVector, controlSystem_ ),
-                                 translationalAccelerationFunction,
+                                 boost::bind( &NavigationSystem::getCurrentEstimatedGravitationalTranslationalAcceleration,
+                                              navigationSystem_ ),
+                                 boost::bind( &NavigationInstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ),
                                  boost::bind( &NavigationInstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) ),
-                    boost::bind( &onboardMeasurementModel, _1, _2, nonGravitationalTranslationalAccelerationFunction ) );
+                    boost::bind( &onboardMeasurementModel, _1, _2, navigationSystem_->getRadius( ) ) );
 
         // Create guidance system objects
         guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateStateWithCustomTerminationSettings,
-                                                                        navigationSystem_, _1, _2, -1.0 ) );
+                                                                   navigationSystem_, _1, _2, -1.0 ) );
     }
 
     //! Destructor.
@@ -102,11 +96,12 @@ public:
 
         // Update instrument models and extract measurements
         instrumentsModel_->updateInstruments( currentTime );
-        Eigen::Vector7d currentExternalMeasurementVector;
-        currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
-        currentExternalMeasurementVector.segment( 3, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
+        Eigen::Vector5d currentExternalMeasurementVector;
+        currentExternalMeasurementVector[ 0 ] = instrumentsModel_->getCurrentAltimeterMeasurement( );
+        currentExternalMeasurementVector.segment( 1, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
 
         // Update filter from previous time to next time
+        navigationSystem_->determineNavigationPhase( );
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
                                               instrumentsModel_->getCurrentGyroscopeMeasurement( ) );
 

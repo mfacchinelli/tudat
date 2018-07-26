@@ -106,10 +106,34 @@ void NavigationInstrumentsModel::addStarTracker( const unsigned int numberOfStar
     }
 }
 
+//! Function to add an altimeter to the spacecraft set of instruments.
+void NavigationInstrumentsModel::addAltimeter( const Eigen::Vector3d& fixedBodyFramePointingDirection,
+                                               const std::pair< double, double >& altitudeRange,
+                                               const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude )
+{
+    // Check whether an altimeter is already present
+    if ( !altimeterAdded_ )
+    {
+        // Altimeter has been created
+        altimeterAdded_ = true;
+
+        // Generate random noise distribution
+        generateAltimeterRandomNoiseDistribution( 1.0 );
+
+        // Create function for computing corrupted spacecraft orientation
+        altimeterFunction_ = boost::bind( &NavigationInstrumentsModel::getCurrentAltitude, this, fixedBodyFramePointingDirection,
+                                          altitudeRange, altimeterAccuracyAsAFunctionOfAltitude );
+    }
+    else
+    {
+        throw std::runtime_error( "Error in creation of altimeter for body " + spacecraftName_ +
+                                  ". An altimeter is already present." );
+    }
+}
+
 //! Function to generate the noise distributions for the inertial measurement unit.
-void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistribution(
-        const Eigen::Vector3d& accelerometerAccuracy,
-        const Eigen::Vector3d& gyroscopeAccuracy )
+void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistribution( const Eigen::Vector3d& accelerometerAccuracy,
+                                                                                         const Eigen::Vector3d& gyroscopeAccuracy )
 {
     using namespace tudat::statistics;
 
@@ -120,7 +144,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
         {
             accelerometerNoiseDistribution_.push_back(
                         createBoostContinuousRandomVariableGenerator(
-                            normal_boost_distribution, { 0.0, accelerometerAccuracy[ i ] / 3.0 }, i ) );
+                            normal_boost_distribution, { 0.0, accelerometerAccuracy[ i ] }, i ) );
         }
         else
         {
@@ -135,7 +159,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
         {
             gyroscopeNoiseDistribution_.push_back(
                         createBoostContinuousRandomVariableGenerator(
-                            normal_boost_distribution, { 0.0, gyroscopeAccuracy[ i ] / 3.0 },
+                            normal_boost_distribution, { 0.0, gyroscopeAccuracy[ i ] },
                             3 + i ) );
         }
         else
@@ -146,8 +170,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
 }
 
 //! Function to generate the noise distributions for the star trackers.
-void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution(
-        const Eigen::Vector3d& starTrackerAccuracy )
+void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution( const Eigen::Vector3d& starTrackerAccuracy )
 {
     using namespace tudat::statistics;
 
@@ -158,13 +181,30 @@ void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution(
         {
             starTrackerNoiseDistribution_.push_back(
                         createBoostContinuousRandomVariableGenerator(
-                            normal_boost_distribution, { 0.0, starTrackerAccuracy[ i ] / 3.0 },
+                            normal_boost_distribution, { 0.0, starTrackerAccuracy[ i ] },
                             6 + i ) );
         }
         else
         {
             starTrackerNoiseDistribution_.push_back( NULL );
         }
+    }
+}
+
+//! Function to generate the noise distributions for the altimeter.
+void NavigationInstrumentsModel::generateAltimeterRandomNoiseDistribution( const double altimeterAccuracy )
+{
+    using namespace tudat::statistics;
+
+    // Create altimeter noise distribution
+    if ( altimeterAccuracy != 0.0 )
+    {
+        altimeterNoiseDistribution_ = createBoostContinuousRandomVariableGenerator(
+                    normal_boost_distribution, { 0.0, altimeterAccuracy }, 9 );
+    }
+    else
+    {
+        altimeterNoiseDistribution_ = NULL;
     }
 }
 
