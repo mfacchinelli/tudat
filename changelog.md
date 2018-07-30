@@ -3,6 +3,7 @@
 	- added custom constant temperature atmosphere where the density is computed with a user-provided function; three models are provided as default
 	- added function to compute aerodynamic (force and moment) coefficients from pressure and shear force distributions on body
 	- added MCD atmosphere tables
+	- added custom constant temperature atmosphere
 - **Basics**
 	- added function to return addition and multiplication identities for various types
 - **Input Output**
