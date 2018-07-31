@@ -27,8 +27,8 @@
 #include "Tudat/Mathematics/Filters/createFilter.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen { typedef Eigen::Matrix< double, 22, 1 > Vector22d; typedef Eigen::Matrix< double, 5, 5 > Matrix5d;
-                  typedef Eigen::Matrix< double, 22, 22 > Matrix22d; }
+namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; typedef Eigen::Matrix< double, 5, 5 > Matrix5d;
+                  typedef Eigen::Matrix< double, 12, 12 > Matrix12d; }
 
 namespace tudat
 {
@@ -41,10 +41,7 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
                                                                     const Eigen::Vector6d& inertialMeasurementUnitErrors );
 
 //! Function to remove errors in the altimeter measurements based on the current orientation.
-void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const Eigen::Vector3d& currentRadiusVector,
-                                           const Eigen::Vector4d& currentQuaternionToInertialFrame,
-                                           const Eigen::Vector3d& altimeterBodyFixedPointingDirection,
-                                           const double planetaryRadius );
+void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const double planetaryRadius );
 
 //! Class for the navigation system of an aerobraking maneuver.
 class NavigationSystem
@@ -84,7 +81,7 @@ public:
                       const boost::shared_ptr< filters::FilterSettings< > > navigationFilterSettings,
                       const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel,
                       const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude,
-                      const double numberOfRequiredAtmosphereSamplesForInitiation,
+                      const unsigned int numberOfRequiredAtmosphereSamplesForInitiation,
                       const Eigen::Vector3d& altimeterBodyFixedPointingDirection,
                       const std::pair< double, double > altimeterAltitudeRange ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
@@ -150,14 +147,14 @@ public:
         // Store previous navigation phase
         previousNavigationPhase_ = currentNavigationPhase_;
 
-        // Compute current altitude
-        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
+//        // Compute current altitude
+//        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
 
-        // Check whether altitude is within altimeter operational altitude
-        if ( ( currentAltitude > altimeterAltitudeRange_.first ) && ( currentAltitude < altimeterAltitudeRange_.second ) )
-        {
-            detectedNavigationPhase = altimeter_navigation_phase;
-        }
+//        // Check whether altitude is within altimeter operational altitude
+//        if ( ( currentAltitude > altimeterAltitudeRange_.first ) && ( currentAltitude < altimeterAltitudeRange_.second ) )
+//        {
+//            detectedNavigationPhase = altimeter_navigation_phase;
+//        }
 
 //        // Check whether altitude is above optical navigation camera limiting altitude
 //        if ( currentAltitude > 30.0e6 )
@@ -171,14 +168,13 @@ public:
 
     //! Function to run the State Estimator (SE).
     void runStateEstimator( const double currentTime, Eigen::Vector5d& currentExternalMeasurementVector,
-                            const Eigen::Vector3d& currentGyroscopeMeasurement )
+                            const Eigen::Vector3d& currentAccelerometerMeasurement )
     {
         // Set time
         currentTime_ = currentTime;
 
         // Correct altitude measurement to account for possible pointing angle
-        removeErrorsFromAltimeterMeasurement( currentExternalMeasurementVector[ 0 ], currentEstimatedCartesianState_.segment( 0, 3 ),
-                currentEstimatedRotationalState_.segment( 0, 4 ), altimeterBodyFixedPointingDirection_, planetaryRadius_ );
+        removeErrorsFromAltimeterMeasurement( currentExternalMeasurementVector[ 0 ], planetaryRadius_ );
 
         // Update navigation estimates based on current navigation phase
         switch ( currentNavigationPhase_ )
@@ -188,16 +184,9 @@ public:
             // Propagate translational motion
             Eigen::Vector6d currentTranslationalStateDerivative;
             currentTranslationalStateDerivative.segment( 0, 3 ) = currentEstimatedCartesianState_.segment( 3, 3 );
-            currentTranslationalStateDerivative.segment( 3, 3 ) = currentTranslationalAcceleration_;
+            currentTranslationalStateDerivative.segment( 3, 3 ) =
+                    currentGravitationalTranslationalAcceleration_ + currentAccelerometerMeasurement;
             currentEstimatedCartesianState_ += currentTranslationalStateDerivative * navigationRefreshStepSize_;
-
-            // Propagate rotational motion
-            Eigen::Vector3d currentActualGyroscopeMeasurement = removeErrorsFromInertialMeasurementUnitMeasurement(
-                        currentGyroscopeMeasurement, Eigen::Vector6d::Zero( ) );
-            currentEstimatedRotationalState_.segment( 0, 4 ) +=
-                    propagators::calculateQuaternionDerivative( currentEstimatedRotationalState_.segment( 0, 4 ).normalized( ),
-                                                                currentActualGyroscopeMeasurement ) * navigationRefreshStepSize_;
-            currentEstimatedRotationalState_.segment( 4, 3 ) = currentActualGyroscopeMeasurement;
 
             // Update navigation estimated
             setCurrentEstimatedCartesianState( currentEstimatedCartesianState_ );
@@ -210,24 +199,19 @@ public:
         }
         case altimeter_navigation_phase:
         {
-            // Set navigation states based on previous estimate
-            if ( currentNavigationPhase_ != previousNavigationPhase_ )
-            {
-                Eigen::Vector22d estimatedState = Eigen::Vector22d::Zero( );
-                estimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-                estimatedState.segment( 6, 4 ) = currentEstimatedRotationalState_;
-                navigationFilter_->modifyCurrentStateAndCovarianceEstimates( estimatedState, Eigen::Matrix22d::Identity( ) );
-            }
+//            // Set navigation states based on previous estimate
+//            if ( currentNavigationPhase_ != previousNavigationPhase_ )
+//            {
+//                Eigen::Vector12d estimatedState = Eigen::Vector12d::Zero( );
+//                estimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
+//                navigationFilter_->modifyCurrentStateAndCovarianceEstimates( estimatedState, Eigen::Matrix12d::Identity( ) );
+//            }
 
             // Update filter
             navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
 
             // Extract estimated state and update navigation estimates
-            Eigen::Vector22d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-            currentEstimatedRotationalState_.segment( 0, 4 ) = updatedEstimatedState.segment( 6, 4 ).normalized( );
-            currentEstimatedRotationalState_.segment( 4, 3 ) =
-                    removeErrorsFromInertialMeasurementUnitMeasurement( currentGyroscopeMeasurement,
-                                                                        updatedEstimatedState.segment( 16, 6 ) );
+            Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
             setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
             // this function also automatically stores the full state estimates at the current time
             break;
@@ -260,7 +244,6 @@ public:
         double currentIterationTime;
         std::map< double, Eigen::Vector6d > mapOfEstimatedCartesianStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
-        std::map< double, Eigen::Vector7d > mapOfEstimatedRotationalStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector3d > mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface;
         std::vector< Eigen::Vector3d > vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface;
         for ( translationalStateIterator_ = currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
@@ -274,8 +257,6 @@ public:
                         translationalStateIterator_->second.first;
                 mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ] =
                         translationalStateIterator_->second.second;
-                mapOfEstimatedRotationalStatesBelowAtmosphericInterface[ currentIterationTime ] =
-                        currentOrbitHistoryOfEstimatedRotationalStates_[ currentIterationTime ];
                 mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface[ currentIterationTime ] =
                         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentIterationTime ];
                 vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.push_back(
@@ -294,8 +275,7 @@ public:
         {
             // Remove errors from measured accelerations
             postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-                                                  mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface,
-                                                  mapOfEstimatedRotationalStatesBelowAtmosphericInterface );
+                                                  mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
             // this function also calibrates the accelerometers if it is the first orbit
 
             // Compute magnitude of aerodynamic acceleration
@@ -406,7 +386,7 @@ public:
     double getCurrentTime( ) { return currentTime_; }
 
     //! Function to retireve current state.
-    Eigen::Vector22d getCurrentEstimatedState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
+    Eigen::Vector12d getCurrentEstimatedState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
 
     //! Function to retrieve the history of estimated states directly from the navigation filter.
     std::map< double, Eigen::VectorXd > getHistoryOfEstimatedStatesFromNavigationFilter( )
@@ -463,15 +443,15 @@ public:
      *  \return Map where the keys are times and the mapped value is a pair, whose first element is the pair of
      *      Cartesian and Keplerian elements, whereas the second element is the rotational state.
      */
-    std::map< double, std::pair< std::pair< Eigen::Vector6d, Eigen::Vector6d >, Eigen::Vector7d > > getHistoryOfEstimatedStates( )
+    std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > > getHistoryOfEstimatedStates( )
     {
         return historyOfEstimatedStates_;
     }
 
-    //! Function to retrieve history of estimated non-gravitational translational accelerations for the current orbit.
-    std::map< double, Eigen::Vector7d > getCurrentOrbitHistoryOfEstimatedRotationalStates( )
+    //! Function to retrieve history of estimated translational accelerations for the current orbit.
+    std::map< double, Eigen::Vector3d > getCurrentOrbitHistoryOfEstimatedTranslationalAccelerations( )
     {
-        return currentOrbitHistoryOfEstimatedRotationalStates_;
+        return currentOrbitHistoryOfEstimatedTranslationalAccelerations_;
     }
 
     //! Function to retrieve history of estimated non-gravitational translational accelerations for the current orbit.
@@ -496,12 +476,12 @@ public:
     /*!
      *  Function to set current Cartesian state to new value. The value of the Keplerian state is set
      *  automatically by converting the Cartesian state to Keplerian elements. Also, the function updates the
-     *  history of translational (and rotational, although unchanged) to the new values.
+     *  history of translational to the new values.
      *  \param newCurrentKeplerianState New Cartesian state at current time.
      *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
      */
     void setCurrentEstimatedCartesianState( const Eigen::Vector6d& newCurrentCartesianState,
-                                            const Eigen::Matrix22d& newCurrentCovarianceMatrix = Eigen::Matrix22d::Zero( ) )
+                                            const Eigen::Matrix12d& newCurrentCovarianceMatrix = Eigen::Matrix12d::Zero( ) )
     {
         // Update navigation system current value
         currentEstimatedCartesianState_ = newCurrentCartesianState;
@@ -510,12 +490,12 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector22d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        Eigen::Vector12d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix22d::Zero( ) ) )
+        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix12d::Zero( ) ) )
         {
             // Use previous value
-            Eigen::Matrix22d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            Eigen::Matrix12d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
             navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                          oldCurrentCovarianceMatrix );
         }
@@ -531,12 +511,12 @@ public:
     /*!
      *  Function to set current Keplerian state to new value. The value of the Cartesian state is set
      *  automatically by converting the Keplerian state to Cartesian elements. Also, the function updates the
-     *  history of translational (and rotational, although unchanged) to the new values.
+     *  history of translational to the new values.
      *  \param newCurrentKeplerianState New Keplerian state at current time.
      *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
      */
     void setCurrentEstimatedKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState,
-                                            const Eigen::Matrix22d& newCurrentCovarianceMatrix = Eigen::Matrix22d::Zero( ) )
+                                            const Eigen::Matrix12d& newCurrentCovarianceMatrix = Eigen::Matrix12d::Zero( ) )
     {
         // Update navigation system current value
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
@@ -545,12 +525,12 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector22d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        Eigen::Vector12d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix22d::Zero( ) ) )
+        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix12d::Zero( ) ) )
         {
             // Use previous value
-            Eigen::Matrix22d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            Eigen::Matrix12d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
             navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                          oldCurrentCovarianceMatrix );
         }
@@ -566,7 +546,7 @@ public:
     void clearCurrentOrbitEstimationHistory( )
     {
         currentOrbitHistoryOfEstimatedTranslationalStates_.clear( );
-        currentOrbitHistoryOfEstimatedRotationalStates_.clear( );
+        currentOrbitHistoryOfEstimatedTranslationalAccelerations_.clear( );
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.clear( );
         navigationFilter_->clearFilterHistory( );
     }
@@ -589,7 +569,6 @@ private:
         std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
         mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_ +
                 onboardBodyMap_.at( planetName_ )->getState( );
-        mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
 
         // Loop over bodies exerting accelerations on spacecraft
@@ -652,8 +631,8 @@ private:
         }
 
         // Store acceleration value
-        //        currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_[ currentTime_ ] =
-        //                currentGravitationalTranslationalAcceleration_;
+        currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] =
+                currentTranslationalAcceleration_;
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
                 currentNonGravitationalTranslationalAcceleration_;
     }
@@ -669,13 +648,10 @@ private:
      *      directly from the IMU.
      *  \param mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface Map of time and expected aerodynamic acceleration
      *      below the atmospheric interface altitude.
-     *  \param mapOfEstimatedRotationalStatesBelowAtmosphericInterface Map of time and estimated rotational state below the
-     *      atmospheric interface altitude.
      */
     void postProcessAccelerometerMeasurements(
             std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-            const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface,
-            const std::map< double, Eigen::Vector7d >& mapOfEstimatedRotationalStatesBelowAtmosphericInterface );
+            const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
 
     //! Function to run the Periapse Time Estimator (PTE).
     /*!
@@ -712,14 +688,7 @@ private:
         // Store translational values for current orbit
         currentOrbitHistoryOfEstimatedTranslationalStates_[ currentTime_ ] = std::make_pair( currentEstimatedCartesianState_,
                                                                                              currentEstimatedKeplerianState_ );
-
-        // Save rotational values for current orbit
-        currentOrbitHistoryOfEstimatedRotationalStates_[ currentTime_ ] = currentEstimatedRotationalState_;
-
-        // Store full state for navigation history
-        historyOfEstimatedStates_[ currentTime_ ] = std::make_pair( std::make_pair( currentEstimatedCartesianState_,
-                                                                                    currentEstimatedKeplerianState_ ),
-                                                                    currentEstimatedRotationalState_ );
+        historyOfEstimatedStates_[ currentTime_ ] = currentOrbitHistoryOfEstimatedTranslationalStates_[ currentTime_ ];
     }
 
     //! Body map of the onboard simulation.
@@ -803,13 +772,6 @@ private:
     //! Vector denoting the current estimated translational state in Keplerian elements.
     Eigen::Vector6d currentEstimatedKeplerianState_;
 
-    //! Vector denoting the current estimated rotational state.
-    /*!
-     *  Vector denoting the current estimated rotational state, where the quaternion expresses the rotation from
-     *  body-fixed (local) to inertial (global or base) frame, whereas the rotational velocity is expressed in the body frame.
-     */
-    Eigen::Vector7d currentEstimatedRotationalState_;
-
     //! Pointer to root-finder used to esimated the time of periapsis.
     boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;
 
@@ -870,7 +832,7 @@ private:
      *  stored as a map, where the keys are times and the mapped values are pairs, whose first element is the pair
      *  of Cartesian and Keplerian elements, whereas the second element is the rotational state.
      */
-    std::map< double, std::pair< std::pair< Eigen::Vector6d, Eigen::Vector6d >, Eigen::Vector7d > > historyOfEstimatedStates_;
+    std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > > historyOfEstimatedStates_;
 
     //! History of estimated translational states in Cartesian and Keplerian elements for current orbit.
     /*!
@@ -880,13 +842,8 @@ private:
      */
     std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > > currentOrbitHistoryOfEstimatedTranslationalStates_;
 
-    //! History of estimated rotational states for current orbit.
-    /*!
-     *  History of estimated rotational states for current orbit, stored as a map, where the keys are times and the mapped
-     *  values are the rotational states, denoting the quaternion to inertial frame and the rotational velocity in the
-     *  body-fixed frame.
-     */
-    std::map< double, Eigen::Vector7d > currentOrbitHistoryOfEstimatedRotationalStates_;
+    //! History of estimated translational accelerations for current orbit.
+    std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedTranslationalAccelerations_;
 
     //! History of estimated non-gravitational translational accelerations for current orbit.
     std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_;
@@ -896,9 +853,6 @@ private:
 
     //! Predefined iterator to save (de)allocation time.
     std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > >::const_iterator translationalStateIterator_;
-
-    //! Predefined iterator to save (de)allocation time.
-    std::map< double, Eigen::Vector7d >::const_iterator rotationalStateIterator_;
 
 };
 

@@ -352,12 +352,6 @@ private:
             }
         }
 
-        // Transform acceleration to body-fixed frame
-        currentTranslationalAcceleration_ =
-                bodyMap_.at( spacecraftName_ )->getCurrentRotationToLocalFrame( ).toRotationMatrix( ).transpose( ) *
-                currentTranslationalAcceleration_;
-        // transpose is taken due to the different definition of quaternion in Eigen
-
         // Add errors to acceleration value
         currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
         currentTranslationalAcceleration_ += biasVector + produceAccelerometerNoise( );
@@ -395,20 +389,7 @@ private:
                 bodyMap_.at( planetName_ )->getState( ).segment( 0, 3 );
         double currentRadialDistance = currentRadialVector.norm( );
         double planetaryRadius = bodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( );
-
-        // Get current transformation to inertial frame
-        Eigen::Matrix3d tranformationFromBodyFixedToInertialFrame =
-                bodyMap_.at( spacecraftName_ )->getCurrentRotationToGlobalFrame( ).toRotationMatrix( ).transpose( );
-        // transpose is taken due to the different definition of quaternion in Eigen
-
-        // Get current altimeter line-of-sight in inertial frame
-        Eigen::Vector3d altimeterPointingDirectionInInertialFrame =
-                tranformationFromBodyFixedToInertialFrame * fixedBodyFramePointingDirection;
-
-        // Find current angle between altimeter LOS and radial distance
-        double currentPointingAngle = linear_algebra::computeAngleBetweenVectors( altimeterPointingDirectionInInertialFrame,
-                                                                                  currentRadialVector );
-        currentPointingAngle = 0.0; // <<<<<<<<<---------- remove once 6DOF modeling is implemented
+        double currentPointingAngle = 0.0;
 
         // Check that pointing angle is not too large, i.e., if Mars is still in sight
         double maximumPointingAngle = std::asin( planetaryRadius / currentRadialDistance );
@@ -437,7 +418,7 @@ private:
         if ( ( currentAltitude_ < altitudeRange.first ) || ( currentAltitude_ > altitudeRange.second ) )
         {
             // Altitude cannot be measured
-//            currentAltitude_ = TUDAT_NAN; // replace with function that gives large errors?
+            currentAltitude_ = TUDAT_NAN; // replace with function that gives large errors?
         }
 
         // Add errors to altitude value
@@ -484,7 +465,7 @@ private:
         // Loop over dimensions and add noise
         for ( int i = 0; i < 3; i++ )
         {
-            if ( accelerometerNoiseDistribution_.at( i ) != NULL )
+            if ( accelerometerNoiseDistribution_.at( i ) != nullptr )
             {
                 accelerometerNoise[ i ] = accelerometerNoiseDistribution_.at( i )->getRandomVariableValue( );
             }
@@ -508,7 +489,7 @@ private:
         // Loop over dimensions and add noise
         for ( int i = 0; i < 3; i++ )
         {
-            if ( gyroscopeNoiseDistribution_.at( i ) != NULL )
+            if ( gyroscopeNoiseDistribution_.at( i ) != nullptr )
             {
                 gyroscopeNoise[ i ] = gyroscopeNoiseDistribution_.at( i )->getRandomVariableValue( );
             }
@@ -534,7 +515,7 @@ private:
         // Loop over dimensions and add noise
         for ( int i = 0; i < 3; i++ )
         {
-            if ( starTrackerNoiseDistribution_.at( i ) != NULL )
+            if ( starTrackerNoiseDistribution_.at( i ) != nullptr )
             {
                 starTrackerNoise[ i ] = starTrackerNoiseDistribution_.at( i )->getRandomVariableValue( );
             }
@@ -556,7 +537,7 @@ private:
         double altimeterNoise = 0;
 
         // Add noise
-        if ( altimeterNoiseDistribution_ != NULL )
+        if ( altimeterNoiseDistribution_ != nullptr )
         {
             altimeterNoise = altimeterNoiseDistribution_->getRandomVariableValue( );
         }

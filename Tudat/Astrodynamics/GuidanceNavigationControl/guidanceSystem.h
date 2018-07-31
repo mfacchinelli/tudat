@@ -106,9 +106,9 @@ public:
         if ( pairOfAtmosphereInitiationIndicators.first < pairOfAtmosphereInitiationIndicators.second )
         {
             detectedAerobrakingPhase = walk_in_phase;
-            periapsisAltitudeWalkInScaling_ = 1.2 - 0.2 *
-                    static_cast< double >( pairOfAtmosphereInitiationIndicators.first ) /
-                    static_cast< double >( pairOfAtmosphereInitiationIndicators.second );
+//            periapsisAltitudeWalkInScaling_ = 1.2 - 0.2 *
+//                    static_cast< double >( pairOfAtmosphereInitiationIndicators.first ) /
+//                    static_cast< double >( pairOfAtmosphereInitiationIndicators.second );
         }
 
         // Check whether apoapsis is approaching target value

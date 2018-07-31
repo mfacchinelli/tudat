@@ -20,7 +20,7 @@
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen { typedef Eigen::Matrix< double, 22, 1 > Vector22d; }
+namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; }
 using namespace tudat::guidance_navigation_control;
 
 namespace tudat
@@ -30,14 +30,12 @@ namespace system_models
 {
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector22d onboardSystemModel( const double currentTime, const Eigen::Vector22d& currentEstimatedStateVector,
-                                     const Eigen::Vector3d& currentControlVector,
+Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
                                      const Eigen::Vector3d& currentEstimatedGravitationalTranslationalAccelerationVector,
-                                     const Eigen::Vector3d& currentMeasuredNonGravitationalTranslationalAccelerationVector,
-                                     const Eigen::Vector3d& currentMeasuredRotationalVelocityVector );
+                                     const Eigen::Vector3d& currentMeasuredNonGravitationalTranslationalAccelerationVector );
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector5d onboardMeasurementModel( const double currentTime, const Eigen::Vector22d& currentEstimatedStateVector,
+Eigen::Vector1d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
                                          const double planetaryRadius );
 
 //! Class for the onboard computer of the spacecraft.
@@ -55,19 +53,17 @@ public:
     {
         dummyCallCounter_ = 0; // <<<<<<<<<----------
 
-        // Define internal constants
-        maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with no need to perform a maneuver
+        // Define internal variables
+        maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with possible need to perform a maneuver
         atmosphericPhaseComplete_ = false;
         atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
 
         // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects(
                     boost::bind( &onboardSystemModel, _1, _2,
-                                 boost::bind( &ControlSystem::getCurrentAttitudeControlVector, controlSystem_ ),
                                  boost::bind( &NavigationSystem::getCurrentEstimatedGravitationalTranslationalAcceleration,
                                               navigationSystem_ ),
-                                 boost::bind( &NavigationInstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ),
-                                 boost::bind( &NavigationInstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) ),
+                                 boost::bind( &NavigationInstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ) ),
                     boost::bind( &onboardMeasurementModel, _1, _2, navigationSystem_->getRadius( ) ) );
 
         // Create guidance system objects
@@ -98,23 +94,14 @@ public:
         instrumentsModel_->updateInstruments( currentTime );
         Eigen::Vector5d currentExternalMeasurementVector;
         currentExternalMeasurementVector[ 0 ] = instrumentsModel_->getCurrentAltimeterMeasurement( );
-        currentExternalMeasurementVector.segment( 1, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
 
         // Update filter from previous time to next time
         navigationSystem_->determineNavigationPhase( );
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
-                                              instrumentsModel_->getCurrentGyroscopeMeasurement( ) );
-
-        // Update attitude controller
-        controlSystem_->updateAttitudeController(
-                    navigationSystem_->getCurrentEstimatedState( ),
-                    removeErrorsFromInertialMeasurementUnitMeasurement( instrumentsModel_->getCurrentGyroscopeMeasurement( ),
-                                                                        navigationSystem_->getCurrentEstimatedState( ).segment( 10, 6 ) ),
-                    navigationSystem_->getNavigationRefreshStepSize( ),
-                    navigationSystem_->getCurrentEstimatedMeanMotion( ) );
+                                              instrumentsModel_->getCurrentAccelerometerMeasurement( ) );
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
-        std::pair< Eigen::VectorXd, Eigen::VectorXd > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
+        std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
         double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
         if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
         {

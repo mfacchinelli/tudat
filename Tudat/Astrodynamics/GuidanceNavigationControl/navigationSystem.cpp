@@ -28,20 +28,10 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
 }
 
 //! Function to remove errors in the altimeter measurements based on the current orientation.
-void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const Eigen::Vector3d& currentRadiusVector,
-                                           const Eigen::Vector4d& currentQuaternionToInertialFrame,
-                                           const Eigen::Vector3d& altimeterBodyFixedPointingDirection,
-                                           const double planetaryRadius )
+void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const double planetaryRadius )
 {
-    // Get current altimeter pointing direction in inertial frame
-    Eigen::Vector3d altimeterPointingDirectionInInertialFrame =
-            linear_algebra::convertVectorToQuaternionFormat( currentQuaternionToInertialFrame ).toRotationMatrix( ).transpose( ) *
-            altimeterBodyFixedPointingDirection;
-
-    // Get current pointing angle
-    double currentPointingAngle = linear_algebra::computeAngleBetweenVectors( altimeterPointingDirectionInInertialFrame,
-                                                                              currentRadiusVector );
-    currentPointingAngle = 0.0; // <<<<<<<<<---------- remove once 6DOF modeling is implemented
+    // Assume perfect pointing
+    double currentPointingAngle = 0.0;
 
     // If pointing angle is larger than the singularity
     if ( std::fabs( currentPointingAngle ) > std::numeric_limits< double >::epsilon( ) )
@@ -69,11 +59,7 @@ void NavigationSystem::createNavigationSystemObjects(
 
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
-    Eigen::Vector22d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-
-    // Set initial rotational state
-    currentEstimatedRotationalState_.setZero( );
-    currentEstimatedRotationalState_.segment( 0, 4 ) = initialEstimatedState.segment( 6, 4 ).normalized( );
+    Eigen::Vector12d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial translational state
     setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
@@ -110,7 +96,6 @@ void NavigationSystem::createOnboardEnvironmentUpdater( )
     // Set integrated type and body list
     std::map< propagators::IntegratedStateType, std::vector< std::pair< std::string, std::string > > > integratedTypeAndBodyList;
     integratedTypeAndBodyList[ propagators::translational_state ] = { std::make_pair( spacecraftName_, "" ) };
-    integratedTypeAndBodyList[ propagators::rotational_state ] = { std::make_pair( spacecraftName_, "" ) };
 
     // Create environment settings
     std::map< propagators::EnvironmentModelsToUpdate, std::vector< std::string > > environmentModelsToUpdate =
@@ -124,8 +109,7 @@ void NavigationSystem::createOnboardEnvironmentUpdater( )
 //! Function to post-process the accelerometer measurements.
 void NavigationSystem::postProcessAccelerometerMeasurements(
         std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-        const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface,
-        const std::map< double, Eigen::Vector7d >& mapOfEstimatedRotationalStatesBelowAtmosphericInterface )
+        const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface )
 {
     // Inform user
     std::cout << "Removing Accelerometer Errors." << std::endl;
@@ -153,19 +137,15 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
                                                           utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
                                                               mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
     }
-    std::cout << "UKF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 10, 6 ) << std::endl;
+    std::cout << "UKF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ).transpose( ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
-    unsigned int i = 0;
-    for ( rotationalStateIterator_ = mapOfEstimatedRotationalStatesBelowAtmosphericInterface.begin( );
-          rotationalStateIterator_ != mapOfEstimatedRotationalStatesBelowAtmosphericInterface.end( ); rotationalStateIterator_++, i++ )
-    {
-        vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
-                linear_algebra::convertVectorToQuaternionFormat(
-                    rotationalStateIterator_->second.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
-                removeErrorsFromInertialMeasurementUnitMeasurement( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ),
-                                                                    estimatedAccelerometerErrors_ );
-    }
+//    for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
+//    {
+//        vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
+//                removeErrorsFromInertialMeasurementUnitMeasurement(
+//                    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ), estimatedAccelerometerErrors_ );
+//    }
 }
 
 //! Function to run the Periapse Time Estimator (PTE).
@@ -272,7 +252,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
 
     // Update navigation system state estimates
-    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState ); // , Eigen::Matrix22d::Identity( )
+    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState ); // , Eigen::Matrix12d::Identity( )
     // the covariance matrix is reset to the identity, since the new state is improved in accuracy
 
     std::cout << "Before: " << initialEstimatedKeplerianState.transpose( ) << std::endl;
