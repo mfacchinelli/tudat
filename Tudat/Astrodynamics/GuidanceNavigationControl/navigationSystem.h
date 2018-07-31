@@ -167,38 +167,37 @@ public:
     }
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const double currentTime, Eigen::Vector5d& currentExternalMeasurementVector,
-                            const Eigen::Vector3d& currentAccelerometerMeasurement )
+    void runStateEstimator( const double currentTime, Eigen::Vector3d& currentExternalMeasurementVector )
     {
         // Set time
         currentTime_ = currentTime;
 
         // Correct altitude measurement to account for possible pointing angle
-        removeErrorsFromAltimeterMeasurement( currentExternalMeasurementVector[ 0 ], planetaryRadius_ );
+//        removeErrorsFromAltimeterMeasurement( currentExternalMeasurementVector[ 0 ], planetaryRadius_ );
 
         // Update navigation estimates based on current navigation phase
-        switch ( currentNavigationPhase_ )
-        {
-        case unaided_navigation_phase:
-        {
-            // Propagate translational motion
-            Eigen::Vector6d currentTranslationalStateDerivative;
-            currentTranslationalStateDerivative.segment( 0, 3 ) = currentEstimatedCartesianState_.segment( 3, 3 );
-            currentTranslationalStateDerivative.segment( 3, 3 ) =
-                    currentGravitationalTranslationalAcceleration_ + currentAccelerometerMeasurement;
-            currentEstimatedCartesianState_ += currentTranslationalStateDerivative * navigationRefreshStepSize_;
+//        switch ( currentNavigationPhase_ )
+//        {
+//        case unaided_navigation_phase:
+//        {
+//            // Propagate translational motion
+//            Eigen::Vector6d currentTranslationalStateDerivative;
+//            currentTranslationalStateDerivative.segment( 0, 3 ) = currentEstimatedCartesianState_.segment( 3, 3 );
+//            currentTranslationalStateDerivative.segment( 3, 3 ) = currentGravitationalTranslationalAcceleration_;
 
-            // Update navigation estimated
-            setCurrentEstimatedCartesianState( currentEstimatedCartesianState_ );
-            break;
-        }
-        case optical_navigation_phase:
-        {
-            throw std::runtime_error( "Error in state estimation. Optical navigation not yet supported." );
-            break;
-        }
-        case altimeter_navigation_phase:
-        {
+//            currentEstimatedCartesianState_ += currentTranslationalStateDerivative * navigationRefreshStepSize_;
+
+//            // Update navigation estimated
+//            setCurrentEstimatedCartesianState( currentEstimatedCartesianState_ );
+//            break;
+//        }
+//        case optical_navigation_phase:
+//        {
+//            throw std::runtime_error( "Error in state estimation. Optical navigation not yet supported." );
+//            break;
+//        }
+//        case altimeter_navigation_phase:
+//        {
 //            // Set navigation states based on previous estimate
 //            if ( currentNavigationPhase_ != previousNavigationPhase_ )
 //            {
@@ -214,11 +213,11 @@ public:
             Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
             setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
             // this function also automatically stores the full state estimates at the current time
-            break;
-        }
-        default:
-            throw std::runtime_error( "Error in state estimation. Current navigation phase not recognized." );
-        }
+//            break;
+//        }
+//        default:
+//            throw std::runtime_error( "Error in state estimation. Current navigation phase not recognized." );
+//        }
 
         // Update body and acceleration maps
         updateOnboardModel( );

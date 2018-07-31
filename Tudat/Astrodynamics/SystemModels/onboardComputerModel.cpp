@@ -8,13 +8,12 @@ namespace tudat
 namespace system_models
 {
 
-using namespace tudat::guidance_navigation_control;
+using namespace guidance_navigation_control;
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector12d onboardSystemModel( const double currentTime,
                                      const Eigen::Vector12d& currentEstimatedStateVector,
-                                     const Eigen::Vector3d& currentEstimatedGravitationalTranslationalAccelerationVector,
-                                     const Eigen::Vector3d& currentMeasuredNonGravitationalTranslationalAccelerationVector )
+                                     const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -25,26 +24,26 @@ Eigen::Vector12d onboardSystemModel( const double currentTime,
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedStateVector.segment( 3, 3 );
 
     // Translational dynamics
-    Eigen::Vector3d currentActualNonGravitationalTranslationalAccelerationVector = removeErrorsFromInertialMeasurementUnitMeasurement(
-                currentMeasuredNonGravitationalTranslationalAccelerationVector, currentEstimatedStateVector.segment( 6, 6 ) );
-    currentStateDerivative.segment( 3, 3 ) = currentEstimatedGravitationalTranslationalAccelerationVector +
-            currentActualNonGravitationalTranslationalAccelerationVector;
+    currentStateDerivative.segment( 3, 3 ) = currentEstimatedTranslationalAccelerationVector;
 
     // Give output
     return currentStateDerivative;
 }
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector1d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
-                                         const double planetaryRadius )
+Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
+                                         const Eigen::Vector3d& currenstEstimatedNonGravitationalAcceleration )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
+    TUDAT_UNUSED_PARAMETER( currentEstimatedStateVector );
 
     // Declare output vector
-    Eigen::Vector1d currentMeasurementVector;
+    Eigen::Vector3d currentMeasurementVector;
 
     // Add translational acceleration
-    currentMeasurementVector[ 0 ] = currentEstimatedStateVector.segment( 0, 3 ).norm( ) - planetaryRadius;
+    currentMeasurementVector = currentEstimatedStateVector.segment( 6, 3 ) +
+            ( Eigen::Matrix3d::Identity( ) + Eigen::Matrix3d( currentEstimatedStateVector.segment( 9, 3 ).asDiagonal( ) ) ) *
+            currenstEstimatedNonGravitationalAcceleration;
 
     // Return quaternion vector
     return currentMeasurementVector;

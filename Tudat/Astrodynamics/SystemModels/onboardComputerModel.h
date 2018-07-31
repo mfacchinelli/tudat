@@ -31,12 +31,11 @@ namespace system_models
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
-                                     const Eigen::Vector3d& currentEstimatedGravitationalTranslationalAccelerationVector,
-                                     const Eigen::Vector3d& currentMeasuredNonGravitationalTranslationalAccelerationVector );
+                                     const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector );
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector1d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
-                                         const double planetaryRadius );
+Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
+                                         const Eigen::Vector3d& currenstEstimatedNonGravitationalAcceleration );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
@@ -61,10 +60,10 @@ public:
         // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects(
                     boost::bind( &onboardSystemModel, _1, _2,
-                                 boost::bind( &NavigationSystem::getCurrentEstimatedGravitationalTranslationalAcceleration,
-                                              navigationSystem_ ),
-                                 boost::bind( &NavigationInstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ) ),
-                    boost::bind( &onboardMeasurementModel, _1, _2, navigationSystem_->getRadius( ) ) );
+                                 boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_ ) ),
+                    boost::bind( &onboardMeasurementModel, _1, _2,
+                                 boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration,
+                                              navigationSystem_ ) ) );
 
         // Create guidance system objects
         guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateStateWithCustomTerminationSettings,
@@ -92,13 +91,11 @@ public:
 
         // Update instrument models and extract measurements
         instrumentsModel_->updateInstruments( currentTime );
-        Eigen::Vector5d currentExternalMeasurementVector;
-        currentExternalMeasurementVector[ 0 ] = instrumentsModel_->getCurrentAltimeterMeasurement( );
+        Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
 
         // Update filter from previous time to next time
         navigationSystem_->determineNavigationPhase( );
-        navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
-                                              instrumentsModel_->getCurrentAccelerometerMeasurement( ) );
+        navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
