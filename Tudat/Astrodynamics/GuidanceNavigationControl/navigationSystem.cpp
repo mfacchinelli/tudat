@@ -131,7 +131,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     std::cout << "Removing Accelerometer Errors." << std::endl;
 
     // Apply smoothing method to noisy accelerometer data
-    unsigned int numberOfSamplePoints = 25 / navigationRefreshStepSize_;
+    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 25.0 / navigationRefreshStepSize_ );
     numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
             statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
@@ -153,7 +153,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
                                                           utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
                                                               mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
     }
-    std::cout << "UKF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 10, 6 ) << std::endl;
+    std::cout << "UKF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 10, 6 ).transpose( ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     unsigned int i = 0;

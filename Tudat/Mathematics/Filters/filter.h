@@ -116,7 +116,7 @@ public:
                                             this, _1, _2 );
 
         // Create numerical integrator
-        isStateToBeIntegrated_ = integratorSettings != NULL;
+        isStateToBeIntegrated_ = integratorSettings != nullptr;
         if ( isStateToBeIntegrated_ )
         {
             generateNumericalIntegrator( integratorSettings );
@@ -165,7 +165,7 @@ public:
         // Loop over dimensions and add noise
         for ( int i = 0; i < systemUncertainty_.rows( ); i++ )
         {
-            if ( systemNoiseDistribution_.at( i ) != NULL )
+            if ( systemNoiseDistribution_.at( i ) != nullptr )
             {
                 systemNoise[ i ] = static_cast< DependentVariableType >(
                             systemNoiseDistribution_.at( i )->getRandomVariableValue( ) );
@@ -191,7 +191,7 @@ public:
         // Loop over dimensions and add noise
         for ( int i = 0; i < measurementUncertainty_.rows( ); i++ )
         {
-            if ( measurementNoiseDistribution_.at( i ) != NULL )
+            if ( measurementNoiseDistribution_.at( i ) != nullptr )
             {
                 measurementNoise[ i ] = static_cast< DependentVariableType >(
                             measurementNoiseDistribution_.at( i )->getRandomVariableValue( ) );
@@ -415,7 +415,7 @@ private:
             }
             else
             {
-                systemNoiseDistribution_.push_back( NULL );
+                systemNoiseDistribution_.push_back( nullptr );
             }
         }
 
@@ -432,7 +432,7 @@ private:
             }
             else
             {
-                measurementNoiseDistribution_.push_back( NULL );
+                measurementNoiseDistribution_.push_back( nullptr );
             }
         }
     }

@@ -150,14 +150,14 @@ public:
         // Store previous navigation phase
         previousNavigationPhase_ = currentNavigationPhase_;
 
-        // Compute current altitude
-        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
+//        // Compute current altitude
+//        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
 
-        // Check whether altitude is within altimeter operational altitude
-        if ( ( currentAltitude > altimeterAltitudeRange_.first ) && ( currentAltitude < altimeterAltitudeRange_.second ) )
-        {
-            detectedNavigationPhase = altimeter_navigation_phase;
-        }
+//        // Check whether altitude is within altimeter operational altitude
+//        if ( ( currentAltitude > altimeterAltitudeRange_.first ) && ( currentAltitude < altimeterAltitudeRange_.second ) )
+//        {
+//            detectedNavigationPhase = altimeter_navigation_phase;
+//        }
 
 //        // Check whether altitude is above optical navigation camera limiting altitude
 //        if ( currentAltitude > 30.0e6 )

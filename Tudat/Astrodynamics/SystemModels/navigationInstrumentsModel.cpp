@@ -148,7 +148,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
         }
         else
         {
-            accelerometerNoiseDistribution_.push_back( NULL );
+            accelerometerNoiseDistribution_.push_back( nullptr );
         }
     }
 
@@ -164,7 +164,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
         }
         else
         {
-            gyroscopeNoiseDistribution_.push_back( NULL );
+            gyroscopeNoiseDistribution_.push_back( nullptr );
         }
     }
 }
@@ -186,7 +186,7 @@ void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution( con
         }
         else
         {
-            starTrackerNoiseDistribution_.push_back( NULL );
+            starTrackerNoiseDistribution_.push_back( nullptr );
         }
     }
 }
@@ -204,7 +204,7 @@ void NavigationInstrumentsModel::generateAltimeterRandomNoiseDistribution( const
     }
     else
     {
-        altimeterNoiseDistribution_ = NULL;
+        altimeterNoiseDistribution_ = nullptr;
     }
 }
 
