@@ -89,8 +89,7 @@ protected:
      *  \param currentStateVector Vector representing the current state (which overwrites the previous state).
      *  \return Propagated state at the requested time.
      */
-    DependentVector predictState( const IndependentVariableType currentTime,
-                                  const DependentVector& currentStateVector )
+    DependentVector predictState( const IndependentVariableType currentTime, const DependentVector& currentStateVector )
     {
         return this->isStateToBeIntegrated_ ? propagateState( currentTime, currentStateVector ) :
                                               this->systemFunction_( currentTime, currentStateVector );
@@ -121,8 +120,7 @@ private:
      *  \param currentStateVector Vector representing the current state (which overwrites the previous state).
      *  \return Propagated state at the requested time.
      */
-    DependentVector propagateState( const IndependentVariableType currentTime,
-                                    const DependentVector& currentStateVector )
+    DependentVector propagateState( const IndependentVariableType currentTime, const DependentVector& currentStateVector )
     {
         // Reset time and state
         this->integrator_->modifyCurrentState( currentStateVector, currentTime );

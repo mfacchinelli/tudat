@@ -147,21 +147,6 @@ public:
         // Store previous navigation phase
         previousNavigationPhase_ = currentNavigationPhase_;
 
-//        // Compute current altitude
-//        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
-
-//        // Check whether altitude is within altimeter operational altitude
-//        if ( ( currentAltitude > altimeterAltitudeRange_.first ) && ( currentAltitude < altimeterAltitudeRange_.second ) )
-//        {
-//            detectedNavigationPhase = altimeter_navigation_phase;
-//        }
-
-//        // Check whether altitude is above optical navigation camera limiting altitude
-//        if ( currentAltitude > 30.0e6 )
-//        {
-//            detectedNavigationPhase = optical_navigation_phase;
-//        }
-
         // Set current navigation phase
         currentNavigationPhase_ = detectedNavigationPhase;
     }
@@ -172,52 +157,12 @@ public:
         // Set time
         currentTime_ = currentTime;
 
-        // Correct altitude measurement to account for possible pointing angle
-//        removeErrorsFromAltimeterMeasurement( currentExternalMeasurementVector[ 0 ], planetaryRadius_ );
+        // Update filter
+        navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
 
-        // Update navigation estimates based on current navigation phase
-//        switch ( currentNavigationPhase_ )
-//        {
-//        case unaided_navigation_phase:
-//        {
-//            // Propagate translational motion
-//            Eigen::Vector6d currentTranslationalStateDerivative;
-//            currentTranslationalStateDerivative.segment( 0, 3 ) = currentEstimatedCartesianState_.segment( 3, 3 );
-//            currentTranslationalStateDerivative.segment( 3, 3 ) = currentGravitationalTranslationalAcceleration_;
-
-//            currentEstimatedCartesianState_ += currentTranslationalStateDerivative * navigationRefreshStepSize_;
-
-//            // Update navigation estimated
-//            setCurrentEstimatedCartesianState( currentEstimatedCartesianState_ );
-//            break;
-//        }
-//        case optical_navigation_phase:
-//        {
-//            throw std::runtime_error( "Error in state estimation. Optical navigation not yet supported." );
-//            break;
-//        }
-//        case altimeter_navigation_phase:
-//        {
-//            // Set navigation states based on previous estimate
-//            if ( currentNavigationPhase_ != previousNavigationPhase_ )
-//            {
-//                Eigen::Vector12d estimatedState = Eigen::Vector12d::Zero( );
-//                estimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-//                navigationFilter_->modifyCurrentStateAndCovarianceEstimates( estimatedState, Eigen::Matrix12d::Identity( ) );
-//            }
-
-            // Update filter
-            navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
-
-            // Extract estimated state and update navigation estimates
-            Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-            setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
-            // this function also automatically stores the full state estimates at the current time
-//            break;
-//        }
-//        default:
-//            throw std::runtime_error( "Error in state estimation. Current navigation phase not recognized." );
-//        }
+        // Extract estimated state and update navigation estimates
+        Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
 
         // Update body and acceleration maps
         updateOnboardModel( );
@@ -349,38 +294,6 @@ public:
         return std::make_pair( translationalStateResult, dependentVariablesResult );
     }
 
-    //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
-    /*!
-     *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
-     *  is computed by using the onboard accelerations model map.
-     *  \return Vector denoting the full acceleration vector experienced by the spacecraft.
-     */
-    Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( ) { return currentTranslationalAcceleration_; }
-
-    //! Function to retrieve current estimated gravitational translational accelerations exerted on the spacecraft.
-    /*!
-     *  Function to retrieve current estimated gravitational translational accelerations exerted on the spacecraft. The
-     *  acceleration is computed by using the onboard accelerations model map. Note that this vector represents only the
-     *  gravitational accelerations.
-     *  \return Vector denoting only the gravitational accelerations experienced by the spacecraft.
-     */
-    Eigen::Vector3d getCurrentEstimatedGravitationalTranslationalAcceleration( )
-    {
-        return currentGravitationalTranslationalAcceleration_;
-    }
-
-    //! Function to retrieve current estimated non-gravitational translational accelerations exerted on the spacecraft.
-    /*!
-     *  Function to retrieve current estimated non-gravitational translational accelerations exerted on the spacecraft. The
-     *  acceleration is computed by using the onboard accelerations model map. Note that this vector represents only the
-     *  non-gravitational accelerations (which are supposed to emulate the accelerations measured by the IMU).
-     *  \return Vector denoting only the non-gravitational (i.e., aerodynamic) accelerations experienced by the spacecraft.
-     */
-    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( )
-    {
-        return currentNonGravitationalTranslationalAcceleration_;
-    }
-
     //! Function to retireve current time.
     double getCurrentTime( ) { return currentTime_; }
 
@@ -408,14 +321,49 @@ public:
     //! Function to compute the current estimated mean motion.
     double getCurrentEstimatedMeanMotion( )
     {
-        return basic_astrodynamics::computeKeplerMeanMotion( currentEstimatedKeplerianState_[ 0 ],
-                planetaryGravitationalParameter_ );
+        return basic_astrodynamics::computeKeplerMeanMotion(
+                    currentEstimatedKeplerianState_[ 0 ], planetaryGravitationalParameter_ );
     }
 
     //! Function to retrieve the density at the input conditions according to the onboard model.
     double getDensityAtSpecifiedConditions( double altitude, double longitude = 0.0 )
     {
         return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity( altitude, longitude, 0.0, 0.0 );
+    }
+
+    //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
+    /*!
+     *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
+     *  is computed by using the onboard accelerations model map.
+     *  \return Vector denoting the full acceleration vector experienced by the spacecraft.
+     */
+    Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( )
+    {
+        return currentEstimatedTranslationalAcceleration_;
+    }
+
+    //! Function to retrieve current estimated gravitational translational accelerations exerted on the spacecraft.
+    /*!
+     *  Function to retrieve current estimated gravitational translational accelerations exerted on the spacecraft. The
+     *  acceleration is computed by using the onboard accelerations model map. Note that this vector represents only the
+     *  gravitational accelerations.
+     *  \return Vector denoting only the gravitational accelerations experienced by the spacecraft.
+     */
+    Eigen::Vector3d getCurrentEstimatedGravitationalTranslationalAcceleration( )
+    {
+        return currentEstimatedGravitationalTranslationalAcceleration_;
+    }
+
+    //! Function to retrieve current estimated non-gravitational translational accelerations exerted on the spacecraft.
+    /*!
+     *  Function to retrieve current estimated non-gravitational translational accelerations exerted on the spacecraft. The
+     *  acceleration is computed by using the onboard accelerations model map. Note that this vector represents only the
+     *  non-gravitational accelerations (which are supposed to emulate the accelerations measured by the IMU).
+     *  \return Vector denoting only the non-gravitational (i.e., aerodynamic) accelerations experienced by the spacecraft.
+     */
+    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( )
+    {
+        return currentEstimatedNonGravitationalTranslationalAcceleration_;
     }
 
     //! Function to retrieve the estimated accelerometer errors.
@@ -566,8 +514,7 @@ private:
     {
         // Update environment
         std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
-        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_ +
-                onboardBodyMap_.at( planetName_ )->getState( );
+        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
 
         // Loop over bodies exerting accelerations on spacecraft
@@ -584,23 +531,23 @@ private:
             }
         }
 
-        // Compute accelerations based on new translational state estimate
-        getCurrentEstimatedAccelerations( );
+        // Update accelerations based on new translational state estimate
+        updateCurrentEstimatedAccelerations( );
     }
 
-    //! Function to retrieve current estimated accelerations exerted on the spacecraft.
+    //! Function to update current estimated accelerations exerted on the spacecraft.
     /*!
-     *  Function to retrieve current estimated accelerations exerted on the spacecraft. The acceleration is computed by using
+     *  Function to update current estimated accelerations exerted on the spacecraft. The acceleration is computed by using
      *  the onboard accelerations model map, and is stored in three different vectors: one with the full acceleration, one with
      *  only gravitational accelerations, and the last one with only non-gravitational accelerations. These can be retrieved with
      *  their respective getCurrentEstimatedTranslationalXXXAcceleration function.
      */
-    void getCurrentEstimatedAccelerations( )
+    void updateCurrentEstimatedAccelerations( )
     {
         // Define output and set accelerations to zero
-        currentTranslationalAcceleration_.setZero( );
-        currentGravitationalTranslationalAcceleration_.setZero( );
-        currentNonGravitationalTranslationalAcceleration_.setZero( );
+        currentEstimatedTranslationalAcceleration_.setZero( );
+        currentEstimatedGravitationalTranslationalAcceleration_.setZero( );
+        currentEstimatedNonGravitationalTranslationalAcceleration_.setZero( );
 
         // Iterate over all accelerations acting on body
         for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -611,29 +558,29 @@ private:
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Calculate acceleration and add to state derivative
-                currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                currentEstimatedTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
 
                 // Only add the gravitational accelerations
                 if ( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) )
                 {
                     // Calculate acceleration and add to state derivative
-                    currentGravitationalTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                    currentEstimatedGravitationalTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
                 }
 
                 // Disregard the central gravitational accelerations, since IMUs do not measure them
                 if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) )
                 {
                     // Calculate acceleration and add to state derivative
-                    currentNonGravitationalTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                    currentEstimatedNonGravitationalTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
                 }
             }
         }
 
         // Store acceleration value
         currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] =
-                currentTranslationalAcceleration_;
+                currentEstimatedTranslationalAcceleration_;
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
-                currentNonGravitationalTranslationalAcceleration_;
+                currentEstimatedNonGravitationalTranslationalAcceleration_;
     }
 
     //! Function to post-process the accelerometer measurements.
@@ -797,13 +744,13 @@ private:
     NavigationPhaseIndicator currentNavigationPhase_;
 
     //! Vector denoting the current estimated translational accelerations.
-    Eigen::Vector3d currentTranslationalAcceleration_;
+    Eigen::Vector3d currentEstimatedTranslationalAcceleration_;
 
     //! Vector denoting the current estimated gravitational translational accelerations.
-    Eigen::Vector3d currentGravitationalTranslationalAcceleration_;
+    Eigen::Vector3d currentEstimatedGravitationalTranslationalAcceleration_;
 
     //! Vector denoting the current estimated non-gravitational translational accelerations.
-    Eigen::Vector3d currentNonGravitationalTranslationalAcceleration_;
+    Eigen::Vector3d currentEstimatedNonGravitationalTranslationalAcceleration_;
 
     //! Vector denoting the bias and scale errors of the accelerometer after calibration.
     Eigen::Vector6d estimatedAccelerometerErrors_;

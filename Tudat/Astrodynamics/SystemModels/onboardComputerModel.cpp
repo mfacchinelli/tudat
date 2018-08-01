@@ -11,8 +11,7 @@ namespace system_models
 using namespace guidance_navigation_control;
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector12d onboardSystemModel( const double currentTime,
-                                     const Eigen::Vector12d& currentEstimatedStateVector,
+Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
                                      const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );

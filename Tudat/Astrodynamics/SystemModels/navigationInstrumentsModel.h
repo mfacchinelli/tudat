@@ -463,7 +463,7 @@ private:
         Eigen::Vector3d accelerometerNoise = Eigen::Vector3d::Zero( );
 
         // Loop over dimensions and add noise
-        for ( int i = 0; i < 3; i++ )
+        for ( unsigned int i = 0; i < 3; i++ )
         {
             if ( accelerometerNoiseDistribution_.at( i ) != nullptr )
             {
@@ -487,7 +487,7 @@ private:
         Eigen::Vector3d gyroscopeNoise = Eigen::Vector3d::Zero( );
 
         // Loop over dimensions and add noise
-        for ( int i = 0; i < 3; i++ )
+        for ( unsigned int i = 0; i < 3; i++ )
         {
             if ( gyroscopeNoiseDistribution_.at( i ) != nullptr )
             {
@@ -513,7 +513,7 @@ private:
         Eigen::Vector3d starTrackerNoise = Eigen::Vector3d::Zero( );
 
         // Loop over dimensions and add noise
-        for ( int i = 0; i < 3; i++ )
+        for ( unsigned int i = 0; i < 3; i++ )
         {
             if ( starTrackerNoiseDistribution_.at( i ) != nullptr )
             {
