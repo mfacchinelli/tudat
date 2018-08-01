@@ -120,23 +120,23 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
             statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
 
-    // Calibrate accelerometer errors if it is the first orbit
-    if ( !atmosphereEstimatorInitialized_ )
-    {
-        // Inform user
-        std::cout << "Calibrating Accelerometer." << std::endl;
+//    // Calibrate accelerometer errors if it is the first orbit
+//    if ( !atmosphereEstimatorInitialized_ )
+//    {
+//        // Inform user
+//        std::cout << "Calibrating Accelerometer." << std::endl;
 
-        // Initial estimate on error values
-        Eigen::Vector6d initialErrorEstimate = Eigen::Vector6d::Zero( );
+//        // Initial estimate on error values
+//        Eigen::Vector6d initialErrorEstimate = Eigen::Vector6d::Zero( );
 
-        // Use non-linear least squares to solve for optimal value of errors
-        estimatedAccelerometerErrors_ =
-                linear_algebra::nonLinearLeastSquaresFit( boost::bind( &accelerometerErrorEstimationFunction, _1,
-                                                                       vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
-                                                          initialErrorEstimate,
-                                                          utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
-                                                              mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
-    }
+//        // Use non-linear least squares to solve for optimal value of errors
+//        estimatedAccelerometerErrors_ =
+//                linear_algebra::nonLinearLeastSquaresFit( boost::bind( &accelerometerErrorEstimationFunction, _1,
+//                                                                       vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
+//                                                          initialErrorEstimate,
+//                                                          utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
+//                                                              mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
+//    }
     std::cout << "UKF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ).transpose( ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame

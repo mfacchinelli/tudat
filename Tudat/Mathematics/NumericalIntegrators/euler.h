@@ -114,8 +114,7 @@ public:
         lastIndependentVariable_ = currentIndependentVariable_;
         lastState_ = currentState_;
 
-        currentState_ += stepSize * this->stateDerivativeFunction_(
-                    currentIndependentVariable_, currentState_ );
+        currentState_ += stepSize * this->stateDerivativeFunction_( currentIndependentVariable_, currentState_ );
 
         stepSize_ = stepSize;
         currentIndependentVariable_ += stepSize_;
