@@ -566,13 +566,9 @@ private:
     void updateOnboardModel( )
     {
         // Update environment
-        for ( unsigned int i = 0; i < 2; i++ )
-        {
-            std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
-            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_ +
-                    onboardBodyMap_.at( planetName_ )->getState( );
-            onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
-        }
+        std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
+        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
+        onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
 
         // Loop over bodies exerting accelerations on spacecraft
         for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
