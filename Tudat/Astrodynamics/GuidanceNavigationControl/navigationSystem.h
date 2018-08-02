@@ -231,7 +231,7 @@ public:
             }
 
             // Run periapse time estimator if not the first orbit
-            if ( atmosphereEstimatorInitialized_ ) // historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
+//            if ( atmosphereEstimatorInitialized_ ) // historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -502,6 +502,8 @@ public:
     unsigned int currentOrbitCounter_;
 
 private:
+
+    Eigen::Vector6d estimatedApoapsisKeplerianState_;
 
     //! Function to create the onboard environment updater.
     void createOnboardEnvironmentUpdater( );

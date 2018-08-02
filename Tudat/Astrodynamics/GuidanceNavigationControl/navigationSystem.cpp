@@ -88,6 +88,8 @@ void NavigationSystem::createNavigationSystemObjects(
                 std::vector< std::string >( 1, planetName_ ), onboardAccelerationModelMap_,
                 std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ), 0.0, propagators::cowell,
                 boost::make_shared< propagators::DependentVariableSaveSettings >( dependentVariablesList, false ) );
+
+    estimatedApoapsisKeplerianState_ = currentEstimatedKeplerianState_;
 }
 
 //! Function to create the onboard environment updater.
@@ -178,7 +180,8 @@ void NavigationSystem::runPeriapseTimeEstimator(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
 
     // Get intermediate variables
-    Eigen::Vector6d initialEstimatedKeplerianState = estimatedKeplerianStateBelowAtmosphericInterface.col( 0 );
+//    Eigen::Vector6d initialEstimatedKeplerianState = estimatedKeplerianStateBelowAtmosphericInterface.col( 0 );
+    Eigen::Vector6d initialEstimatedKeplerianState = estimatedApoapsisKeplerianState_;
 
     // Set root-finder function as the area below the acceleration curve
     double estimatedActualPeriapseTime = areaBisectionRootFinder_->execute(
