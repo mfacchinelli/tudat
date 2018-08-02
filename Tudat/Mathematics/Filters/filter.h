@@ -467,7 +467,7 @@ private:
         {
             // Warn user of changes that will be made
             std::cerr << "Warning in setting up filter. Integrator requested is variable step-size, but only constant "
-                         "step-size integrator are supported. Step-size control will be turned off." << std::endl;
+                         "step-size integrators are supported. Step-size control will be turned off." << std::endl;
 
             // Create integrator object
             integrator_ = numerical_integrators::createIntegrator< IndependentVariableType, DependentVector >(
