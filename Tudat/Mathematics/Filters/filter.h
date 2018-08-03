@@ -344,13 +344,13 @@ protected:
     Function measurementFunction_;
 
     //! Matrix representing the uncertainty in system modeling.
-    DependentMatrix systemUncertainty_;
+    const DependentMatrix systemUncertainty_;
 
     //! Matrix representing the uncertainty in measurement modeling.
-    DependentMatrix measurementUncertainty_;
+    const DependentMatrix measurementUncertainty_;
 
     //! Scalar representing the initial time.
-    IndependentVariableType initialTime_;
+    const IndependentVariableType initialTime_;
 
     //! Vector representing the a-posteriori estimated state.
     /*!
