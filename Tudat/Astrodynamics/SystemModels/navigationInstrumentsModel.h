@@ -349,12 +349,17 @@ private:
                     // Calculate acceleration and add to state derivative
                     currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
                 }
+                else
+                {
+                    std::cout << std::setprecision( 16 )
+                              << "SIM: Acc: " << accelerationMapIterator_->second[ i ]->getAcceleration( ).transpose( ) << std::endl;
+                }
             }
         }
 
-        // Add errors to acceleration value
-        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
-        currentTranslationalAcceleration_ += biasVector + produceAccelerometerNoise( );
+//        // Add errors to acceleration value
+//        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
+//        currentTranslationalAcceleration_ += biasVector + produceAccelerometerNoise( );
     }
 
     //! Function to retrieve current rotational velocity of the spacecraft.

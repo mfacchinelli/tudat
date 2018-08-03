@@ -142,12 +142,13 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     std::cout << "UKF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ).transpose( ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
-//    for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
-//    {
-//        vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
-//                removeErrorsFromInertialMeasurementUnitMeasurement(
-//                    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ), estimatedAccelerometerErrors_ );
-//    }
+    for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
+    {
+        vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
+                removeErrorsFromInertialMeasurementUnitMeasurement(
+                    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ),
+                    navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ) );
+    }
 }
 
 //! Function to run the Periapse Time Estimator (PTE).

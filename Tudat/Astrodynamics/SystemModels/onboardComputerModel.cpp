@@ -34,7 +34,6 @@ Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::
                                          const Eigen::Vector3d& currenstEstimatedNonGravitationalAcceleration )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
-    TUDAT_UNUSED_PARAMETER( currentEstimatedStateVector );
 
     // Declare output vector
     Eigen::Vector3d currentMeasurementVector;
