@@ -58,12 +58,10 @@ public:
     typedef Eigen::Matrix< DependentVariableType, Eigen::Dynamic, Eigen::Dynamic > DependentMatrix;
 
     //! Typedef of the function describing the system and the measurements.
-    typedef boost::function< DependentVector( const IndependentVariableType,
-                                              const DependentVector& ) > Function;
+    typedef boost::function< DependentVector( const IndependentVariableType, const DependentVector& ) > Function;
 
     //! Typedefs for system and measurement matrix functions.
-    typedef boost::function< DependentMatrix( const IndependentVariableType,
-                                              const DependentVector& ) > MatrixFunction;
+    typedef boost::function< DependentMatrix( const IndependentVariableType, const DependentVector& ) > MatrixFunction;
 
     //! Typedef of the integrator settings.
     typedef numerical_integrators::IntegratorSettings< IndependentVariableType > IntegratorSettings;
@@ -108,15 +106,13 @@ public:
         generateNoiseDistributions( );
 
         // Create system and measurement functions based on input parameters
-        systemFunction_ = boost::bind( &FilterBase< IndependentVariableType,
-                                       DependentVariableType >::createSystemFunction,
+        systemFunction_ = boost::bind( &FilterBase< IndependentVariableType, DependentVariableType >::createSystemFunction,
                                        this, _1, _2 );
-        measurementFunction_ = boost::bind( &FilterBase< IndependentVariableType,
-                                            DependentVariableType >::createMeasurementFunction,
+        measurementFunction_ = boost::bind( &FilterBase< IndependentVariableType, DependentVariableType >::createMeasurementFunction,
                                             this, _1, _2 );
 
         // Create numerical integrator
-        isStateToBeIntegrated_ = integratorSettings != NULL;
+        isStateToBeIntegrated_ = integratorSettings != nullptr;
         if ( isStateToBeIntegrated_ )
         {
             generateNumericalIntegrator( integratorSettings );
@@ -165,7 +161,7 @@ public:
         // Loop over dimensions and add noise
         for ( int i = 0; i < systemUncertainty_.rows( ); i++ )
         {
-            if ( systemNoiseDistribution_.at( i ) != NULL )
+            if ( systemNoiseDistribution_.at( i ) != nullptr )
             {
                 systemNoise[ i ] = static_cast< DependentVariableType >(
                             systemNoiseDistribution_.at( i )->getRandomVariableValue( ) );
@@ -191,7 +187,7 @@ public:
         // Loop over dimensions and add noise
         for ( int i = 0; i < measurementUncertainty_.rows( ); i++ )
         {
-            if ( measurementNoiseDistribution_.at( i ) != NULL )
+            if ( measurementNoiseDistribution_.at( i ) != nullptr )
             {
                 measurementNoise[ i ] = static_cast< DependentVariableType >(
                             measurementNoiseDistribution_.at( i )->getRandomVariableValue( ) );
@@ -206,7 +202,7 @@ public:
     //! Function to retrieve initial time.
     IndependentVariableType getInitialTime( ) { return initialTime_; }
 
-    //! Function to retrieve step size for integration.
+    //! Function to retrieve step-size for integration.
     IndependentVariableType getIntegrationStepSize( ) { return integrationStepSize_; }
 
     //! Function to retrieve current state estimate.
@@ -260,10 +256,11 @@ public:
      *  Function to clear the history of stored variables. This function should be called if the history of state and covariance
      *  estimates over time needs to be deleted. This may be useful in case the filter is run for very long times.
      */
-    virtual void clearFilterHistory( )
+    void clearFilterHistory( )
     {
         historyOfStateEstimates_.clear( );
         historyOfCovarianceEstimates_.clear( );
+        clearSpecificFilterHistory( );
     }
 
 protected:
@@ -326,6 +323,13 @@ protected:
     virtual void correctCovariance( const IndependentVariableType currentTime, const DependentMatrix& aPrioriCovarianceEstimate,
                                     const DependentMatrix& currentMeasurementMatrix, const DependentMatrix& kalmanGain ) = 0;
 
+    //! Function to clear the history of stored variables for derived class-specific variables.
+    /*!
+     *  Function to clear the history of stored variables for derived class-specific variables. This function can be overwritten in
+     *  a derived class, to add other variables to the list of variables to be cleared.
+     */
+    virtual void clearSpecificFilterHistory( ) { }
+
     //! System function.
     /*!
      *  System function that will be used to retrieve the a-priori estimated state for the next step.
@@ -340,13 +344,13 @@ protected:
     Function measurementFunction_;
 
     //! Matrix representing the uncertainty in system modeling.
-    DependentMatrix systemUncertainty_;
+    const DependentMatrix systemUncertainty_;
 
     //! Matrix representing the uncertainty in measurement modeling.
-    DependentMatrix measurementUncertainty_;
+    const DependentMatrix measurementUncertainty_;
 
     //! Scalar representing the initial time.
-    IndependentVariableType initialTime_;
+    const IndependentVariableType initialTime_;
 
     //! Vector representing the a-posteriori estimated state.
     /*!
@@ -371,10 +375,10 @@ protected:
      */
     boost::shared_ptr< Integrator > integrator_;
 
-    //! Scalar representing step size for integration.
+    //! Scalar representing step-size for integration.
     /*!
-     *  Scalar representing step size for integration. If integrator_ points to a constant step size integrator, then
-     *  this will be the constant step size, otherwise it will be the initial step size.
+     *  Scalar representing step-size for integration. If integrator_ points to a constant step-size integrator, then
+     *  this will be the constant step-size, otherwise it will be the initial step-size.
      */
     IndependentVariableType integrationStepSize_;
 
@@ -415,7 +419,7 @@ private:
             }
             else
             {
-                systemNoiseDistribution_.push_back( NULL );
+                systemNoiseDistribution_.push_back( nullptr );
             }
         }
 
@@ -432,7 +436,7 @@ private:
             }
             else
             {
-                measurementNoiseDistribution_.push_back( NULL );
+                measurementNoiseDistribution_.push_back( nullptr );
             }
         }
     }
@@ -459,9 +463,22 @@ private:
                         systemFunction_, aPosterioriStateEstimate_, integratorSettings );
             break;
         }
+        case numerical_integrators::rungeKuttaVariableStepSize:
+        {
+            // Warn user of changes that will be made
+            std::cerr << "Warning in setting up filter. Integrator requested is variable step-size, but only constant "
+                         "step-size integrators are supported. Step-size control will be turned off." << std::endl;
+
+            // Create integrator object
+            integrator_ = numerical_integrators::createIntegrator< IndependentVariableType, DependentVector >(
+                        systemFunction_, aPosterioriStateEstimate_, integratorSettings );
+
+            // Turn off step-size control
+            integrator_->setStepSizeControl( false );
+            break;
+        }
         default:
-            throw std::runtime_error( "Error in setting up filter. Only constant time step integrators (i.e., Euler and "
-                                      "Runge-Kutta 4) are supported." );
+            throw std::runtime_error( "Error in setting up filter. Only Euler and Runge-Kutta integrators are supported." );
         }
     }
 
