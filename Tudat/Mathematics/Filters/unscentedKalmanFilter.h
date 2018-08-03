@@ -134,64 +134,67 @@ public:
      */
     void updateFilter( const IndependentVariableType currentTime, const DependentVector& currentMeasurementVector )
     {
-        // Compute sigma points
-        computeSigmaPoints( this->aPosterioriStateEstimate_, this->aPosterioriCovarianceEstimate_ );
-        historyOfMapOfSigmaPoints_[ currentTime ] = mapOfSigmaPoints_; // store points
+        this->aPosterioriStateEstimate_ = this->predictState( currentTime, this->aPosterioriStateEstimate_ );
+        this->aPosterioriCovarianceEstimate_ = DependentMatrix::Identity( stateDimension_, stateDimension_ );
 
-        // Prediction step
-        // Compute series of state estimates based on sigma points
-        std::map< unsigned int, DependentVector > sigmaPointsStateEstimates;
-        for ( sigmaPointConstantIterator_ = mapOfSigmaPoints_.begin( );
-              sigmaPointConstantIterator_ != mapOfSigmaPoints_.end( ); sigmaPointConstantIterator_++ )
-        {
-            currentSigmaPoint_ = sigmaPointConstantIterator_->first;
-            sigmaPointsStateEstimates[ currentSigmaPoint_ ] = this->predictState(
-                        currentTime, sigmaPointConstantIterator_->second.segment( 0, stateDimension_ ) );
-        }
+//        // Compute sigma points
+//        computeSigmaPoints( this->aPosterioriStateEstimate_, this->aPosterioriCovarianceEstimate_ );
+//        historyOfMapOfSigmaPoints_[ currentTime ] = mapOfSigmaPoints_; // store points
 
-        // Compute the weighted average to find the a-priori state vector
-        DependentVector aPrioriStateEstimate = DependentVector::Zero( stateDimension_ );
-        computeWeightedAverageFromSigmaPointEstimates( aPrioriStateEstimate, sigmaPointsStateEstimates );
+//        // Prediction step
+//        // Compute series of state estimates based on sigma points
+//        std::map< unsigned int, DependentVector > sigmaPointsStateEstimates;
+//        for ( sigmaPointConstantIterator_ = mapOfSigmaPoints_.begin( );
+//              sigmaPointConstantIterator_ != mapOfSigmaPoints_.end( ); sigmaPointConstantIterator_++ )
+//        {
+//            currentSigmaPoint_ = sigmaPointConstantIterator_->first;
+//            sigmaPointsStateEstimates[ currentSigmaPoint_ ] = this->predictState(
+//                        currentTime, sigmaPointConstantIterator_->second.segment( 0, stateDimension_ ) );
+//        }
 
-        // Compute the weighted average to find the a-priori covariance matrix
-        DependentMatrix aPrioriCovarianceEstimate = DependentMatrix::Zero( stateDimension_, stateDimension_ );
-        computeWeightedAverageFromSigmaPointEstimates( aPrioriCovarianceEstimate, aPrioriStateEstimate, sigmaPointsStateEstimates );
+//        // Compute the weighted average to find the a-priori state vector
+//        DependentVector aPrioriStateEstimate = DependentVector::Zero( stateDimension_ );
+//        computeWeightedAverageFromSigmaPointEstimates( aPrioriStateEstimate, sigmaPointsStateEstimates );
 
-        // Re-compute sigma points
-        computeSigmaPoints( aPrioriStateEstimate, aPrioriCovarianceEstimate );
+//        // Compute the weighted average to find the a-priori covariance matrix
+//        DependentMatrix aPrioriCovarianceEstimate = DependentMatrix::Zero( stateDimension_, stateDimension_ );
+//        computeWeightedAverageFromSigmaPointEstimates( aPrioriCovarianceEstimate, aPrioriStateEstimate, sigmaPointsStateEstimates );
 
-        // Compute series of measurement estimates based on sigma points
-        std::map< unsigned int, DependentVector > sigmaPointsMeasurementEstimates;
-        for ( sigmaPointConstantIterator_ = mapOfSigmaPoints_.begin( );
-              sigmaPointConstantIterator_ != mapOfSigmaPoints_.end( ); sigmaPointConstantIterator_++ )
-        {
-            currentSigmaPoint_ = sigmaPointConstantIterator_->first;
-            sigmaPointsMeasurementEstimates[ currentSigmaPoint_ ] = this->measurementFunction_(
-                        currentTime, sigmaPointConstantIterator_->second.segment( 0, stateDimension_ ) );
-        }
+//        // Re-compute sigma points
+//        computeSigmaPoints( aPrioriStateEstimate, aPrioriCovarianceEstimate );
 
-        // Compute the weighted average to find the expected measurement vector
-        DependentVector measurementEstimate = DependentVector::Zero( measurementDimension_ );
-        computeWeightedAverageFromSigmaPointEstimates( measurementEstimate, sigmaPointsMeasurementEstimates );
+//        // Compute series of measurement estimates based on sigma points
+//        std::map< unsigned int, DependentVector > sigmaPointsMeasurementEstimates;
+//        for ( sigmaPointConstantIterator_ = mapOfSigmaPoints_.begin( );
+//              sigmaPointConstantIterator_ != mapOfSigmaPoints_.end( ); sigmaPointConstantIterator_++ )
+//        {
+//            currentSigmaPoint_ = sigmaPointConstantIterator_->first;
+//            sigmaPointsMeasurementEstimates[ currentSigmaPoint_ ] = this->measurementFunction_(
+//                        currentTime, sigmaPointConstantIterator_->second.segment( 0, stateDimension_ ) );
+//        }
 
-        // Compute innovation and cross-correlation matrices
-        DependentMatrix innovationMatrix = DependentMatrix::Zero( measurementDimension_, measurementDimension_ );
-        computeWeightedAverageFromSigmaPointEstimates( innovationMatrix, measurementEstimate, sigmaPointsMeasurementEstimates );
-        DependentMatrix crossCorrelationMatrix = DependentMatrix::Zero( stateDimension_, measurementDimension_ );
-        for ( sigmaPointConstantIterator_ = sigmaPointsStateEstimates.begin( );
-              sigmaPointConstantIterator_ != sigmaPointsStateEstimates.end( ); sigmaPointConstantIterator_++ )
-        {
-            crossCorrelationMatrix += covarianceEstimationWeights_.at( sigmaPointConstantIterator_->first ) *
-                    ( sigmaPointConstantIterator_->second - aPrioriStateEstimate ) *
-                    ( sigmaPointsMeasurementEstimates[ sigmaPointConstantIterator_->first ] - measurementEstimate ).transpose( );
-        }
+//        // Compute the weighted average to find the expected measurement vector
+//        DependentVector measurementEstimate = DependentVector::Zero( measurementDimension_ );
+//        computeWeightedAverageFromSigmaPointEstimates( measurementEstimate, sigmaPointsMeasurementEstimates );
 
-        // Compute Kalman gain
-        DependentMatrix kalmanGain = crossCorrelationMatrix * innovationMatrix.inverse( );
+//        // Compute innovation and cross-correlation matrices
+//        DependentMatrix innovationMatrix = DependentMatrix::Zero( measurementDimension_, measurementDimension_ );
+//        computeWeightedAverageFromSigmaPointEstimates( innovationMatrix, measurementEstimate, sigmaPointsMeasurementEstimates );
+//        DependentMatrix crossCorrelationMatrix = DependentMatrix::Zero( stateDimension_, measurementDimension_ );
+//        for ( sigmaPointConstantIterator_ = sigmaPointsStateEstimates.begin( );
+//              sigmaPointConstantIterator_ != sigmaPointsStateEstimates.end( ); sigmaPointConstantIterator_++ )
+//        {
+//            crossCorrelationMatrix += covarianceEstimationWeights_.at( sigmaPointConstantIterator_->first ) *
+//                    ( sigmaPointConstantIterator_->second - aPrioriStateEstimate ) *
+//                    ( sigmaPointsMeasurementEstimates[ sigmaPointConstantIterator_->first ] - measurementEstimate ).transpose( );
+//        }
 
-        // Correction step
-        this->correctState( currentTime, aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
-        correctCovariance( currentTime, aPrioriCovarianceEstimate, innovationMatrix, kalmanGain );
+//        // Compute Kalman gain
+//        DependentMatrix kalmanGain = crossCorrelationMatrix * innovationMatrix.inverse( );
+
+//        // Correction step
+//        this->correctState( currentTime, aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
+//        correctCovariance( currentTime, aPrioriCovarianceEstimate, innovationMatrix, kalmanGain );
     }
 
     //! Function to return the history of sigma points.
@@ -233,8 +236,8 @@ private:
     DependentVector createSystemFunction( const IndependentVariableType currentTime,
                                           const DependentVector& currentStateVector )
     {
-        return inputSystemFunction_( currentTime, currentStateVector ) +
-                mapOfSigmaPoints_[ currentSigmaPoint_ ].segment( stateDimension_, stateDimension_ ); // add system noise
+        return inputSystemFunction_( currentTime, currentStateVector );// +
+//                mapOfSigmaPoints_[ currentSigmaPoint_ ].segment( stateDimension_, stateDimension_ ); // add system noise
     }
 
     //! Function to create the function that defines the system model.
