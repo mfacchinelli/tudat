@@ -163,6 +163,7 @@ public:
         // Extract estimated state and update navigation estimates
         Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
+        std::cout << "ONB Pos: " << currentEstimatedCartesianState_.transpose( ) << std::endl;
 
         // Update body and acceleration maps
         updateOnboardModel( );
@@ -260,7 +261,7 @@ public:
             const Eigen::Vector6d& initialTranslationalCartesianState = Eigen::Vector6d::Zero( ), const double initialTime = -1.0 )
     {
         // Set initial time
-        if ( initialTime == -1.0 )
+        if ( static_cast< int >( initialTime ) == -1 )
         {
             onboardIntegratorSettings_->initialTime_ = currentTime_;
         }
@@ -439,19 +440,8 @@ public:
         // Update navigation filter current value
         Eigen::Vector12d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix12d::Zero( ) ) )
-        {
-            // Use previous value
-            Eigen::Matrix12d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
-                                                                         oldCurrentCovarianceMatrix );
-        }
-        else
-        {
-            // Use input value
-            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
-                                                                         newCurrentCovarianceMatrix );
-        }
+        navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+                                                                     newCurrentCovarianceMatrix );
     }
 
     //! Function to set current Keplerian state to new value.
@@ -474,19 +464,8 @@ public:
         // Update navigation filter current value
         Eigen::Vector12d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-        if ( newCurrentCovarianceMatrix.isApprox( Eigen::Matrix12d::Zero( ) ) )
-        {
-            // Use previous value
-            Eigen::Matrix12d oldCurrentCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
-                                                                         oldCurrentCovarianceMatrix );
-        }
-        else
-        {
-            // Use input value
-            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
-                                                                         newCurrentCovarianceMatrix );
-        }
+        navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+                                                                     newCurrentCovarianceMatrix );
     }
 
     //! Clear history of estimated states and accelerations for the current orbit.
@@ -515,13 +494,9 @@ private:
     void updateOnboardModel( )
     {
         // Update environment
-        for ( unsigned int i = 0; i < 2; i++ )
-        {
-            std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
-            mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_ +
-                    onboardBodyMap_.at( planetName_ )->getState( );
-            onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
-        }
+        std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
+        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
+        onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
 
         // Loop over bodies exerting accelerations on spacecraft
         for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -581,7 +556,8 @@ private:
                 }
             }
         }
-        std::cout << "ONB: Acc: " << currentEstimatedTranslationalAcceleration_.transpose( ) << std::endl << std::endl;
+        std::cout << std::setprecision( 16 )
+                  << "ONB Acc: " << currentEstimatedTranslationalAcceleration_.transpose( ) << std::endl << std::endl;
 
         // Store acceleration value
         currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] =

@@ -256,7 +256,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
 
     // Update navigation system state estimates
-    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState ); // , Eigen::Matrix12d::Identity( )
+    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, Eigen::Matrix12d::Identity( ) );
     // the covariance matrix is reset to the identity, since the new state is improved in accuracy
 
     std::cout << "Before: " << initialEstimatedKeplerianState.transpose( ) << std::endl;

@@ -55,7 +55,7 @@ public:
                                 const std::string& spacecraftName,
                                 const std::string& planetName ) :
         bodyMap_( bodyMap ), accelerationModelMap_( accelerationModelMap ),
-        spacecraftName_( spacecraftName ), planetName_( planetName ), currentTime_( 0.0 )
+        spacecraftName_( spacecraftName ), planetName_( planetName ), currentTime_( TUDAT_NAN )
     {
         // Set instrument presence to false
         inertialMeasurementUnitAdded_ = false;
@@ -138,6 +138,11 @@ public:
      */
     void updateInstruments( const double currentTime )
     {
+        std::cout << std::setprecision( 16 )
+                  << "Time: " << currentTime - 236455200.0 << std::endl
+                  << "SIM Pos: " << ( bodyMap_.at( spacecraftName_ )->getState( ) -
+                                      bodyMap_.at( planetName_ )->getState( ) ).transpose( ) << std::endl;
+
         // If instruments have not been already updated for the current time
         if ( currentTime_ != currentTime )
         {
@@ -351,15 +356,14 @@ private:
                 }
                 else
                 {
-                    std::cout << std::setprecision( 16 )
-                              << "SIM: Acc: " << accelerationMapIterator_->second[ i ]->getAcceleration( ).transpose( ) << std::endl;
+                    std::cout << "SIM Acc: " << accelerationMapIterator_->second[ i ]->getAcceleration( ).transpose( ) << std::endl;
                 }
             }
         }
 
 //        // Add errors to acceleration value
 //        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
-//        currentTranslationalAcceleration_ += biasVector + produceAccelerometerNoise( );
+//        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
     }
 
     //! Function to retrieve current rotational velocity of the spacecraft.
@@ -370,7 +374,7 @@ private:
 
         // Add errors to acceleration value
         currentRotationalVelocity_ = scaleMisalignmentMatrix * currentRotationalVelocity_;
-        currentRotationalVelocity_ += biasVector + produceGyroscopeNoise( );
+        currentRotationalVelocity_.noalias( ) += biasVector + produceGyroscopeNoise( );
     }
 
     //! Function to retrieve current inertial orientation of the spacecraft.

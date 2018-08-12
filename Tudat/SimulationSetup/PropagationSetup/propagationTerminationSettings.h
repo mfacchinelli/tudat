@@ -185,7 +185,7 @@ public:
  *  Class for propagation stopping conditions settings: stopping the propagation after a fixed amount of time. Note that the
  *  propagator will finish a given time step, slightly surpassing the defined final time.
  */
-class CustomTerminationSettings: public PropagationTerminationSettings
+class PropagationCustomTerminationSettings: public PropagationTerminationSettings
 {
 public:
 
@@ -195,12 +195,12 @@ public:
      * \param checkStopCondition Function that takes the current time as input and outputs whether the propagation should be
      *      stopped.
      */
-    CustomTerminationSettings( const boost::function< bool( const double ) >& checkStopCondition ):
+    PropagationCustomTerminationSettings( const boost::function< bool( const double ) >& checkStopCondition ):
         PropagationTerminationSettings( custom_stopping_condition ),
         checkStopCondition_( checkStopCondition ){ }
 
     //! Destructor
-    ~CustomTerminationSettings( ){ }
+    ~PropagationCustomTerminationSettings( ){ }
 
     //! Custom temination function.
     boost::function< bool( const double ) > checkStopCondition_;
