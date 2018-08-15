@@ -79,6 +79,8 @@ public:
     //! Destructor.
     ~OnboardComputerModel( ) { }
 
+//    unsigned int showCount_ = 0;
+
     //! Function to check whether the propagation is to be be stopped.
     /*!
      *  Function to check whether the propagation is to be be stopped, based on the estimated state. The propagation
@@ -91,6 +93,12 @@ public:
     bool checkStopCondition( const double currentTime )
     {
         using mathematical_constants::PI;
+//        if ( ( showCount_ % 1000 ) == 0 )
+//        {
+//            std::cout << "Time: " << currentTime - 236455200.0 << std::endl
+//                      << "State: " << navigationSystem_->getCurrentEstimatedTranslationalState( ).first.transpose( ) << std::endl << std::endl;
+//        }
+//        showCount_++;
 
         // Define output value
         bool isPropagationToBeStopped = false;
@@ -153,32 +161,37 @@ public:
             atmosphericPhaseComplete_ = false;
         }
         else if ( ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceRadius_ ) > 0.0 ) &&
-                    ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.5 * PI ) ) ) ) &&
+                    ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
                   !atmosphericPhaseComplete_ ) // check altitude
         {
-            // Inform user
-            std::cout << "Exited atmosphere. Running post-atmosphere processes." << std::endl;
-
-            // Retireve history of inertial measurement unit measurements
-            std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
-                    instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
-
-            // Extract measured translational accelerations and transform to inertial frame
-            std::map< double, Eigen::Vector3d > currentOrbitHistoryOfMeasuredTranslationalAccelerations;
-            for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
-                  measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
-                  measurementConstantIterator_++ )
+            // Check that the current acceleration is above the standard deviation
+            if ( navigationSystem_->getCurrentEstimatedGravitationalTranslationalAcceleration( ).norm( ) <
+                 ( navigationSystem_->getCurrentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations( ) ) )
             {
-                currentOrbitHistoryOfMeasuredTranslationalAccelerations[ measurementConstantIterator_->first ] =
-                        measurementConstantIterator_->second.segment( 0, 3 );
+                // Inform user
+                std::cout << "Exited atmosphere. Running post-atmosphere processes." << std::endl;
+
+                // Retireve history of inertial measurement unit measurements
+                std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
+                        instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
+
+                // Extract measured translational accelerations and transform to inertial frame
+                std::map< double, Eigen::Vector3d > currentOrbitHistoryOfMeasuredTranslationalAccelerations;
+                for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
+                      measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
+                      measurementConstantIterator_++ )
+                {
+                    currentOrbitHistoryOfMeasuredTranslationalAccelerations[ measurementConstantIterator_->first ] =
+                            measurementConstantIterator_->second.segment( 0, 3 );
+                }
+
+                // Perform periapse time and atmosphere estimations
+                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+
+                // Invert completion flags
+                maneuveringPhaseComplete_ = false;
+                atmosphericPhaseComplete_ = true;
             }
-
-            // Perform periapse time and atmosphere estimations
-            navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
-
-            // Invert completion flags
-            maneuveringPhaseComplete_ = false;
-            atmosphericPhaseComplete_ = true;
         }
 
         // Give output

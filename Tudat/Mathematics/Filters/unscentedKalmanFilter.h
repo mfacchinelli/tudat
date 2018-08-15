@@ -233,7 +233,7 @@ private:
     DependentVector createSystemFunction( const IndependentVariableType currentTime,
                                           const DependentVector& currentStateVector )
     {
-        return inputSystemFunction_( currentTime, currentStateVector );
+        return inputSystemFunction_( currentTime, currentStateVector ) +
                 mapOfSigmaPoints_[ currentSigmaPoint_ ].segment( stateDimension_, stateDimension_ ); // add system noise
     }
 

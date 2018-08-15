@@ -16,9 +16,70 @@ namespace tudat
 namespace guidance_navigation_control
 {
 
+//! Function to compute the Jacobian matrix for the system function.
+Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState,
+                                              const boost::function< double( const Eigen::Vector6d& ) >& densityFunction,
+                                              const double planetGravitationalParameter,
+                                              const double aerodynamicParameter )
+{
+    TUDAT_UNUSED_PARAMETER( currentTime );
+
+    // Declare Jacobian matrix and set to zero
+    Eigen::Matrix12d jacobianMatrix = Eigen::Matrix12d::Zero( );
+
+    // Pre-compute recurring terms
+    double radialDistance = currentState.segment( 0, 3 ).norm( );
+    double radialDistanceSquared = radialDistance * radialDistance;
+    double gravityRecurringTerm = planetGravitationalParameter / radialDistanceSquared / radialDistance;
+
+    // Add terms due to velocity
+    jacobianMatrix( 0, 3 ) = 1.0;
+    jacobianMatrix( 1, 4 ) = 1.0;
+    jacobianMatrix( 2, 5 ) = 1.0;
+
+    // Add terms due to gravitational acceleration
+    jacobianMatrix( 3, 0 ) = gravityRecurringTerm * ( 3.0 * currentState[ 0 ] *
+            currentState[ 0 ] / radialDistanceSquared - 1.0 );
+    jacobianMatrix( 4, 0 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 1 ];
+    jacobianMatrix( 5, 0 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 2 ];
+
+    jacobianMatrix( 3, 1 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 1 ];
+    jacobianMatrix( 4, 1 ) = gravityRecurringTerm * ( 3.0 * currentState[ 1 ] *
+            currentState[ 1 ] / radialDistanceSquared - 1.0 );
+    jacobianMatrix( 5, 1 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 1 ] * currentState[ 2 ];
+
+    jacobianMatrix( 3, 2 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 1 ] * currentState[ 2 ];
+    jacobianMatrix( 4, 2 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 2 ];
+    jacobianMatrix( 5, 2 ) = gravityRecurringTerm * ( 3.0 * currentState[ 2 ] *
+            currentState[ 2 ] / radialDistanceSquared - 1.0 );
+
+    // Add terms due to aerodynamic acceleration
+    double density = densityFunction( currentState.segment( 0, 6 ) );
+    jacobianMatrix( 3, 3 ) = - density * aerodynamicParameter * std::fabs( currentState[ 3 ] );
+    jacobianMatrix( 4, 4 ) = - density * aerodynamicParameter * std::fabs( currentState[ 4 ] );
+    jacobianMatrix( 5, 5 ) = - density * aerodynamicParameter * std::fabs( currentState[ 5 ] );
+
+    // Give output
+    return jacobianMatrix;
+}
+
+//! Function to compute the Jacobian matrix for the measurement function.
+Eigen::Matrix3d computeMeasurementJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState )
+{
+    TUDAT_UNUSED_PARAMETER( currentTime );
+
+    // Declare Jacobian matrix and set to zero
+    Eigen::Matrix3d jacobianMatrix = Eigen::Matrix3d::Zero( );
+
+    //
+
+    // Give output
+    return jacobianMatrix;
+
+}
+
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
-double areaBisectionFunction( const double currentTimeGuess, const double constantTimeStep,
-                              const Eigen::VectorXd& onboardTime,
+double areaBisectionFunction( const double currentTimeGuess, const double constantTimeStep, const Eigen::VectorXd& onboardTime,
                               const std::vector< double >& estimatedAerodynamicAccelerationMagnitude )
 {
     // Find nearest lower index to true anomaly guess

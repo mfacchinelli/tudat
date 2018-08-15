@@ -19,11 +19,40 @@
 
 #include "Tudat/Basics/basicTypedefs.h"
 
+//! Typedefs and using statements to simplify code.
+namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; typedef Eigen::Matrix< double, 5, 5 > Matrix5d;
+                  typedef Eigen::Matrix< double, 12, 12 > Matrix12d; }
+
 namespace tudat
 {
 
 namespace guidance_navigation_control
 {
+
+//! Function to compute the Jacobian matrix for the system function.
+/*!
+ *  Function to compute the Jacobian matrix for the system function. The accelerations considered are the gravitational spherical
+ *  harmonics up to term (2,0) and the aerodynamic acceleration.
+ *  \param currentTime Double denoting current time.
+ *  \param currentState Vector denoting current state as given by filter.
+ *  \param densityFunction Function returning the density corresponding to the input Cartesian state.
+ *  \param planetGravitationalParameter Double denoting the gravitational parameter of the planet being orbited.
+ *  \param aerodynamicParameter Double denoting the aerodynamic parameter of the spacecraft.
+ *  \return Jacobian matrix for the system function at the current state.
+ */
+Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState,
+                                              const boost::function< double( const Eigen::Vector6d& ) >& densityFunction,
+                                              const double planetGravitationalParameter,
+                                              const double aerodynamicParameter );
+
+//! Function to compute the Jacobian matrix for the measurement function.
+/*!
+ *  Function to compute the Jacobian matrix for the measurement function.
+ *  \param currentTime Double denoting current time.
+ *  \param currentState Vector denoting current state as given by filter.
+ *  \return Jacobian matrix for the measurement function at the current state.
+ */
+Eigen::Matrix3d computeMeasurementJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState );
 
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
 /*!

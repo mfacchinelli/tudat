@@ -97,23 +97,22 @@ public:
         // Create environment updater
         createOnboardEnvironmentUpdater( );
 
-        // Atmosphere estimator initialization
+        // Set values to their initial conditions
         atmosphereEstimatorInitialized_ = false;
-
-        // Set initial estimated accelerometer errors to zero
         estimatedAccelerometerErrors_.setZero( );
+        currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_ = TUDAT_NAN;
 
         // Get index of central body acceleration (which is not measured by the IMUs)
-        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
-              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
-              accelerationMapIterator_++ )
+        for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapConstantIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
+              accelerationMapConstantIterator_++ )
         {
             // Loop over each acceleration
-            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
+            for ( unsigned int i = 0; i < accelerationMapConstantIterator_->second.size( ); i++ )
             {
-                if ( ( basic_astrodynamics::getAccelerationModelType( accelerationMapIterator_->second[ i ] ) ==
+                if ( ( basic_astrodynamics::getAccelerationModelType( accelerationMapConstantIterator_->second[ i ] ) ==
                        basic_astrodynamics::spherical_harmonic_gravity ) &&
-                     ( accelerationMapIterator_->first == planetName_ ) )
+                     ( accelerationMapConstantIterator_->first == planetName_ ) )
                 {
                     sphericalHarmonicsGravityIndex_ = i;
                     break;
@@ -190,17 +189,18 @@ public:
         std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector3d > mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface;
         std::vector< Eigen::Vector3d > vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface;
-        for ( translationalStateIterator_ = currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
-              translationalStateIterator_ != currentOrbitHistoryOfEstimatedTranslationalStates_.end( ); translationalStateIterator_++ )
+        for ( translationalStateConstantIterator_ = currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
+              translationalStateConstantIterator_ != currentOrbitHistoryOfEstimatedTranslationalStates_.end( );
+              translationalStateConstantIterator_++ )
         {
-            if ( translationalStateIterator_->second.first.segment( 0, 3 ).norm( ) <= atmosphericInterfaceRadius_ )
+            if ( translationalStateConstantIterator_->second.first.segment( 0, 3 ).norm( ) <= atmosphericInterfaceRadius_ )
             {
                 // Retireve time, state and acceleration of where the altitude is below the atmospheric interface
-                currentIterationTime = translationalStateIterator_->first;
+                currentIterationTime = translationalStateConstantIterator_->first;
                 mapOfEstimatedCartesianStatesBelowAtmosphericInterface[ currentIterationTime ] =
-                        translationalStateIterator_->second.first;
+                        translationalStateConstantIterator_->second.first;
                 mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ] =
-                        translationalStateIterator_->second.second;
+                        translationalStateConstantIterator_->second.second;
                 mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface[ currentIterationTime ] =
                         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentIterationTime ];
                 vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.push_back(
@@ -230,8 +230,8 @@ public:
                             vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ).norm( ) );
             }
 
-            // Run periapse time estimator if not the first orbit
-//            if ( atmosphereEstimatorInitialized_ ) // historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
+            // Run periapse time estimator if ... (TBD)
+            if ( atmosphereEstimatorInitialized_ ) // historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -351,9 +351,22 @@ public:
     }
 
     //! Function to retrieve the density at the input conditions according to the onboard model.
-    double getDensityAtSpecifiedConditions( double altitude, double longitude = 0.0 )
+    double getDensityAtSpecifiedConditions( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
-        return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity( altitude, longitude, 0.0, 0.0 );
+        std::cout << "Long: " << onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentLongitude( ) << std::endl
+                  << "Alt: " << onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentAltitude( ) << std::endl;
+        if ( estimatedState.norm( ) == 0.0 )
+        {
+            return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
+//                        currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_,
+                        onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentAltitude( ),
+                        onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentLongitude( ), 0.0, 0.0 );
+        }
+        else
+        {
+            return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
+                        ( estimatedState.segment( 0, 3 ).norm( ) - planetaryRadius_ ), 0.0, 0.0, 0.0 );
+        }
     }
 
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
@@ -456,10 +469,47 @@ public:
         return currentOrbitHistoryOfEstimatedTranslationalAccelerations_;
     }
 
+    //! Function to retrieve history of estimated gravitational translational accelerations for the current orbit.
+    std::map< double, Eigen::Vector3d > getCurrentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations( )
+    {
+        return currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_;
+    }
+
     //! Function to retrieve history of estimated non-gravitational translational accelerations for the current orbit.
     std::map< double, Eigen::Vector3d > getCurrentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations( )
     {
         return currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_;
+    }
+
+    //! Function to retrieve the standard deviation of the estimated gravitational translational accelerations for the current orbit.
+    /*!
+     *  Function to retrieve the standard deviation of the estimated gravitational translational accelerations for the current orbit.
+     *  Since the computing the standard deviation every time step can be very expensive (since there are a lot of measurements taken
+     *  each orbit), the value is computed only once per orbit, at the first time it is requested. Its value is reset by the
+     *  clearCurrentOrbitEstimationHistory function.
+     *  \return Standard deviation of the norm of the estimated gravitational translational accelerations for the
+     *      current orbit.
+     */
+    double getCurrentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations( )
+    {
+        // If value has not been computed for current orbit, calculate it
+        if ( std::isnan( currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_ ) )
+        {
+            // Retrieve norm of accelerometer measurements
+            std::vector< double > vectorOfNormOfEstimatedGravitationalTranslationalAccelerations;
+            for ( std::map< double, Eigen::Vector3d >::iterator
+                  measurementIterator = currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.begin( );
+                  measurementIterator != currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.end( );
+                  measurementIterator++ )
+            {
+                vectorOfNormOfEstimatedGravitationalTranslationalAccelerations.push_back( measurementIterator->second.norm( ) );
+            }
+
+            // Compute and store standard deviation
+            currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_ =
+                    std::sqrt( statistics::computeSampleVariance( vectorOfNormOfEstimatedGravitationalTranslationalAccelerations ) );
+        }
+        return currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_;
     }
 
     //! Function to retireve refresh step size of navigation system.
@@ -525,18 +575,23 @@ public:
     //! Clear history of estimated states and accelerations for the current orbit.
     void clearCurrentOrbitEstimationHistory( )
     {
+        // Empty current orbit history maps
         currentOrbitHistoryOfEstimatedTranslationalStates_.clear( );
         currentOrbitHistoryOfEstimatedTranslationalAccelerations_.clear( );
+        currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.clear( );
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.clear( );
+
+        // Empty filter estimates
         navigationFilter_->clearFilterHistory( );
+
+        // Reset standard deviation calculation
+        currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_ = TUDAT_NAN;
     }
 
     //! Integer denoting the current orbit counter.
     unsigned int currentOrbitCounter_;
 
 private:
-
-    Eigen::Vector6d estimatedApoapsisKeplerianState_;
 
     //! Function to create the onboard environment updater.
     void createOnboardEnvironmentUpdater( );
@@ -561,16 +616,16 @@ private:
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate_ );
 
         // Loop over bodies exerting accelerations on spacecraft
-        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
-              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
-              accelerationMapIterator_++ )
+        for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapConstantIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
+              accelerationMapConstantIterator_++ )
         {
             // Loop over each acceleration
-            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
+            for ( unsigned int i = 0; i < accelerationMapConstantIterator_->second.size( ); i++ )
             {
                 // Update acceleration model
-                accelerationMapIterator_->second[ i ]->resetTime( TUDAT_NAN ); // force update by resetting time
-                accelerationMapIterator_->second[ i ]->updateMembers( currentTime_ );
+                accelerationMapConstantIterator_->second[ i ]->resetTime( TUDAT_NAN ); // force update by resetting time
+                accelerationMapConstantIterator_->second[ i ]->updateMembers( currentTime_ );
             }
         }
 
@@ -594,26 +649,26 @@ private:
 
         // Iterate over all accelerations acting on body
         Eigen::Vector3d currentAcceleration;
-        for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
-              accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
-              accelerationMapIterator_++ )
+        for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
+              accelerationMapConstantIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
+              accelerationMapConstantIterator_++ )
         {
             // Loop over each accelerations
-            for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
+            for ( unsigned int i = 0; i < accelerationMapConstantIterator_->second.size( ); i++ )
             {
                 // Calculate acceleration and add to state derivative
-                currentAcceleration = accelerationMapIterator_->second[ i ]->getAcceleration( );
+                currentAcceleration = accelerationMapConstantIterator_->second[ i ]->getAcceleration( );
                 currentEstimatedTranslationalAcceleration_ += currentAcceleration;
 
                 // Only add the gravitational accelerations
-                if ( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) )
+                if ( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapConstantIterator_->first == planetName_ ) )
                 {
                     // Calculate acceleration and add to state derivative
                     currentEstimatedGravitationalTranslationalAcceleration_ += currentAcceleration;
                 }
 
                 // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) )
+                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapConstantIterator_->first == planetName_ ) ) )
                 {
                     // Calculate acceleration and add to state derivative
                     currentEstimatedNonGravitationalTranslationalAcceleration_ += currentAcceleration;
@@ -624,6 +679,8 @@ private:
         // Store acceleration value
         currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] =
                 currentEstimatedTranslationalAcceleration_;
+        currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_[ currentTime_ ] =
+                currentEstimatedGravitationalTranslationalAcceleration_;
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
                 currentEstimatedNonGravitationalTranslationalAcceleration_;
     }
@@ -839,14 +896,20 @@ private:
     //! History of estimated translational accelerations for current orbit.
     std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedTranslationalAccelerations_;
 
+    //! History of estimated gravitational translational accelerations for current orbit.
+    std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_;
+
     //! History of estimated non-gravitational translational accelerations for current orbit.
     std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_;
 
-    //! Predefined iterator to save (de)allocation time.
-    basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationMapIterator_;
+    //! Double denoting the standard deviation of the norm of the estimated gravitational accelerations for current orbit.
+    double currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_;
 
     //! Predefined iterator to save (de)allocation time.
-    std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > >::const_iterator translationalStateIterator_;
+    basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationMapConstantIterator_;
+
+    //! Predefined iterator to save (de)allocation time.
+    std::map< double, std::pair< Eigen::Vector6d, Eigen::Vector6d > >::const_iterator translationalStateConstantIterator_;
 
 };
 
