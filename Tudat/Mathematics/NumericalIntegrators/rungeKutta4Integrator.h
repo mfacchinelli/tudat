@@ -120,6 +120,8 @@ public:
                 time = currentIndependentVariable_;
                 state = currentState_;
                 k1 = stepSize * this->stateDerivativeFunction_( time, state );
+                std::cout << "K1 State: " << state.segment( 0, 6 ).transpose( ) << std::endl
+                          << "K1 Acc: " << this->stateDerivativeFunction_( time, state ).segment( 0, 6 ).transpose( ) << std::endl;
                 break;
             case 2:
                 time = currentIndependentVariable_ + stepSize / 2.0;
