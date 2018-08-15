@@ -377,25 +377,25 @@ public:
     //! Clear histories of inertial measurmenet and star tracker measurements for current orbit.
     void clearCurrentOrbitMeasurementHistories( )
     {
-        // Esare history of inertial measurement unit measurements
+        // Erase history of inertial measurement unit measurements
         if ( inertialMeasurementUnitAdded_ )
         {
             currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.clear( );
         }
 
-        // Esare history of star tracker measurements
+        // Erase history of star tracker measurements
         if ( starTrackerAdded_ )
         {
             currentOrbitHistoryOfStarTrackerMeasurements_.clear( );
         }
 
-        // Esare history of altimeter measurements
+        // Erase history of altimeter measurements
         if ( altimeterAdded_ )
         {
             currentOrbitHistoryOfAltimeterMeasurements_.clear( );
         }
 
-        // Esare history of Deep Space Network measurements
+        // Erase history of Deep Space Network measurements
         if ( deepSpaceNetworkAdded_ )
         {
             // Loop over measurements taken
@@ -430,23 +430,19 @@ private:
             // Loop over each acceleration
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
-//                // Disregard the central gravitational accelerations, since IMUs do not measure them
-//                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) &&
-//                     !( ( i == thirdBodyGravityIndex_ ) && ( accelerationMapIterator_->first == "Sun" ) ) )
-//                {
+                // Disregard the central gravitational accelerations, since IMUs do not measure them
+                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) &&
+                     !( ( i == thirdBodyGravityIndex_ ) && ( accelerationMapIterator_->first == "Sun" ) ) )
+                {
                     // Calculate acceleration and add to state derivative
                     currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
-//                }
-//                else
-//                {
-                    std::cout << "SIM Acc: " << accelerationMapIterator_->second[ i ]->getAcceleration( ).transpose( ) << std::endl;
-//                }
+                }
             }
         }
 
-        //        // Add errors to acceleration value
-        //        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
-        //        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
+        // Add errors to acceleration value
+        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
+        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
     }
 
     //! Function to retrieve current rotational velocity of the spacecraft.
@@ -531,7 +527,7 @@ private:
         double currentLightTimeDistance = currentPlanetaryRange / physical_constants::SPEED_OF_LIGHT;
 
         // Add noise to the state and time
-        currentState += currentNoiseVector.segment( 0, 6 );
+        currentState.noalias( ) += currentNoiseVector.segment( 0, 6 );
         currentLightTimeDistance += currentNoiseVector[ 6 ];
 
         // Store value to map of measurements

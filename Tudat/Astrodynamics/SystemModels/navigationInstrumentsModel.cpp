@@ -145,7 +145,7 @@ void NavigationInstrumentsModel::addDeepSpaceNetwork( const double positionAccur
         // Make sure that Earth is present in the simulation
         if ( bodyMap_.count( "Earth" ) == 0 )
         {
-            throw std::runtime_error( "Erro in creation of DSN system for body " + spacecraftName_ +
+            throw std::runtime_error( "Error in creation of DSN system for body " + spacecraftName_ +
                                       ". Earth is not present in the simulated bodies, thus no tracking can be performed." );
         }
 

@@ -82,8 +82,8 @@ public:
                       const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel,
                       const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude,
                       const unsigned int numberOfRequiredAtmosphereSamplesForInitiation,
-                      const Eigen::Vector3d& altimeterBodyFixedPointingDirection,
-                      const std::pair< double, double > altimeterAltitudeRange ) :
+                      const Eigen::Vector3d& altimeterBodyFixedPointingDirection = Eigen::Vector3d::Constant( TUDAT_NAN ),
+                      const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ) ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
         selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel ),
@@ -163,7 +163,6 @@ public:
         // Extract estimated state and update navigation estimates
         Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
-        std::cout << "ONB Pos: " << currentEstimatedCartesianState_.transpose( ) << std::endl;
 
         // Update body and acceleration maps
         updateOnboardModel( );
@@ -361,10 +360,20 @@ public:
     /*!
      *  Function to retrieve current estimated translational accelerations exerted on the spacecraft. The acceleration
      *  is computed by using the onboard accelerations model map.
+     *  \param estimatedState State at which the environment has to be updated and accelerations computed and stored. If left
+     *      empty, the accelerations at currentEstimatedCartesianState_ are retrieved.
      *  \return Vector denoting the full acceleration vector experienced by the spacecraft.
      */
-    Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration( )
+    Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration(
+            const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
+        if ( estimatedState.norm( ) != 0.0 )
+        {
+            if ( !estimatedState.isApprox( currentEstimatedCartesianState_ ) )
+            {
+                updateOnboardModel( estimatedState );
+            }
+        }
         return currentEstimatedTranslationalAcceleration_;
     }
 
@@ -373,10 +382,20 @@ public:
      *  Function to retrieve current estimated gravitational translational accelerations exerted on the spacecraft. The
      *  acceleration is computed by using the onboard accelerations model map. Note that this vector represents only the
      *  gravitational accelerations.
+     *  \param estimatedState State at which the environment has to be updated and accelerations computed and stored. If left
+     *      empty, the accelerations at currentEstimatedCartesianState_ are retrieved.
      *  \return Vector denoting only the gravitational accelerations experienced by the spacecraft.
      */
-    Eigen::Vector3d getCurrentEstimatedGravitationalTranslationalAcceleration( )
+    Eigen::Vector3d getCurrentEstimatedGravitationalTranslationalAcceleration(
+            const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
+        if ( estimatedState.norm( ) != 0.0 )
+        {
+            if ( !estimatedState.isApprox( currentEstimatedCartesianState_ ) )
+            {
+                updateOnboardModel( estimatedState );
+            }
+        }
         return currentEstimatedGravitationalTranslationalAcceleration_;
     }
 
@@ -385,10 +404,20 @@ public:
      *  Function to retrieve current estimated non-gravitational translational accelerations exerted on the spacecraft. The
      *  acceleration is computed by using the onboard accelerations model map. Note that this vector represents only the
      *  non-gravitational accelerations (which are supposed to emulate the accelerations measured by the IMU).
+     *  \param estimatedState State at which the environment has to be updated and accelerations computed and stored. If left
+     *      empty, the accelerations at currentEstimatedCartesianState_ are retrieved.
      *  \return Vector denoting only the non-gravitational (i.e., aerodynamic) accelerations experienced by the spacecraft.
      */
-    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration( )
+    Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration(
+            const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
+        if ( estimatedState.norm( ) != 0.0 )
+        {
+            if ( !estimatedState.isApprox( currentEstimatedCartesianState_ ) )
+            {
+                updateOnboardModel( estimatedState );
+            }
+        }
         return currentEstimatedNonGravitationalTranslationalAcceleration_;
     }
 
@@ -515,11 +544,20 @@ private:
     //! Function to update the body and acceleration map with the current time and state information.
     /*!
      *  Function to update the body and acceleration map with the current time and state information.
+     *  \param estimatedState State at which the environment has to be updated and accelerations computed and stored. If left
+     *      empty, currentEstimatedCartesianState_ is taken as state.
      */
-    void updateOnboardModel( )
+    void updateOnboardModel( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
         // Update environment
-        mapOfStatesToUpdate_[ propagators::translational_state ] = currentEstimatedCartesianState_;
+        if ( estimatedState.norm( ) == 0.0 )
+        {
+            mapOfStatesToUpdate_[ propagators::translational_state ] = currentEstimatedCartesianState_;
+        }
+        else
+        {
+            mapOfStatesToUpdate_[ propagators::translational_state ] = estimatedState;
+        }
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate_ );
 
         // Loop over bodies exerting accelerations on spacecraft
@@ -582,8 +620,6 @@ private:
                 }
             }
         }
-        std::cout << std::setprecision( 20 )
-                  << "ONB Acc: " << currentEstimatedTranslationalAcceleration_.transpose( ) << std::endl << std::endl;
 
         // Store acceleration value
         currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] =

@@ -30,12 +30,14 @@ namespace system_models
 {
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
-                                     const Eigen::Vector3d& currentEstimatedTranslationalAccelerationVector );
+Eigen::Vector12d onboardSystemModel(
+        const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
+        const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >& currentEstimatedTranslationalAccelerationVectorFunction );
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
-                                         const Eigen::Vector3d& currenstEstimatedNonGravitationalAcceleration );
+Eigen::Vector3d onboardMeasurementModel(
+        const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
+        const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >& currenstEstimatedNonGravitationalAccelerationFunction );
 
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
@@ -57,13 +59,16 @@ public:
         atmosphericPhaseComplete_ = false;
         atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
 
+        // Create acceleration functions
+        boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > translationalAccelerationFuncion =
+                boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_, _1 );
+        boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > nonGravitationalTranslationalAccelerationFuncion =
+                boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration, navigationSystem_, _1 );
+
         // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects(
-                    boost::bind( &onboardSystemModel, _1, _2,
-                                 boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_ ) ),
-                    boost::bind( &onboardMeasurementModel, _1, _2,
-                                 boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration,
-                                              navigationSystem_ ) ) );
+                    boost::bind( &onboardSystemModel, _1, _2, translationalAccelerationFuncion ),
+                    boost::bind( &onboardMeasurementModel, _1, _2, nonGravitationalTranslationalAccelerationFuncion ) );
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
@@ -86,7 +91,6 @@ public:
     bool checkStopCondition( const double currentTime )
     {
         using mathematical_constants::PI;
-        std::cout << "Time: " << currentTime - 236455200.0 << std::endl;
 
         // Define output value
         bool isPropagationToBeStopped = false;
