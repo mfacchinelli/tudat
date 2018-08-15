@@ -20,6 +20,7 @@
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModel.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModelTypes.h"
 #include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
+#include "Tudat/Mathematics/Interpolators/cubicSplineInterpolator.h"
 #include "Tudat/Mathematics/Statistics/basicStatistics.h"
 #include "Tudat/SimulationSetup/EnvironmentSetup/body.h"
 
@@ -61,8 +62,11 @@ public:
         inertialMeasurementUnitAdded_ = false;
         starTrackerAdded_ = false;
         altimeterAdded_ = false;
+        deepSpaceNetworkAdded_ = false;
 
         // Get index of central body acceleration (which is not measured by the IMUs)
+        sphericalHarmonicsGravityIndex_ = static_cast< unsigned int >( TUDAT_NAN );
+        thirdBodyGravityIndex_ = static_cast< unsigned int >( TUDAT_NAN );
         for ( accelerationMapIterator_ = accelerationModelMap_.at( spacecraftName_ ).begin( );
               accelerationMapIterator_ != accelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapIterator_++ )
@@ -122,13 +126,28 @@ public:
     //! Function to add an altimeter to the spacecraft set of instruments.
     /*!
      *  Function to add an altimeter to the spacecraft set of instruments.
-     *  \param fixedBodyFramePointingDirection
-     *  \param altitudeRange
-     *  \param altimeterAccuracyAsAFunctionOfAltitude
+     *  \param fixedBodyFramePointingDirection Direction in the body-fixed frame in which the altimeter is pointing.
+     *  \param altitudeRange Range of altitudes between which the altimeter provides measurements. It is defined as a pair, such that
+     *      the first entry gives the lower altitude bound and the second one the upper bound.
+     *  \param altimeterAccuracyAsAFunctionOfAltitude Function returning the accuracy of the altimeter as a function of altitude.
+     *      This can be a constant value if defined with boost::lambda::constant.
      */
     void addAltimeter( const Eigen::Vector3d& fixedBodyFramePointingDirection,
                        const std::pair< double, double >& altitudeRange,
-                       const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude );
+                       const boost::function< double( const double ) >& altimeterAccuracyAsAFunctionOfAltitude );
+
+    //! Function to add a Deep Space Network measurement system.
+    /*!
+     *  Function to add a Deep Space Network measurement system, which acts by retrieving the position of the spacecraft
+     *  at a previous time, given by subtracting the light time error from the current time.
+     *  \param positionAccuracy Accuracy in determining spacecraft position (3 sigma).
+     *  \param velocityAccuracy Accuracy in determining spacecraft velocity (3 sigma).
+     *  \param lightTimeAccuracy Accuracy in knowledge of position of Earth and Mars, expressed in seconds (could be compared to
+     *      the clock error of GNSS).
+     */
+    void addDeepSpaceNetwork( const double positionAccuracy,
+                              const double velocityAccuracy,
+                              const double lightTimeAccuracy );
 
     //! Function to update the onboard instruments to the current time.
     /*!
@@ -138,11 +157,6 @@ public:
      */
     void updateInstruments( const double currentTime )
     {
-        std::cout << std::setprecision( 16 )
-                  << "Time: " << currentTime - 236455200.0 << std::endl
-                  << "SIM Pos: " << ( bodyMap_.at( spacecraftName_ )->getState( ) -
-                                      bodyMap_.at( planetName_ )->getState( ) ).transpose( ) << std::endl;
-
         // If instruments have not been already updated for the current time
         if ( currentTime_ != currentTime )
         {
@@ -175,6 +189,13 @@ public:
                 // Update and save altimeter measurement
                 altimeterFunction_( );
                 currentOrbitHistoryOfAltimeterMeasurements_[ currentTime_ ] = currentAltitude_;
+            }
+
+            // Update Deep Space Network
+            if ( deepSpaceNetworkAdded_ )
+            {
+                // Update and save Deep Space Network measurement
+                deepSpaceNetworkFunction_( );
             }
         }
     }
@@ -263,7 +284,8 @@ public:
     //! Function to retrieve current altimeter measurement.
     /*!
      *  Function to retrieve current altimeter measurement.
-     *  \return
+     *  \return Double denoting the current altimeter measurement, affected by noise. Note that if the current altitude is outside
+     *      the range defined by altitudeRange, the result will be nonsensical.
      */
     double getCurrentAltimeterMeasurement( )
     {
@@ -279,21 +301,59 @@ public:
         }
     }
 
-    //! Get standard deviation of the norm of accelerations measured by the accelerometer.
-    double getStandardDeviationOfNormOfAccelerometerMeasurements( )
+    //! Function to retrieve current Deep Space Network measurement.
+    /*!
+     *  Function to retrieve current Deep Space Network measurement, as measured by the antennas and post-processed by the
+     *  ground segment on Earth. Note that the measurement represents the state of the spacecraft at the time of last contact with
+     *  Earth (i.e., 2 times the light-time distance to Earth).
+     *  \return Pair of double and vector, denoting the light-time delay at the time of measurement (2 times the light-time distance
+     *      to the spacecraft), and the Cartesian state computed by merging the tracking result with a post-processing software for
+     *      orbit determination (done on the ground).
+     */
+    std::pair< double, Eigen::Vector6d > getCurrentDeepSpaceNetworkMeasurement( )
     {
-        // Retrieve norm of accelerometer measurements
-        std::vector< double > vectorOfNormOfAccelerometerMeasurements;
-        for ( inertialMeasurementUnitMeasurementIterator_ = currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.begin( );
-              inertialMeasurementUnitMeasurementIterator_ != currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.end( );
-              inertialMeasurementUnitMeasurementIterator_++ )
+        // Check that a Deep Space Network tracking is active
+        if ( deepSpaceNetworkAdded_ )
         {
-            vectorOfNormOfAccelerometerMeasurements.push_back(
-                        inertialMeasurementUnitMeasurementIterator_->second.segment( 0, 3 ).norm( ) );
-        }
+            // Retrieve light-time and states over time
+            std::vector< double > vectorOfTrackingTimes = utilities::createVectorFromMapKeys( historyOfDeepSpaceNetworkMeasurements_ );
+            std::vector< std::pair< double, Eigen::Vector6d > > vectorOfTrackedElements =
+                    utilities::createVectorFromMapValues( historyOfDeepSpaceNetworkMeasurements_ );
+            std::vector< double > vectorOfLightTimeDistances;
+            std::vector< Eigen::Vector6d > vectorOfTrackedStates;
+            for ( unsigned int i = 0; i < vectorOfTrackedElements.size( ); i++ )
+            {
+                vectorOfLightTimeDistances.push_back( vectorOfTrackedElements.at( i ).first );
+                vectorOfTrackedStates.push_back( vectorOfTrackedElements.at( i ).second );
+            }
 
-        // Compute and output standard deviation
-        return statistics::computeSampleVariance( vectorOfNormOfAccelerometerMeasurements );
+            // Create interpolator object based on stored Deep Space Network tracking
+            double currentDeepSpaceNetworkTrackingTime;
+            Eigen::Vector6d currentDeepSpaceNetworkTrackedState;
+            try
+            {
+                currentDeepSpaceNetworkTrackingTime = interpolators::CubicSplineInterpolator< double, double >(
+                            vectorOfTrackingTimes, vectorOfLightTimeDistances, interpolators::huntingAlgorithm,
+                            interpolators::throw_exception_at_boundary ).interpolate( currentTime_ );
+                currentDeepSpaceNetworkTrackedState = interpolators::CubicSplineInterpolator< double, Eigen::Vector6d >(
+                            vectorOfTrackingTimes, vectorOfTrackedStates, interpolators::huntingAlgorithm,
+                            interpolators::throw_exception_at_boundary ).interpolate( currentTime_ );
+            }
+            catch ( const std::exception& caughtException )
+            {
+                std::cerr << caughtException.what( ) << std::endl;
+                throw std::runtime_error( "Error while retrieving position and velocity from DSN measurement. No measurement is "
+                                          "available at the time requested. See error above for details on the boundary values." );
+            }
+
+            // Give output as pair
+            return std::make_pair( currentDeepSpaceNetworkTrackingTime, currentDeepSpaceNetworkTrackedState );
+        }
+        else
+        {
+            throw std::runtime_error( "Error while retrieving position and velocity from DSN measurement. "
+                                      "DSN tracking is not active." );
+        }
     }
 
     //! Get history of inertial measurement unit measurements for the current orbit.
@@ -317,17 +377,40 @@ public:
     //! Clear histories of inertial measurmenet and star tracker measurements for current orbit.
     void clearCurrentOrbitMeasurementHistories( )
     {
+        // Esare history of inertial measurement unit measurements
         if ( inertialMeasurementUnitAdded_ )
         {
             currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.clear( );
         }
+
+        // Esare history of star tracker measurements
         if ( starTrackerAdded_ )
         {
             currentOrbitHistoryOfStarTrackerMeasurements_.clear( );
         }
+
+        // Esare history of altimeter measurements
         if ( altimeterAdded_ )
         {
             currentOrbitHistoryOfAltimeterMeasurements_.clear( );
+        }
+
+        // Esare history of Deep Space Network measurements
+        if ( deepSpaceNetworkAdded_ )
+        {
+            // Loop over measurements taken
+            for ( std::map< double, std::pair< double, Eigen::Vector6d > >::iterator
+                  measurementIterator = historyOfDeepSpaceNetworkMeasurements_.begin( );
+                  measurementIterator != historyOfDeepSpaceNetworkMeasurements_.end( ); measurementIterator++ )
+            {
+                if ( measurementIterator->first >= ( currentTime_ - 0.0417 * physical_constants::JULIAN_DAY ) )
+                {
+                    // Erase measurements made more than approximately 1 hour before current time
+                    historyOfDeepSpaceNetworkMeasurements_.erase( historyOfDeepSpaceNetworkMeasurements_.begin( ),
+                                                                  measurementIterator-- );
+                    break;
+                }
+            }
         }
     }
 
@@ -347,23 +430,23 @@ private:
             // Loop over each acceleration
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
-                // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) &&
-                     !( ( i == thirdBodyGravityIndex_ ) && ( accelerationMapIterator_->first == "Sun" ) ) )
-                {
+//                // Disregard the central gravitational accelerations, since IMUs do not measure them
+//                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) &&
+//                     !( ( i == thirdBodyGravityIndex_ ) && ( accelerationMapIterator_->first == "Sun" ) ) )
+//                {
                     // Calculate acceleration and add to state derivative
                     currentTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
-                }
-                else
-                {
+//                }
+//                else
+//                {
                     std::cout << "SIM Acc: " << accelerationMapIterator_->second[ i ]->getAcceleration( ).transpose( ) << std::endl;
-                }
+//                }
             }
         }
 
-//        // Add errors to acceleration value
-//        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
-//        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
+        //        // Add errors to acceleration value
+        //        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
+        //        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
     }
 
     //! Function to retrieve current rotational velocity of the spacecraft.
@@ -394,8 +477,7 @@ private:
                              const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude )
     {
         // Get current altitude of spacecraft
-        Eigen::Vector3d currentRadialVector = bodyMap_.at( spacecraftName_ )->getState( ).segment( 0, 3 ) -
-                bodyMap_.at( planetName_ )->getState( ).segment( 0, 3 );
+        Eigen::Vector3d currentRadialVector = bodyMap_.at( spacecraftName_ )->getPosition( ) - bodyMap_.at( planetName_ )->getPosition( );
         double currentRadialDistance = currentRadialVector.norm( );
         double planetaryRadius = bodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( );
         double currentPointingAngle = 0.0;
@@ -434,6 +516,32 @@ private:
         currentAltitude_ += produceAltimeterNoise( ) * altimeterAccuracyAsAFunctionOfAltitude( currentAltitude_ );
     }
 
+    //! Function to retrieve current position and velocity of the spacecraft.
+    void getCurrentDeepSpaceNetworkTracking( )
+    {
+        // Retrieve noise for the current time
+        Eigen::Vector7d currentNoiseVector = produceDeepSpaceNetworkNoise( );
+
+        // Get current position and velocity of the spacecraft
+        Eigen::Vector6d currentState = bodyMap_.at( spacecraftName_ )->getState( ) - bodyMap_.at( planetName_ )->getState( );
+
+        // Compute current light-time distance to Earth
+        double currentPlanetaryRange = ( bodyMap_.at( "Earth" )->getPosition( ) -
+                                         bodyMap_.at( spacecraftName_ )->getPosition( ) ).norm( );
+        double currentLightTimeDistance = currentPlanetaryRange / physical_constants::SPEED_OF_LIGHT;
+
+        // Add noise to the state and time
+        currentState += currentNoiseVector.segment( 0, 6 );
+        currentLightTimeDistance += currentNoiseVector[ 6 ];
+
+        // Store value to map of measurements
+        // Note that this method of storing the state is not entirely correct. The light-time distance (LTD) of the instant when the
+        // measurement is received will be different, and should be accounted for. Here, the current LTD is multiplied by two, but
+        // is going to produce a slight error. Since Mars is never further than approximately 20 minutes, the error is negligible.
+        historyOfDeepSpaceNetworkMeasurements_[ currentTime_ + 2.0 * currentLightTimeDistance ] =
+                std::make_pair( currentLightTimeDistance, currentState );
+    }
+
     //! Function to generate the noise distributions for the inertial measurement unit.
     /*!
      *  Function to generate the noise distributions for both instruments of the inertial measurement unit,
@@ -460,6 +568,19 @@ private:
      *  \param altimeterAccuracy Accuracy of altimeter (3 sigma).
      */
     void generateAltimeterRandomNoiseDistribution( const double altimeterAccuracy );
+
+    //! Function to generate the noise distributions for the Deep Space Network system.
+    /*!
+     *  Function to generate the noise distributions for the Deep Space Network system, which uses a Gaussian distribution,
+     *  with zero mean and standard deviation given by the input accuracies.
+     *  \param positionAccuracy Accuracy in determining spacecraft position (3 sigma).
+     *  \param velocityAccuracy Accuracy in determining spacecraft velocity (3 sigma).
+     *  \param lightTimeAccuracy Accuracy in knowledge of position of Earth and Mars, expressed in seconds (could be compared to
+     *      the clock error of GNSS).
+     */
+    void generateDeepSpaceNetworkRandomNoiseDistribution( const double positionAccuracy,
+                                                          const double velocityAccuracy,
+                                                          const double lightTimeAccuracy );
 
     //! Function to produce accelerometer noise.
     /*!
@@ -556,6 +677,35 @@ private:
         return altimeterNoise;
     }
 
+    //! Function to produce Deep Space Network noise.
+    /*!
+     *  Function to produce Deep Space Network noise, where the position and velocity accuracies are used three times each, to
+     *  produce a vector of dimension 6, to match the Cartesian coordinate vector.
+     *  \return Vector where the noise for the Deep Space Network is stored.
+     */
+    Eigen::Vector7d produceDeepSpaceNetworkNoise( )
+    {
+        // Declare noise value
+        Eigen::Vector7d deepSpaceNetworkNoise = Eigen::Vector7d::Zero( );
+
+        // Loop over dimensions and add noise
+        for ( unsigned int i = 0; i < 3; i++ )
+        {
+            unsigned int limitingValue = ( i != 2 ) ? 3 : 1;
+            for ( unsigned int j = 0; j < limitingValue; j++ )
+            {
+                if ( deepSpaceNetworkNoiseDistribution_.at( i ) != nullptr )
+                {
+                    deepSpaceNetworkNoise[ 3 * i + j ] = deepSpaceNetworkNoiseDistribution_.at( i )->getRandomVariableValue( );
+                }
+            }
+        }
+
+        // Give back noise
+        //        deepSpaceNetworkNoiseHistory_.push_back( deepSpaceNetworkNoise );
+        return deepSpaceNetworkNoise;
+    }
+
     //! Body map of the simulation.
     const simulation_setup::NamedBodyMap bodyMap_;
 
@@ -580,6 +730,9 @@ private:
     //! Boolean denoting whether an altimeter is present in the spacecraft.
     bool altimeterAdded_;
 
+    //! Boolean denoting whether Deep Space Network tracking is active.
+    bool deepSpaceNetworkAdded_;
+
     //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
     unsigned int sphericalHarmonicsGravityIndex_;
 
@@ -598,6 +751,9 @@ private:
     //! Noise generator for the spacecraft altitude measurement.
     boost::shared_ptr< statistics::RandomVariableGenerator< double > > altimeterNoiseDistribution_;
 
+    //! Vector where the noise generators for the Deep Space Network are stored.
+    std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > deepSpaceNetworkNoiseDistribution_;
+
     //! Vector denoting current translational accelerations as measured by the accelerometer.
     Eigen::Vector3d currentTranslationalAcceleration_;
 
@@ -607,7 +763,7 @@ private:
     //! Vector denoting current quaternion to base frame as measured by the star tracker.
     Eigen::Vector4d currentQuaternionToBaseFrame_;
 
-    //! Vector denoting current altitude as measured by the altimeter.
+    //! Double denoting current altitude as measured by the altimeter.
     double currentAltitude_;
 
     //! Function to compute the translational acceleration measured by the inertial measurement unit.
@@ -622,6 +778,9 @@ private:
     //! Function to compute the altitude measured by the altimeter.
     boost::function< void( ) > altimeterFunction_;
 
+    //! Function to compute the position and velocity measured by the Deep Space Network.
+    boost::function< void( ) > deepSpaceNetworkFunction_;
+
     //! Map of translational accelerations and rotational velocities measured by the inertial measurment unit
     //! during the current orbit.
     std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_;
@@ -631,6 +790,9 @@ private:
 
     //! Map of attitude measured by the star tracker during the current orbit.
     std::map< double, double > currentOrbitHistoryOfAltimeterMeasurements_;
+
+    //! Map of position and velocity measurements by the Deep Space Network during the current simulation.
+    std::map< double, std::pair< double, Eigen::Vector6d > > historyOfDeepSpaceNetworkMeasurements_;
 
     //! Predefined iterator to save (de)allocation time.
     basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationMapIterator_;

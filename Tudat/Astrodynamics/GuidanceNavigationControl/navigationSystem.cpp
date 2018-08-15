@@ -313,10 +313,10 @@ void NavigationSystem::runAtmosphereEstimator(
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
-        //        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
-        //        std::cout << "Altitudes: " << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
-        //        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
-        //        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
+//        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
+//        std::cout << "Altitudes: " << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
+//        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
+//        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
 
         // Run least squares estimation process based on selected atmosphere model
         Eigen::VectorXd modelSpecificParameters;

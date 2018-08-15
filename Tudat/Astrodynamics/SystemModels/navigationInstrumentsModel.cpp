@@ -131,6 +131,37 @@ void NavigationInstrumentsModel::addAltimeter( const Eigen::Vector3d& fixedBodyF
     }
 }
 
+//! Function to add a Deep Space Network measurement system.
+void NavigationInstrumentsModel::addDeepSpaceNetwork( const double positionAccuracy,
+                                                      const double velocityAccuracy,
+                                                      const double lightTimeAccuracy )
+{
+    // Check whether an altimeter is already present
+    if ( !deepSpaceNetworkAdded_ )
+    {
+        // Altimeter has been created
+        deepSpaceNetworkAdded_ = true;
+
+        // Make sure that Earth is present in the simulation
+        if ( bodyMap_.count( "Earth" ) == 0 )
+        {
+            throw std::runtime_error( "Erro in creation of DSN system for body " + spacecraftName_ +
+                                      ". Earth is not present in the simulated bodies, thus no tracking can be performed." );
+        }
+
+        // Generate random noise distribution
+        generateDeepSpaceNetworkRandomNoiseDistribution( positionAccuracy, velocityAccuracy, lightTimeAccuracy );
+
+        // Create function for computing corrupted spacecraft orientation
+        deepSpaceNetworkFunction_ = boost::bind( &NavigationInstrumentsModel::getCurrentDeepSpaceNetworkTracking, this );
+    }
+    else
+    {
+        throw std::runtime_error( "Error in creation of DSN system for body " + spacecraftName_ +
+                                  ". DSN tracking is already active." );
+    }
+}
+
 //! Function to generate the noise distributions for the inertial measurement unit.
 void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistribution( const Eigen::Vector3d& accelerometerAccuracy,
                                                                                          const Eigen::Vector3d& gyroscopeAccuracy )
@@ -159,8 +190,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
         {
             gyroscopeNoiseDistribution_.push_back(
                         createBoostContinuousRandomVariableGenerator(
-                            normal_boost_distribution, { 0.0, gyroscopeAccuracy[ i ] },
-                            3 + i ) );
+                            normal_boost_distribution, { 0.0, gyroscopeAccuracy[ i ] }, 3 + i ) );
         }
         else
         {
@@ -181,8 +211,7 @@ void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution( con
         {
             starTrackerNoiseDistribution_.push_back(
                         createBoostContinuousRandomVariableGenerator(
-                            normal_boost_distribution, { 0.0, starTrackerAccuracy[ i ] },
-                            6 + i ) );
+                            normal_boost_distribution, { 0.0, starTrackerAccuracy[ i ] }, 6 + i ) );
         }
         else
         {
@@ -205,6 +234,35 @@ void NavigationInstrumentsModel::generateAltimeterRandomNoiseDistribution( const
     else
     {
         altimeterNoiseDistribution_ = nullptr;
+    }
+}
+
+//! Function to generate the noise distributions for the Deep Space Network system.
+void NavigationInstrumentsModel::generateDeepSpaceNetworkRandomNoiseDistribution( const double positionAccuracy,
+                                                                                  const double velocityAccuracy,
+                                                                                  const double lightTimeAccuracy )
+{
+    using namespace tudat::statistics;
+
+    // Combine accuracies
+    Eigen::Vector2d combinedAccuracies;
+    combinedAccuracies[ 0 ] = positionAccuracy;
+    combinedAccuracies[ 1 ] = velocityAccuracy;
+    combinedAccuracies[ 2 ] = lightTimeAccuracy;
+
+    // Create Deep Space Network noise distribution
+    for ( unsigned int i = 0; i < 3; i++ )
+    {
+        if ( combinedAccuracies[ i ] != 0.0 )
+        {
+            deepSpaceNetworkNoiseDistribution_.push_back(
+                        createBoostContinuousRandomVariableGenerator(
+                            normal_boost_distribution, { 0.0, combinedAccuracies[ i ] }, 10 + i ) );
+        }
+        else
+        {
+            deepSpaceNetworkNoiseDistribution_.push_back( nullptr );
+        }
     }
 }
 

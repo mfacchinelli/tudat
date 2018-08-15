@@ -64,6 +64,7 @@ public:
                     boost::bind( &onboardMeasurementModel, _1, _2,
                                  boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration,
                                               navigationSystem_ ) ) );
+        initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
         guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateStateWithCustomTerminationSettings,
@@ -85,6 +86,7 @@ public:
     bool checkStopCondition( const double currentTime )
     {
         using mathematical_constants::PI;
+        std::cout << "Time: " << currentTime - 236455200.0 << std::endl;
 
         // Define output value
         bool isPropagationToBeStopped = false;
@@ -203,15 +205,6 @@ private:
         navigationSystem_->clearCurrentOrbitEstimationHistory( );
     }
 
-    //! Boolean denoting whether the maneuvering phase for this orbit has been complete.
-    bool maneuveringPhaseComplete_;
-
-    //! Boolean denoting whether the atmospheric phase for this orbit has been complete.
-    bool atmosphericPhaseComplete_;
-
-    //! Double denoting the atmospheric interface altitude.
-    double atmosphericInterfaceRadius_;
-
     //! Pointer to the control system for the aerobraking maneuver.
     const boost::shared_ptr< ControlSystem > controlSystem_;
 
@@ -223,6 +216,18 @@ private:
 
     //! Pointer to the navigation system for the aerobraking maneuver.
     const boost::shared_ptr< NavigationInstrumentsModel > instrumentsModel_;
+
+    //! Boolean denoting whether the maneuvering phase for this orbit has been complete.
+    bool maneuveringPhaseComplete_;
+
+    //! Boolean denoting whether the atmospheric phase for this orbit has been complete.
+    bool atmosphericPhaseComplete_;
+
+    //! Double denoting the atmospheric interface altitude.
+    double atmosphericInterfaceRadius_;
+
+    //! Double denoting initial time of the simulation.
+    double initialTime_;
 
     //! Predefined iterator to save (de)allocation time.
     std::map< double, Eigen::Vector6d >::const_iterator measurementConstantIterator_;

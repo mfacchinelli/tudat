@@ -244,6 +244,31 @@ public:
         }
     }
 
+    //! Function to update current translational Cartesian state with Deep Space Network measurement.
+    /*!
+     *  Function to update current translational Cartesian state with Deep Space Network measurement. Due to light-time delays,
+     *  the Deep Space Network (DSN) measurement is taken at an earlier time. Thus, this function propagates the received state
+     *  information to the current time.
+     *  \param currentDeepSpaceNetworkTrackingData Pair of double and vector, denoting the light-time delay at the time of measurement
+     *      (2 times the light-time distance to the spacecraft), and the Cartesian state computed by merging the tracking result with
+     *      a post-processing software for orbit determination (done on the ground).
+     */
+    void processDeepSpaceNetworkTracking( const std::pair< double, Eigen::Vector6d >& currentDeepSpaceNetworkTrackingData )
+    {
+        // Split Deep Space Network tracking data in light-time delay and Cartesian state
+        double currentLightTimeDelay = currentDeepSpaceNetworkTrackingData.first;
+        Eigen::Vector6d currentTrackedState = currentDeepSpaceNetworkTrackingData.second;
+
+        // Propagate tracked state to current time
+        boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
+                boost::make_shared< propagators::PropagationTimeTerminationSettings >( currentTime_ );
+        Eigen::Vector6d propagatedStateBasedOnTracking = propagateStateWithCustomTerminationSettings(
+                    terminationSettings, currentTrackedState, currentTime_ - currentLightTimeDelay ).first.rbegin( )->second;
+
+        // Reset navigation filter (including covariance)
+        setCurrentEstimatedCartesianState( propagatedStateBasedOnTracking, Eigen::Matrix12d::Identity( ) );
+    }
+
     //! Function to propagate translational Cartesian state to specified termination settings.
     /*!
      *  Function to propagate translational Cartesian state to specified termination settings. Note that this function does not
@@ -271,7 +296,7 @@ public:
         }
 
         // Set initial state
-        if ( initialTranslationalCartesianState.isApprox( Eigen::Vector6d::Zero( ) ) )
+        if ( initialTranslationalCartesianState.norm( ) == 0.0 )
         {
             onboardPropagatorSettings_->resetInitialStates( currentEstimatedCartesianState_ );
         }
@@ -494,9 +519,8 @@ private:
     void updateOnboardModel( )
     {
         // Update environment
-        std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate;
-        mapOfStatesToUpdate[ propagators::translational_state ] = currentEstimatedCartesianState_;
-        onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate );
+        mapOfStatesToUpdate_[ propagators::translational_state ] = currentEstimatedCartesianState_;
+        onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate_ );
 
         // Loop over bodies exerting accelerations on spacecraft
         for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -531,6 +555,7 @@ private:
         currentEstimatedNonGravitationalTranslationalAcceleration_.setZero( );
 
         // Iterate over all accelerations acting on body
+        Eigen::Vector3d currentAcceleration;
         for ( accelerationMapIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
               accelerationMapIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapIterator_++ )
@@ -539,24 +564,25 @@ private:
             for ( unsigned int i = 0; i < accelerationMapIterator_->second.size( ); i++ )
             {
                 // Calculate acceleration and add to state derivative
-                currentEstimatedTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                currentAcceleration = accelerationMapIterator_->second[ i ]->getAcceleration( );
+                currentEstimatedTranslationalAcceleration_ += currentAcceleration;
 
                 // Only add the gravitational accelerations
                 if ( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) )
                 {
                     // Calculate acceleration and add to state derivative
-                    currentEstimatedGravitationalTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                    currentEstimatedGravitationalTranslationalAcceleration_ += currentAcceleration;
                 }
 
                 // Disregard the central gravitational accelerations, since IMUs do not measure them
                 if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapIterator_->first == planetName_ ) ) )
                 {
                     // Calculate acceleration and add to state derivative
-                    currentEstimatedNonGravitationalTranslationalAcceleration_ += accelerationMapIterator_->second[ i ]->getAcceleration( );
+                    currentEstimatedNonGravitationalTranslationalAcceleration_ += currentAcceleration;
                 }
             }
         }
-        std::cout << std::setprecision( 16 )
+        std::cout << std::setprecision( 20 )
                   << "ONB Acc: " << currentEstimatedTranslationalAcceleration_.transpose( ) << std::endl << std::endl;
 
         // Store acceleration value
@@ -682,6 +708,9 @@ private:
      *  the state derivative.
      */
     boost::shared_ptr< propagators::EnvironmentUpdater< double, double > > onboardEnvironmentUpdater_;
+
+    //! Unordered map of states to be updated by the environment updater.
+    std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate_;
 
     //! Filter object to be used for estimation of state.
     boost::shared_ptr< filters::FilterBase< double, double > > navigationFilter_;
