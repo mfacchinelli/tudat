@@ -32,7 +32,7 @@ namespace numerical_derivatives
 
 //! Enum with list of available orders.
 /*!
- * List of available orders: 2, 4, 6, 8.
+ *  List of available orders: 2, 4, 6, 8.
  */
 enum CentralDifferenceOrders
 {
@@ -44,37 +44,36 @@ enum CentralDifferenceOrders
 
 //! Get coefficients of a certain order for central difference numerical derivatives.
 /*!
- * Get coefficients of a certain order for central difference numerical derivatives as a map
- * of position versus weight. Coefficients are from (Fornberg, B., 1988).
- * \param order The order of the coeffients.
- * \return Map of position versus weight.
+ *  Get coefficients of a certain order for central difference numerical derivatives as a map
+ *  of position versus weight. Coefficients are from (Fornberg, B., 1988).
+ *  \param order The order of the coeffients.
+ *  \return Map of position versus weight.
  */
-const std::map< int, double >& getCentralDifferenceCoefficients( CentralDifferenceOrders order );
+std::map< int, double > getCentralDifferenceCoefficients( const CentralDifferenceOrders order );
 
 //! Compute a numerical derivative using a central difference method.
 /*!
- * Computes a specified numerical derivative using a central difference method for a vector
- * function with vector output. The implemented orders are 2nd, 4th and 8th.
- * This function needs to be fully implemented in the header file because it is a template
- * function.
- *
- * \param input Input vector.
- * \param derivativeIndex The index of the entry of the input vector with respect to which to take
- *          the derivative.
- * \param function The function to call with signature
- *          void( const VectorXd& input, VectorXd& result ).
- * \param minimumStep The absolute minimum step size to take. By default 2^-13.
- * \param relativeStepSize The relative step size to take. By default 2^-26.
- * \param order The order of the algorithm to use.
- * \return Numerical derivative calculated from input
+ *  Computes a specified numerical derivative using a central difference method for a vector
+ *  function with vector output. The implemented orders are 2nd, 4th and 8th.
+ *  This function needs to be fully implemented in the header file because it is a template
+ *  function.
+ *  \param input Input vector.
+ *  \param derivativeIndex The index of the entry of the input vector with respect to which to take
+ *      the derivative.
+ *  \param function The function to call with signature
+ *      void( const VectorXd& input, VectorXd& result ).
+ *  \param minimumStep The absolute minimum step size to take. By default 2^-13.
+ *  \param relativeStepSize The relative step size to take. By default 2^-26.
+ *  \param order The order of the algorithm to use.
+ *  \return Numerical derivative calculated from input
  */
 template< typename InputType, typename ResultType >
 ResultType computeCentralDifference( const InputType& input, const int derivativeIndex,
                                      const boost::function< ResultType( const InputType& ) >& function,
                                      double minimumStep = 0.0, double relativeStepSize = 0.0,
-                                     CentralDifferenceOrders order = order2 )
+                                     const CentralDifferenceOrders order = order2 )
 {
-    const std::map< int, double >& coefficients = getCentralDifferenceCoefficients( order );
+    const std::map< int, double > coefficients = getCentralDifferenceCoefficients( order );
 
     if ( minimumStep == 0.0 )
     {
@@ -124,30 +123,29 @@ ResultType computeCentralDifference( const InputType& input, const int derivativ
 
 //! Compute a full numerical derivative using a central difference method.
 /*!
- * Computes a Jacobian numerically using a central difference method for a vector
- * function with vector output. The implemented orders are 2nd, 4th and 8th.
- *
- * \param input Input vector
- * \param function The function to call with signature
- *          void( const VectorXd& input, VectorXd& result ).
- * \param minimumStep The absolute minimum step size to take. By default 2^-13.
- * \param relativeStepSize The relative step size to take. By default 2^-26.
- * \param order The order of the algorithm to use. Will yield an assertion failure if not 2 or 4.
- * \return Numerical derivative calculated from input
+ *  Computes a Jacobian numerically using a central difference method for a vector
+ *  function with vector output. The implemented orders are 2nd, 4th and 8th.
+ *  \param input Input vector
+ *  \param function The function to call with signature
+ *      void( const VectorXd& input, VectorXd& result ).
+ *  \param minimumStep The absolute minimum step size to take. By default 2^-13.
+ *  \param relativeStepSize The relative step size to take. By default 2^-26.
+ *  \param order The order of the algorithm to use. Will yield an assertion failure if not 2 or 4.
+ *  \return Numerical derivative calculated from input
  */
 Eigen::MatrixXd computeCentralDifference( const Eigen::VectorXd& input, const boost::function<
                                           Eigen::VectorXd( const Eigen::VectorXd& ) >& function,
                                           double minimumStep = 0.0, double relativeStepSize = 0.0,
-                                          CentralDifferenceOrders order = order2 );
+                                          const CentralDifferenceOrders order = order2 );
 
 template< typename DependentVariableType, typename IndependentVariableType >
 DependentVariableType computeCentralDifference(
-        const boost::function< DependentVariableType( const IndependentVariableType ) >& dependentVariableFunction,
-        const IndependentVariableType nominalIndependentVariable,
-        const IndependentVariableType independentVariableStepSize,
-        CentralDifferenceOrders order = order2 )
+        const boost::function< DependentVariableType( const IndependentVariableType& ) >& dependentVariableFunction,
+        const IndependentVariableType& nominalIndependentVariable,
+        const IndependentVariableType& independentVariableStepSize,
+        const CentralDifferenceOrders order = order2 )
 {
-    const std::map< int, double >& coefficients = getCentralDifferenceCoefficients( order );
+    const std::map< int, double > coefficients = getCentralDifferenceCoefficients( order );
 
     IndependentVariableType perturbedInput;
     DependentVariableType perturbedOutput;
@@ -172,8 +170,14 @@ DependentVariableType computeCentralDifference(
     }
 
     return numericalDerivative;
-
 }
+
+//! Function to compute central difference with double as output and Eigen::VectorXd as input.
+double computeCentralDifference(
+        const boost::function< double( const Eigen::VectorXd& ) >& dependentVariableFunction,
+        const Eigen::VectorXd& nominalIndependentVariable,
+        const Eigen::VectorXd& independentVariableStepSize,
+        const CentralDifferenceOrders order = order2 );
 
 } // namespace numerical_derivatives
 

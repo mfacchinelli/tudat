@@ -81,7 +81,7 @@ public:
                       const boost::shared_ptr< filters::FilterSettings< > > navigationFilterSettings,
                       const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel,
                       const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude,
-                      const unsigned int numberOfRequiredAtmosphereSamplesForInitiation,
+                      const double periapseEstimatorConstant, const unsigned int numberOfRequiredAtmosphereSamplesForInitiation,
                       const Eigen::Vector3d& altimeterBodyFixedPointingDirection = Eigen::Vector3d::Constant( TUDAT_NAN ),
                       const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ) ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
@@ -91,6 +91,7 @@ public:
         planetaryRadius_( onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( ) ),
         atmosphericInterfaceRadius_( planetaryRadius_ + atmosphericInterfaceAltitude ),
         reducedAtmosphericInterfaceRadius_( planetaryRadius_ + reducedAtmosphericInterfaceAltitude ),
+        periapseEstimatorConstant_( periapseEstimatorConstant ),
         numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation ),
         altimeterBodyFixedPointingDirection_( altimeterBodyFixedPointingDirection ), altimeterAltitudeRange_( altimeterAltitudeRange )
     {
@@ -231,7 +232,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            if ( atmosphereEstimatorInitialized_ ) // historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
+//            if ( atmosphereEstimatorInitialized_ ) // historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -353,19 +354,16 @@ public:
     //! Function to retrieve the density at the input conditions according to the onboard model.
     double getDensityAtSpecifiedConditions( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
-        std::cout << "Long: " << onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentLongitude( ) << std::endl
-                  << "Alt: " << onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentAltitude( ) << std::endl;
         if ( estimatedState.norm( ) == 0.0 )
         {
             return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
-//                        currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_,
                         onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentAltitude( ),
                         onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentLongitude( ), 0.0, 0.0 );
         }
         else
         {
             return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
-                        ( estimatedState.segment( 0, 3 ).norm( ) - planetaryRadius_ ), 0.0, 0.0, 0.0 );
+                        estimatedState.segment( 0, 3 ).norm( ) - planetaryRadius_, 0.0, 0.0, 0.0 );
         }
     }
 
@@ -524,6 +522,12 @@ public:
     //! Function to retireve the atmospheric interface radius of the body being orbited.
     double getAtmosphericInterfaceRadius( ) { return atmosphericInterfaceRadius_; }
 
+    //! Function to retireve the frequency (in days) with which Deep Space Network tracking has to be performed.
+    unsigned int getFrequencyOfDeepSpaceNetworkTracking( )
+    {
+        return 2;
+    }
+
     //! Function to set current Cartesian state to new value.
     /*!
      *  Function to set current Cartesian state to new value. The value of the Keplerian state is set
@@ -572,7 +576,13 @@ public:
                                                                      newCurrentCovarianceMatrix );
     }
 
-    //! Clear history of estimated states and accelerations for the current orbit.
+    //! Function to set the apoapsis value of the Keplerian state.
+    void setEstimatedApoapsisKeplerianState( )
+    {
+        estimatedKeplerianStateAtApoapsis_ = currentEstimatedKeplerianState_;
+    }
+
+    //! Function to clear history of estimated states and accelerations for the current orbit.
     void clearCurrentOrbitEstimationHistory( )
     {
         // Empty current orbit history maps
@@ -780,6 +790,13 @@ private:
      */
     const double reducedAtmosphericInterfaceRadius_;
 
+    //! Double denoting the multiplier to account for non-Keplerian orbit.
+    /*!
+     *  Double denoting the multiplier to account for non-Keplerian orbit. It is used to multiply the value of estimated change
+     *  in velocity of the Periapse Time Estimator, to remove the error of the assumption of Kepler orbit and impulsive drag.
+     */
+    const double periapseEstimatorConstant_;
+
     //! Integer denoting the number of atmosphere samples required for the atmosphere estimator to be considered initiated.
     /*!
      *  Integer denoting the number of atmosphere samples required for the atmosphere estimator to be considered initiated.
@@ -822,6 +839,13 @@ private:
 
     //! Vector denoting the current estimated translational state in Keplerian elements.
     Eigen::Vector6d currentEstimatedKeplerianState_;
+
+    //! Vector denoting Keplerian elements at apoapsis.
+    /*!
+     *  Vector denoting Keplerian elements at apoapsis. This vector is used by the Periapse Time Estimator to extract the
+     *  information on semi-major axis and eccentricity.
+     */
+    Eigen::Vector6d estimatedKeplerianStateAtApoapsis_;
 
     //! Pointer to root-finder used to esimated the time of periapsis.
     boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;

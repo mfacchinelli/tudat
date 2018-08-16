@@ -9,6 +9,7 @@
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 #include "Tudat/Mathematics/BasicMathematics/nearestNeighbourSearch.h"
+#include "Tudat/Mathematics/BasicMathematics/numericalDerivative.h"
 
 namespace tudat
 {
@@ -53,7 +54,26 @@ Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Ei
     jacobianMatrix( 5, 2 ) = gravityRecurringTerm * ( 3.0 * currentState[ 2 ] *
             currentState[ 2 ] / radialDistanceSquared - 1.0 );
 
-    // Add terms due to aerodynamic acceleration
+//    // Add terms due to aerodynamic acceleration
+//    Eigen::Vector6d perturbation;
+//    double densityDerivative;
+//    double currentVelocityParameter;
+//    for ( unsigned int i = 0; i < 3; i++ )
+//    {
+//        currentVelocityParameter = currentState[ i ] * std::fabs( currentState[ i ] );
+//        for ( unsigned int j = 0; j < 3; j++ )
+//        {
+//            // Set perturbing parameter to 100 meters in the current dimesion
+//            perturbation.setZero( );
+//            perturbation[ j ] = 100.0;
+
+//            // Compute derivative numerically and add to Jacobian
+//            densityDerivative = numerical_derivatives::computeCentralDifference(
+//                        densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order8 );
+//            jacobianMatrix( 3 + i, j ) = - densityDerivative * aerodynamicParameter * currentVelocityParameter;
+//        }
+//    }
+
     double density = densityFunction( currentState.segment( 0, 6 ) );
     jacobianMatrix( 3, 3 ) = - density * aerodynamicParameter * std::fabs( currentState[ 3 ] );
     jacobianMatrix( 4, 4 ) = - density * aerodynamicParameter * std::fabs( currentState[ 4 ] );
@@ -64,18 +84,55 @@ Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Ei
 }
 
 //! Function to compute the Jacobian matrix for the measurement function.
-Eigen::Matrix3d computeMeasurementJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState )
+Eigen::Matrix< double, 3, 12 > computeMeasurementJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState,
+                                                                 const boost::function< double( const Eigen::Vector6d& ) >& densityFunction,
+                                                                 const double aerodynamicParameter )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare Jacobian matrix and set to zero
-    Eigen::Matrix3d jacobianMatrix = Eigen::Matrix3d::Zero( );
+    Eigen::Matrix< double, 3, 12 > jacobianMatrix = Eigen::Matrix< double, 3, 12 >::Zero( );
 
-    //
+    // Disregard terms due to derivative w.r.t. position (i.e., disregard density dependence on position)
+//    // Add terms due to derivative w.r.t. position
+//    Eigen::Vector6d perturbation;
+//    double densityDerivative;
+//    double currentVelocityParameter;
+//    for ( unsigned int i = 0; i < 3; i++ )
+//    {
+//        currentVelocityParameter = currentState[ i ] * std::fabs( currentState[ i ] );
+//        for ( unsigned int j = 0; j < 3; j++ )
+//        {
+//            // Set perturbing parameter to 100 meters in the current dimesion
+//            perturbation.setZero( );
+//            perturbation[ j ] = 100.0;
+
+//            // Compute derivative numerically and add to Jacobian
+//            densityDerivative = numerical_derivatives::computeCentralDifference(
+//                        densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order8 );
+//            jacobianMatrix( i, j ) = - densityDerivative * aerodynamicParameter * currentVelocityParameter;
+//        }
+//    }
+
+    // Add terms due to derivative w.r.t. velocity
+    double density = densityFunction( currentState.segment( 0, 6 ) );
+    jacobianMatrix( 0, 3 ) = - density * aerodynamicParameter * std::fabs( currentState[ 3 ] );
+    jacobianMatrix( 1, 4 ) = - density * aerodynamicParameter * std::fabs( currentState[ 4 ] );
+    jacobianMatrix( 2, 5 ) = - density * aerodynamicParameter * std::fabs( currentState[ 5 ] );
+
+    // Add terms due to accelerometer bias error
+    jacobianMatrix( 0, 6 ) = 1.0;
+    jacobianMatrix( 1, 7 ) = 1.0;
+    jacobianMatrix( 2, 8 ) = 1.0;
+
+    // Add terms due to accelerometer scaling error
+    double aerodynamicAcceleration = - density * aerodynamicParameter * currentState.segment( 3, 3 ).squaredNorm( );
+    jacobianMatrix( 0, 9 ) = aerodynamicAcceleration;
+    jacobianMatrix( 1, 10 ) = aerodynamicAcceleration;
+    jacobianMatrix( 2, 11 ) = aerodynamicAcceleration;
 
     // Give output
     return jacobianMatrix;
-
 }
 
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.

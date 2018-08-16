@@ -129,11 +129,13 @@ public:
      *  allowed value (which depend on the spacecraft material properties), whereas the upper bound corresponds to the altitude
      *  where the dynamic pressure is higher than the minimum allowed value (which depends on the total aerobraking duration).
      *  \param currentTime
+     *  \param currentEstimatedCartesianState
      *  \param currentEstimatedKeplerianState
      *  \param planetaryRadius
      *  \param planetaryGravitationalParameter
      */
     void runCorridorEstimator( const double currentTime,
+                               const Eigen::Vector6d& currentEstimatedCartesianState,
                                const Eigen::Vector6d& currentEstimatedKeplerianState,
                                const double planetaryRadius,
                                const double planetaryGravitationalParameter );

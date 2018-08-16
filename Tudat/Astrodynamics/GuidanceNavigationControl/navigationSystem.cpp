@@ -68,7 +68,7 @@ void NavigationSystem::createNavigationSystemObjects(
                     navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel,
                     boost::bind( &computeSystemJacobianMatrix, _1, _2, densityFunction, planetaryGravitationalParameter_, aerodynamicParameters ),
                     boost::lambda::constant( Eigen::Matrix12d::Identity( ) ),
-                    boost::bind( &computeMeasurementJacobianMatrix, _1, _2 ),
+                    boost::bind( &computeMeasurementJacobianMatrix, _1, _2, densityFunction, aerodynamicParameters ),
                     boost::lambda::constant( Eigen::Matrix3d::Identity( ) ) );
         break;
     }
@@ -91,6 +91,9 @@ void NavigationSystem::createNavigationSystemObjects(
     setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
     // this function also automatically stores the full state estimates at the current time
 
+    // Store the apoapsis value of Keplerian state for the Periapse Time Estimator
+    estimatedKeplerianStateAtApoapsis_ = currentEstimatedKeplerianState_;
+
     // Update body and acceleration maps
     updateOnboardModel( );
 
@@ -108,11 +111,16 @@ void NavigationSystem::createNavigationSystemObjects(
                                           propagators::local_aerodynamic_heat_rate_dependent_variable, spacecraftName_, planetName_ ) );
 
     // Create object for propagation of spacecraft state with user-provided initial conditions
-    onboardIntegratorSettings_ = boost::make_shared< numerical_integrators::IntegratorSettings< double > >(
-                numerical_integrators::rungeKutta4, 0.0, 10.0 );
+    onboardIntegratorSettings_ =
+            boost::make_shared< numerical_integrators::RungeKuttaVariableStepSizeSettings< double, Eigen::VectorXd > >(
+                numerical_integrators::rungeKuttaVariableStepSize, 0.0, 10.0,
+                numerical_integrators::RungeKuttaCoefficients::rungeKuttaFehlberg56, 1e-5, 1e5, 1.0e-12, 1.0e-12 );
+//            boost::make_shared< numerical_integrators::IntegratorSettings< double > >(
+//                numerical_integrators::rungeKutta4, 0.0, 10.0 );
     onboardPropagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< double > >(
                 std::vector< std::string >( 1, planetName_ ), onboardAccelerationModelMap_,
-                std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ), 0.0, propagators::cowell,
+                std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ),
+                0.0, propagators::unified_state_model_exponential_map,
                 boost::make_shared< propagators::DependentVariableSaveSettings >( dependentVariablesList, false ) );
 }
 
@@ -146,24 +154,25 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
             statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
 
-//    // Calibrate accelerometer errors if it is the first orbit
-//    if ( !atmosphereEstimatorInitialized_ )
-//    {
-//        // Inform user
-//        std::cout << "Calibrating Accelerometer." << std::endl;
+    // Calibrate accelerometer errors if it is the first orbit
+    if ( !atmosphereEstimatorInitialized_ )
+    {
+        // Inform user
+        std::cout << "Calibrating Accelerometer." << std::endl;
 
-//        // Initial estimate on error values
-//        Eigen::Vector6d initialErrorEstimate = Eigen::Vector6d::Zero( );
+        // Initial estimate on error values
+        Eigen::Vector6d initialErrorEstimate = Eigen::Vector6d::Zero( );
 
-//        // Use non-linear least squares to solve for optimal value of errors
-//        estimatedAccelerometerErrors_ =
-//                linear_algebra::nonLinearLeastSquaresFit( boost::bind( &accelerometerErrorEstimationFunction, _1,
-//                                                                       vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
-//                                                          initialErrorEstimate,
-//                                                          utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
-//                                                              mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
-//    }
-    std::cout << "UKF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ).transpose( ) << std::endl;
+        // Use non-linear least squares to solve for optimal value of errors
+        estimatedAccelerometerErrors_ =
+                linear_algebra::nonLinearLeastSquaresFit( boost::bind( &accelerometerErrorEstimationFunction, _1,
+                                                                       vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
+                                                          initialErrorEstimate,
+                                                          utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
+                                                              mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
+    }
+    std::cout << "Est: " << estimatedAccelerometerErrors_.transpose( ) << std::endl
+              << "KF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ).transpose( ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
@@ -204,9 +213,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
     areaBisectionRootFinder_->resetBoundaries(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
 
-    // Get intermediate variables
-    Eigen::Vector6d initialEstimatedKeplerianState = estimatedKeplerianStateBelowAtmosphericInterface.col( 0 );
-
     // Set root-finder function as the area below the acceleration curve
     double estimatedActualPeriapseTime = areaBisectionRootFinder_->execute(
                 boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
@@ -224,43 +230,43 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // periapsis is zero by definition
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
-    double estimatedChangeInVelocity = - numerical_quadrature::performExtendedSimpsonsQuadrature(
+    double estimatedChangeInVelocity = - periapseEstimatorConstant_ * numerical_quadrature::performExtendedSimpsonsQuadrature(
                 navigationRefreshStepSize_, vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
     std::cout << "Estimated Change in Velocity: " << estimatedChangeInVelocity << " m/s" << std::endl;
 
     // Compute estimated mean motion by using the semi-major axis at beginning of atmospheric phase
     double initialEstimatedMeanMotion = std::sqrt( planetaryGravitationalParameter_ /
-                                                   std::pow( initialEstimatedKeplerianState[ 0 ], 3 ) );
+                                                   std::pow( estimatedKeplerianStateAtApoapsis_[ 0 ], 3 ) );
 
     // Compute estimated change in semi-major axis due to change in velocity
     // This value is computed by assuming that the change in velocity occurs at pericenter and is given by
     // by an impulsive shot. Also here, the eccentricity at the beginning of the atmospheric phase is used
     double estimatedChangeInSemiMajorAxisDueToChangeInVelocity = 2.0 / initialEstimatedMeanMotion * std::sqrt(
-                ( 1.0 + initialEstimatedKeplerianState[ 1 ] ) /
-            ( 1.0 - initialEstimatedKeplerianState[ 1 ] ) ) * estimatedChangeInVelocity;
+                ( 1.0 + estimatedKeplerianStateAtApoapsis_[ 1 ] ) /
+            ( 1.0 - estimatedKeplerianStateAtApoapsis_[ 1 ] ) ) * estimatedChangeInVelocity;
     std::cout << "Estimated Change in Semi-major Axis: " <<
                  estimatedChangeInSemiMajorAxisDueToChangeInVelocity << " m" << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
     double estimatedChangeInSemiMajorAxisFromKeplerianStateHistory =
-            currentEstimatedKeplerianState_[ 0 ] - initialEstimatedKeplerianState[ 0 ];
-    double estimatedErrorInSemiMajorAxis = estimatedChangeInSemiMajorAxisDueToChangeInVelocity -
-            estimatedChangeInSemiMajorAxisFromKeplerianStateHistory;
+            currentEstimatedKeplerianState_[ 0 ] - estimatedKeplerianStateAtApoapsis_[ 0 ];
+    double estimatedErrorInSemiMajorAxis = estimatedChangeInSemiMajorAxisFromKeplerianStateHistory
+            - estimatedChangeInSemiMajorAxisDueToChangeInVelocity;
     std::cout << "Estimated Error in Semi-major Axis: " << estimatedErrorInSemiMajorAxis << " m" << std::endl;
 
     // Compute estimated change in eccentricity due to change in velocity
     // The same assumption as for the case above holds
-    double estimatedChangeInEccentricityDueToChangeInVelocity = 2.0 * std::sqrt( initialEstimatedKeplerianState[ 0 ] *
-            ( 1 - std::pow( initialEstimatedKeplerianState[ 1 ], 2 ) ) / planetaryGravitationalParameter_ ) *
+    double estimatedChangeInEccentricityDueToChangeInVelocity = 2.0 * std::sqrt( estimatedKeplerianStateAtApoapsis_[ 0 ] *
+            ( 1 - std::pow( estimatedKeplerianStateAtApoapsis_[ 1 ], 2 ) ) / planetaryGravitationalParameter_ ) *
             estimatedChangeInVelocity;
     std::cout << "Estimated Change in Eccentricity: " <<
                  estimatedChangeInEccentricityDueToChangeInVelocity << std::endl;
 
     // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
     double estimatedChangeInEccentricityFromKeplerianStateHistory =
-            currentEstimatedKeplerianState_[ 1 ] - initialEstimatedKeplerianState[ 1 ];
-    double estimatedErrorInEccentricity = estimatedChangeInEccentricityDueToChangeInVelocity -
-            estimatedChangeInEccentricityFromKeplerianStateHistory;
+            currentEstimatedKeplerianState_[ 1 ] - estimatedKeplerianStateAtApoapsis_[ 1 ];
+    double estimatedErrorInEccentricity = estimatedChangeInEccentricityFromKeplerianStateHistory -
+            estimatedChangeInEccentricityDueToChangeInVelocity;
     std::cout << "Estimated Error in Eccentricity: " << estimatedErrorInEccentricity << std::endl;
 
     // Combine errors to produce a vector of estimated error in Keplerian state
@@ -268,7 +274,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
     estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
     estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
-    estimatedErrorInKeplerianState /= 2.0;
+//    estimatedErrorInKeplerianState /= 2.0;
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
     // Compute updated estimate in Keplerian state at current time by removing the estimated error

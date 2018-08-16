@@ -57,6 +57,7 @@ public:
         // Define internal variables
         maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with possible need to perform a maneuver
         atmosphericPhaseComplete_ = false;
+        deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( TUDAT_NAN ) );
         atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
 
         // Create acceleration functions
@@ -111,6 +112,15 @@ public:
         navigationSystem_->determineNavigationPhase( );
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
 
+        // Check if it is time for a Deep Space Network update
+        unsigned int currentDay = static_cast< unsigned int >( ( currentTime - initialTime_ ) / physical_constants::JULIAN_DAY );
+        if ( ( ( currentDay % navigationSystem_->getFrequencyOfDeepSpaceNetworkTracking( ) ) == 0 ) &&
+             ( currentDay != deepSpaceNetworkTrackingInformation_.second ) && !deepSpaceNetworkTrackingInformation_.first )
+        {
+            deepSpaceNetworkTrackingInformation_.first = true;
+            deepSpaceNetworkTrackingInformation_.second = currentDay;
+        }
+
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
         double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
@@ -119,10 +129,20 @@ public:
             // Inform user
             std::cout << "Reached apoapsis. Preparing to perform maneuver." << std::endl;
 
+            // Process Deep Space Network tracking data
+            if ( deepSpaceNetworkTrackingInformation_.first )
+            {
+                deepSpaceNetworkTrackingInformation_.first = false;
+                navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
+            }
+
+            // Store new value of apoapsis Keplerian state
+            navigationSystem_->setEstimatedApoapsisKeplerianState( );
+
             // Determine in which phase of aerobraking the spacecraft is and perform corridor estimation
             guidanceSystem_->determineAerobrakingPhase( currentEstimatedState.second,
                                                         navigationSystem_->getAtmosphereInitiationIndicators( ) );
-            guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.second,
+            guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
                                                    navigationSystem_->getRadius( ),
                                                    navigationSystem_->getStandardGravitationalParameter( ) );
 
@@ -151,7 +171,7 @@ public:
             }
 
             // Run house keeping routines
-            runHouseKeepingRoutines( );
+//            runHouseKeepingRoutines( );
 
             // Step up orbit counter
             navigationSystem_->currentOrbitCounter_++;
@@ -206,7 +226,7 @@ public:
     bool isAerobrakingComplete( )
     {
         dummyCallCounter_++;
-        return ( dummyCallCounter_ > 0 );
+        return ( dummyCallCounter_ > 1 );
     }
 
 private:
@@ -239,6 +259,9 @@ private:
 
     //! Boolean denoting whether the atmospheric phase for this orbit has been complete.
     bool atmosphericPhaseComplete_;
+
+    //! Pair denoting whether the Deep Space Network tracking is to be performed and the last day it was performed.
+    std::pair< bool, unsigned int > deepSpaceNetworkTrackingInformation_;
 
     //! Double denoting the atmospheric interface altitude.
     double atmosphericInterfaceRadius_;

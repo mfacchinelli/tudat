@@ -50,9 +50,13 @@ Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Ei
  *  Function to compute the Jacobian matrix for the measurement function.
  *  \param currentTime Double denoting current time.
  *  \param currentState Vector denoting current state as given by filter.
+ *  \param densityFunction Function returning the density corresponding to the input Cartesian state.
+ *  \param aerodynamicParameter Double denoting the aerodynamic parameter of the spacecraft.
  *  \return Jacobian matrix for the measurement function at the current state.
  */
-Eigen::Matrix3d computeMeasurementJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState );
+Eigen::Matrix< double, 3, 12 > computeMeasurementJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState,
+                                                                 const boost::function< double( const Eigen::Vector6d& ) >& densityFunction,
+                                                                 const double aerodynamicParameter );
 
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
 /*!

@@ -13,6 +13,7 @@ namespace guidance_navigation_control
 
 //! Function to run corridor estimator (CE).
 void GuidanceSystem::runCorridorEstimator( const double currentTime,
+                                           const Eigen::Vector6d& currentEstimatedCartesianState,
                                            const Eigen::Vector6d& currentEstimatedKeplerianState,
                                            const double planetaryRadius,
                                            const double planetaryGravitationalParameter )
@@ -31,8 +32,7 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
 
     // Propagate state for two thirds of the orbit
     std::map< double, Eigen::VectorXd > unaffectedPropagatedState =
-            reducedStatePropagationFunction_( orbital_element_conversions::convertKeplerianToCartesianElements(
-                                                  currentEstimatedKeplerianState, planetaryGravitationalParameter ) ).first;
+            reducedStatePropagationFunction_( currentEstimatedCartesianState ).first;
 
     // Retrieve periapsis altitude
     unsigned int i = 0;
