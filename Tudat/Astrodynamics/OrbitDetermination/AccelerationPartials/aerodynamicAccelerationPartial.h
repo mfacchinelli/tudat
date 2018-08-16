@@ -243,7 +243,6 @@ protected:
                 -0.5 * flightConditions_->getCurrentDensity( ) * currentAirspeed * currentAirspeed *
                 flightConditions_->getAerodynamicCoefficientInterface( )->getReferenceArea( ) ) /
                 aerodynamicAcceleration_->getCurrentMass( );
-
     }
 
     //! Perturbations of Cartesian state used in the numerical (central difference) computation of
