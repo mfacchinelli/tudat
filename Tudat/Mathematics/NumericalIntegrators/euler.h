@@ -7,6 +7,8 @@
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
  *
+ *    References
+ *
  */
 
 #ifndef TUDAT_EULER_INTEGRATOR_H
@@ -173,6 +175,21 @@ public:
         this->lastIndependentVariable_ = currentIndependentVariable_;
     }
 
+    //! Modify the state and time for the current step.
+    /*!
+     * Modify the state and time for the current step.
+     * \param newState The new state to set the current state to.
+     * \param newTime The time to set the current time to.
+     */
+    void modifyCurrentIntegrationVariables( const StateType& newState, const IndependentVariableType newTime = 0 )
+    {
+        this->currentState_ = newState;
+        if ( !( newTime == 0 ) )
+        {
+            this->currentIndependentVariable_ = newTime;
+        }
+    }
+
 protected:
 
     //! Last used step size.
@@ -195,7 +212,7 @@ protected:
 
     //! Last independent variable.
     /*!
-     * Last independent variable value as computed by performIntegrationStep().
+     * Last independent variable value as computed by performIntegrationStep( ).
      */
     IndependentVariableType lastIndependentVariable_;
 

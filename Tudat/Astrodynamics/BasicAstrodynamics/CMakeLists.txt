@@ -27,7 +27,6 @@ set(BASICASTRODYNAMICS_SOURCES
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/unifiedStateModelExponentialMapElementConversions.cpp"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/stateRepresentationConversions.cpp"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/torqueModelTypes.cpp"
-  "${SRCROOT}${BASICASTRODYNAMICSDIR}/quaternionHistoryManipulation.cpp"
 )
 
 # Set the header files.
@@ -38,6 +37,7 @@ set(BASICASTRODYNAMICS_HEADERS
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/celestialBodyConstants.h"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/convertMeanToEccentricAnomalies.h"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/clohessyWiltshirePropagator.h"
+  "${SRCROOT}${BASICASTRODYNAMICSDIR}/customTorque.h"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/geodeticCoordinateConversions.h"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/keplerPropagator.h"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/missionGeometry.h"
@@ -63,7 +63,6 @@ set(BASICASTRODYNAMICS_HEADERS
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/empiricalAcceleration.h"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/torqueModel.h"
   "${SRCROOT}${BASICASTRODYNAMICSDIR}/torqueModelTypes.h"
-  "${SRCROOT}${BASICASTRODYNAMICSDIR}/quaternionHistoryManipulation.h"
 )
 
 # Add static libraries.

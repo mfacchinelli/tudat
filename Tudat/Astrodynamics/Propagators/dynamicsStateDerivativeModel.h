@@ -223,7 +223,7 @@ public:
 
             variationalEquations_->evaluateVariationalEquations< StateScalarType >(
                         time, state.block( 0, 0, totalConventionalStateSize_, variationalEquations_->getNumberOfParameterValues( ) ),
-                        stateDerivative_.block( 0, 0, totalConventionalStateSize_, variationalEquations_->getNumberOfParameterValues( ) )  );
+                        stateDerivative_.block( 0, 0, totalConventionalStateSize_, variationalEquations_->getNumberOfParameterValues( ) ) );
         }
 
         // Update counters
@@ -244,7 +244,8 @@ public:
     Eigen::MatrixXd computeStateDoubleDerivative(
             const double time, const Eigen::MatrixXd& state )
     {
-        return computeStateDerivative( static_cast< TimeType >( time ), state.template cast< StateScalarType >( ) ).template cast< double >( );
+        return computeStateDerivative( static_cast< TimeType >( time ),
+                                       state.template cast< StateScalarType >( ) ).template cast< double >( );
     }
 
     //! Function to convert the state in the conventional form to the propagator-specific form.
@@ -411,66 +412,6 @@ public:
         }
     }
 
-    //! Function to process the state history after propagation.
-    /*!
-     * Function to process the state history after propagation.
-     * \param unprocessedConventionalStateHistory Conventional state history before processing.
-     * \param propagatedStateHistory Propagated state history.
-     * \return Processed conventional state history (returned by reference).
-     */
-    void processConventionalStateHistory(
-            std::map< TimeType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > >& unprocessedConventionalStateHistory,
-            const std::map< TimeType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > >& propagatedStateHistory )
-    {
-        // Iterate over all state derivative models and post-process associated state entries
-        std::vector< std::pair< int, int > > currentIndices;
-        std::map< TimeType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > > currentConventionalStateHistory;
-        std::map< TimeType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > > currentPropagatedStateHistory;
-        for( stateDerivativeModelsIterator_ = stateDerivativeModels_.begin( );
-             stateDerivativeModelsIterator_ != stateDerivativeModels_.end( );
-             stateDerivativeModelsIterator_++ )
-        {
-            currentIndices = propagatedStateIndices_.at( stateDerivativeModelsIterator_->first );
-            for( unsigned int i = 0; i < stateDerivativeModelsIterator_->second.size( ); i++ )
-            {
-                if ( stateDerivativeModelsIterator_->second.at( i )->isConventionalStateHistoryToBeProcessed( ) )
-                {
-                    // Merge history of one body into one map
-                    for ( typename std::map< TimeType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > >::const_iterator
-                          stateHistoryIterator = unprocessedConventionalStateHistory.begin( );
-                          stateHistoryIterator != unprocessedConventionalStateHistory.end( ); stateHistoryIterator++ )
-                    {
-                        currentConventionalStateHistory[ stateHistoryIterator->first ] =
-                                stateHistoryIterator->second.block( currentIndices.at( i ).first, 0,
-                                                                    currentIndices.at( i ).second, 1 );
-                        currentPropagatedStateHistory[ stateHistoryIterator->first ] =
-                                propagatedStateHistory.at( stateHistoryIterator->first ).block(
-                                    currentIndices.at( i ).first, 0,
-                                    currentIndices.at( i ).second, 1 );
-                    }
-
-                    // Process history
-                    stateDerivativeModelsIterator_->second.at( i )->processConventionalStateHistory(
-                                currentConventionalStateHistory, currentPropagatedStateHistory );
-
-                    // Replace old elements with new
-                    for ( typename std::map< TimeType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > >::iterator
-                          stateHistoryIterator = unprocessedConventionalStateHistory.begin( );
-                          stateHistoryIterator != unprocessedConventionalStateHistory.end( ); stateHistoryIterator++ )
-                    {
-                        stateHistoryIterator->second.block( currentIndices.at( i ).first, 0,
-                                                            currentIndices.at( i ).second, 1 ) =
-                                currentConventionalStateHistory[ stateHistoryIterator->first ];
-                    }
-
-                    // Clear current state history
-                    currentConventionalStateHistory.clear( );
-                    currentPropagatedStateHistory.clear( );
-                }
-            }
-        }
-    }
-
     //! Function to add variational equations to the state derivative model
     /*!
      * Function to add variational equations to the state derivative model.
@@ -596,7 +537,7 @@ public:
      * \return Number of calls to the computeStateDerivative function since object creation/last call to
      * resetFunctionEvaluationCounter function
      */
-    int getNumberOfFunctionEvaluations( )
+    unsigned int getNumberOfFunctionEvaluations( )
     {
         return functionEvaluationCounter_;
     }
@@ -618,7 +559,7 @@ public:
      * \return Number of calls to the computeStateDerivative function since object creation/last call to
      * resetFunctionEvaluationCounter function
      */
-    std::map< TimeType, TimeType > getCumulativeNumberOfFunctionEvaluations( )
+    std::map< TimeType, unsigned int > getCumulativeNumberOfFunctionEvaluations( )
     {
         return cumulativeFunctionEvaluationCounter_;
     }
@@ -758,10 +699,10 @@ private:
     currentStatesPerTypeInConventionalRepresentation_;
 
     //! Variable to keep track of the number of calls to the computeStateDerivative function
-    int functionEvaluationCounter_ = 0;
+    unsigned int functionEvaluationCounter_ = 0;
 
     //! Variable to keep track of the number of calls to the computeStateDerivative function per time step
-    std::map< TimeType, TimeType > cumulativeFunctionEvaluationCounter_;
+    std::map< TimeType, unsigned int > cumulativeFunctionEvaluationCounter_;
 };
 
 //! Function to retrieve a single given acceleration model from a list of models

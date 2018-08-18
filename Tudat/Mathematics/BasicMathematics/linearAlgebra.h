@@ -7,6 +7,8 @@
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
  *
+ *    References:
+ *      Ogata, K., Discrete-Time Control Systems, 2nd ed. Pearson Education Asia, 2002.
  */
 
 #ifndef TUDAT_LINEAR_ALGEBRA_H
@@ -21,6 +23,7 @@
 #include <Eigen/Geometry>
 
 #include "Tudat/Basics/basicTypedefs.h"
+
 namespace tudat
 {
 
@@ -43,25 +46,21 @@ Eigen::Vector4d convertQuaternionToVectorFormat( const Eigen::Quaterniond& quate
  */
 Eigen::Quaterniond convertVectorToQuaternionFormat( const Eigen::Vector4d& vector );
 
-//! Function to compute the direction cosine matrix from a quaternion expressed as a Vector4d.
+//! Function to take the product of two quaternions.
 /*!
- * Function to compute the direction cosine matrix from a quaternion expressed as a Vector4d.
- * \param quaternionAsVector Four dimensional vector, expressing rotation.
- * \param returnInverseRotationMatrix Boolean to toggle inverse matrix.
- * \return Direction cosine matrix of rotation.
+ *  Function to take the product of two quaternions, both expressed as vectors.
+ *  \param firstQuaternion First quaternion expressed as vector.
+ *  \param secondQuaternion Second quaternion expressed as vector.
+ *  \return Product of the two quaternions.
  */
-Eigen::Matrix3d computeDirectionCosineMatrixFromQuaternions(
-        const Eigen::Vector4d& quaternionsAsVector, const bool returnInverseRotationMatrix = false );
+Eigen::Vector4d quaternionProduct( const Eigen::Vector4d& firstQuaternion, const Eigen::Vector4d& secondQuaternion );
 
-//! Function to compute the direction cosine matrix from a quaternion expressed as a Quaterniond.
+//! Function to invert a quaternion.
 /*!
- * Function to compute the direction cosine matrix from a quaternion expressed as a Quaterniond.
- * \param quaternionAsVector Quaterniond expressing rotation.
- * \param returnInverseRotationMatrix Boolean to toggle inverse matrix.
- * \return Direction cosine matrix of rotation.
+ *  Function to invert a quaternion.
+ *  \param quaternionVector Quaternion expressed as vector.
  */
-Eigen::Matrix3d computeDirectionCosineMatrixFromQuaternions(
-        const Eigen::Quaterniond& quaternionsAsQuaternion, const bool returnInverseRotationMatrix = false );
+void invertQuaternion( Eigen::Vector4d& quaternionVector );
 
 //! Function that returns that 'cross-product matrix'
 /*!

@@ -26,13 +26,6 @@ namespace tudat
 namespace input_output
 {
 
-//! Function to print to console which aerodynamic coefficients are being saved.
-/*!
- *  Function to print to console which aerodynamic coefficients are being saved.
- *  \param index Index of coefficient to be saved.
- */
-void informUserOnSavedCoefficient( const int index );
-
 //! Interface class for writing coefficients as a function of N independent variables to a file.
 /*!
  *  Interface class for writing coefficients as a function of N independent variables to a file. This class is used instead
@@ -57,7 +50,6 @@ public:
      *  \param dependentVariables Multi-array of dependent variables for each independent variable.
      */
     static void writeMultiArrayAndIndependentVariablesToFiles( const std::string& fileName,
-                                                               const std::string& outputDirectory,
                                                                const std::vector< int >& coefficientIndices,
                                                                const std::vector< std::vector< double > >& independentVariables,
                                                                const boost::multi_array< Eigen::Matrix< double, NumberOfCoefficients,
@@ -74,7 +66,6 @@ public:
      *  \param dependentVariables Multi-array of dependent variables for each independent variable.
      */
     static void writeMultiArrayAndIndependentVariablesToFiles( const std::map< int, std::string >& fileNamesMap,
-                                                               const std::string& outputDirectory,
                                                                const std::vector< std::vector< double > >& independentVariables,
                                                                const boost::multi_array< Eigen::Matrix< double, NumberOfCoefficients,
                                                                1 >, NumberOfIndependentVariables >& dependentVariables );
@@ -99,7 +90,6 @@ public:
      *  \param dependentVariables Multi-array of dependent variables for each independent variable.
      */
     static void writeMultiArrayAndIndependentVariablesToFiles( const std::string& fileName,
-                                                               const std::string& outputDirectory,
                                                                const std::vector< int >& coefficientIndices,
                                                                const std::vector< std::vector< double > >& independentVariables,
                                                                const boost::multi_array< Eigen::Matrix< double, NumberOfCoefficients,
@@ -124,19 +114,13 @@ public:
         }
 
         // Create directory (if it does not exist)
-        if ( !boost::filesystem::exists( outputDirectory ) )
+        if ( !boost::filesystem::exists( boost::filesystem::path( fileName ).parent_path( ) ) )
         {
-            boost::filesystem::create_directories( outputDirectory );
-        }
-
-        // Inform user on which variable is being saved
-        for ( int index: coefficientIndices )
-        {
-            informUserOnSavedCoefficient( index );
+            boost::filesystem::create_directories( boost::filesystem::path( fileName ).parent_path( ) );
         }
 
         // Open file
-        std::string filePath = outputDirectory + fileName;
+        std::string filePath = fileName;
         FILE * fileIdentifier = std::fopen( filePath.c_str( ), "w" );
 
         // Loop over independent variable rows
@@ -168,7 +152,6 @@ public:
      *  \param dependentVariables Multi-array of dependent variables for each independent variable.
      */
     static void writeMultiArrayAndIndependentVariablesToFiles( const std::map< int, std::string >& fileNamesMap,
-                                                               const std::string& outputDirectory,
                                                                const std::vector< std::vector< double > >& independentVariables,
                                                                const boost::multi_array< Eigen::Matrix< double, NumberOfCoefficients,
                                                                1 >, 1 >& dependentVariables )
@@ -191,23 +174,20 @@ public:
                                       "Number of independent variables does not match size of independent variables vector." );
         }
 
-        // Create directory (if it does not exist)
-        if ( !boost::filesystem::exists( outputDirectory ) )
-        {
-            boost::filesystem::create_directories( outputDirectory );
-        }
-
         // Loop over each file
         std::string filePath;
         FILE * fileIdentifier;
         for ( std::map< int, std::string >::const_iterator fileIterator = fileNamesMap.begin( );
               fileIterator != fileNamesMap.end( ); fileIterator++ )
         {
-            // Inform user on which variable is being saved
-            informUserOnSavedCoefficient( fileIterator->first );
+            // Create directory (if it does not exist)
+            if ( !boost::filesystem::exists( boost::filesystem::path( fileIterator->second ).parent_path( ) ) )
+            {
+                boost::filesystem::create_directories( boost::filesystem::path( fileIterator->second ).parent_path( ) );
+            }
 
             // Open file
-            filePath = outputDirectory + fileIterator->second;
+            filePath = fileIterator->second;
             fileIdentifier = std::fopen( filePath.c_str( ), "w" );
 
             // Print number of independent variables
@@ -255,7 +235,6 @@ public:
      *  \param dependentVariables Multi-array of dependent variables for each independent variable.
      */
     static void writeMultiArrayAndIndependentVariablesToFiles( const std::map< int, std::string >& fileNamesMap,
-                                                               const std::string& outputDirectory,
                                                                const std::vector< std::vector< double > >& independentVariables,
                                                                const boost::multi_array< Eigen::Matrix< double, NumberOfCoefficients,
                                                                1 >, 2 >& dependentVariables )
@@ -278,23 +257,20 @@ public:
                                       "Number of independent variables does not match size of independent variables vector." );
         }
 
-        // Create directory (if it does not exist)
-        if ( !boost::filesystem::exists( outputDirectory ) )
-        {
-            boost::filesystem::create_directories( outputDirectory );
-        }
-
         // Loop over each file
         std::string filePath;
         FILE * fileIdentifier;
         for ( std::map< int, std::string >::const_iterator fileIterator = fileNamesMap.begin( );
               fileIterator != fileNamesMap.end( ); fileIterator++ )
         {
-            // Inform user on which variable is being saved
-            informUserOnSavedCoefficient( fileIterator->first );
+            // Create directory (if it does not exist)
+            if ( !boost::filesystem::exists( boost::filesystem::path( fileIterator->second ).parent_path( ) ) )
+            {
+                boost::filesystem::create_directories( boost::filesystem::path( fileIterator->second ).parent_path( ) );
+            }
 
             // Open file
-            filePath = outputDirectory + fileIterator->second;
+            filePath = fileIterator->second;
             fileIdentifier = std::fopen( filePath.c_str( ), "w" );
 
             // Print number of independent variables
@@ -345,7 +321,6 @@ public:
      *  \param dependentVariables Multi-array of dependent variables for each independent variable.
      */
     static void writeMultiArrayAndIndependentVariablesToFiles( const std::map< int, std::string >& fileNamesMap,
-                                                               const std::string& outputDirectory,
                                                                const std::vector< std::vector< double > >& independentVariables,
                                                                const boost::multi_array< Eigen::Matrix< double, NumberOfCoefficients,
                                                                1 >, 3 >& dependentVariables )
@@ -368,23 +343,20 @@ public:
                                       "Number of independent variables does not match size of independent variables vector." );
         }
 
-        // Create directory (if it does not exist)
-        if ( !boost::filesystem::exists( outputDirectory ) )
-        {
-            boost::filesystem::create_directories( outputDirectory );
-        }
-
         // Loop over each file
         std::string filePath;
         FILE * fileIdentifier;
         for ( std::map< int, std::string >::const_iterator fileIterator = fileNamesMap.begin( );
               fileIterator != fileNamesMap.end( ); fileIterator++ )
         {
-            // Inform user on which variable is being saved
-            informUserOnSavedCoefficient( fileIterator->first );
+            // Create directory (if it does not exist)
+            if ( !boost::filesystem::exists( boost::filesystem::path( fileIterator->second ).parent_path( ) ) )
+            {
+                boost::filesystem::create_directories( boost::filesystem::path( fileIterator->second ).parent_path( ) );
+            }
 
             // Open file
-            filePath = outputDirectory + fileIterator->second;
+            filePath = fileIterator->second;
             fileIdentifier = std::fopen( filePath.c_str( ), "w" );
 
             // Print number of independent variables

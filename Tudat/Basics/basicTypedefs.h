@@ -50,6 +50,9 @@ typedef Eigen::Matrix< float, 6, 6 > Matrix6f;
 //! Typedef for Matrix6d.
 typedef Eigen::Matrix< double, 6, 6 > Matrix6d;
 
+//! Typedef for Matrix7d.
+typedef Eigen::Matrix< double, 7, 7 > Matrix7d;
+
 //! Typedef for MatrixXi.
 typedef Eigen::Matrix< int, Eigen::Dynamic, Eigen::Dynamic > MatrixXi;
 
@@ -65,26 +68,8 @@ typedef Eigen::Matrix< float, Eigen::Dynamic, Eigen::Dynamic > MatrixXf;
 //! Typedef for MatrixXld.
 typedef Eigen::Matrix< long double, Eigen::Dynamic, Eigen::Dynamic > MatrixXld;
 
-//! Typedef for MatrixX1d.
-typedef Eigen::Matrix< double, Eigen::Dynamic, 1 > MatrixX1d;
-
-//! Typedef for MatrixX1ld.
-typedef Eigen::Matrix< long double, Eigen::Dynamic, 1 > MatrixX1ld;
-
-//! Typedef for MatrixX2d.
-typedef Eigen::Matrix< double, Eigen::Dynamic, 2 > MatrixX2d;
-
-//! Typedef for MatrixX3d.
-typedef Eigen::Matrix< double, Eigen::Dynamic, 3 > MatrixX3d;
-
-//! Typedef for Matrix1Xd.
-typedef Eigen::Matrix< double, 1, Eigen::Dynamic > Matrix1Xd;
-
-//! Typedef for Matrix2Xd.
-typedef Eigen::Matrix< double, 2, Eigen::Dynamic > Matrix2Xd;
-
-//! Typedef for Matrix3Xd.
-typedef Eigen::Matrix< double, 3, Eigen::Dynamic > Matrix3Xd;
+//! Typedef for VectorXld.
+typedef Eigen::Matrix< long double, Eigen::Dynamic, 1 > VectorXld;
 
 } // namespace Eigen
 

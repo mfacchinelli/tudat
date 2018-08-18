@@ -83,7 +83,7 @@ public:
     /*!
      * Calculates the state derivative of the system of equations for the given type of
      * dynamics. The environment and acceleration models (updateStateDerivativeModel) must be
-     * updated before calling this function. It returns the state derivative in teh form required
+     * updated before calling this function. It returns the state derivative in the form required
      * for the specific type of propagator used (defined by derived class).
      * \param time Time at which the state derivative is to be calculated.
      * \param stateOfSystemToBeIntegrated Current state of the system, in the form that the equations are propagated (i.e.
@@ -214,30 +214,6 @@ public:
      * \return Boolean informing whether the state needs to be post-processed.
      */
     virtual bool isStateToBePostProcessed( )
-    {
-        return false;
-    }
-
-    //! Function to process the state history after propagation.
-    /*!
-     * Function to process the state history after propagation.
-     * \param unprocessedConventionalStateHistory Conventional state history before processing.
-     * \param propagatedStateHistory Propagated state history.
-     * \return Processed conventional state history (returned by reference).
-     */
-    virtual void processConventionalStateHistory(
-            std::map< TimeType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > >& unprocessedConventionalStateHistory,
-            const std::map< TimeType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > >& propagatedStateHistory )
-    {
-
-    }
-
-    //! Function to return whether the state history needs to be processed.
-    /*!
-     * Function to return whether the state history needs to be processed. Default value is false.
-     * \return Boolean informing whether the state history needs to be processed.
-     */
-    virtual bool isConventionalStateHistoryToBeProcessed( )
     {
         return false;
     }

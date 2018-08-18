@@ -31,6 +31,7 @@
 
 namespace tudat
 {
+
 namespace numerical_integrators
 {
 
@@ -45,7 +46,7 @@ namespace numerical_integrators
  * \sa NumericalIntegrator.
  */
 template< typename IndependentVariableType = double, typename StateType = Eigen::VectorXd,
-           typename StateDerivativeType = StateType, typename TimeStepType = IndependentVariableType  >
+          typename StateDerivativeType = StateType, typename TimeStepType = IndependentVariableType  >
 class RungeKuttaVariableStepSizeIntegrator :
         public ReinitializableNumericalIntegrator<
         IndependentVariableType, StateType, StateDerivativeType, TimeStepType >
@@ -58,10 +59,9 @@ public:
      * function or a boost function.
      */
     typedef boost::function< std::pair< TimeStepType, bool >(
-            const TimeStepType, const TimeStepType,
-            const TimeStepType, const TimeStepType,
-            const StateType&, const StateType&,
-            const StateType&, const StateType& ) > NewStepSizeFunction;
+            const TimeStepType, const std::pair< TimeStepType, TimeStepType >&, const TimeStepType,
+            const std::pair< TimeStepType, TimeStepType >&, const StateType&,
+            const StateType&, const StateType&, const StateType& ) > NewStepSizeFunction;
 
     //! Typedef of the base class.
     /*!
@@ -308,6 +308,21 @@ public:
         this->lastIndependentVariable_ = currentIndependentVariable_;
     }
 
+    //! Modify the state and time for the current step.
+    /*!
+     * Modify the state and time for the current step.
+     * \param newState The new state to set the current state to.
+     * \param newTime The time to set the current time to.
+     */
+    void modifyCurrentIntegrationVariables( const StateType& newState, const IndependentVariableType newTime = 0 )
+    {
+        this->currentState_ = newState;
+        if ( !( newTime == 0 ) )
+        {
+            this->currentIndependentVariable_ = newTime;
+        }
+    }
+
     //! Function to toggle the use of step-size control
     /*!
      * Function to toggle the use of step-size control
@@ -327,7 +342,7 @@ protected:
      * \param lowerOrderEstimate The integrated result with the lower order coefficients.
      * \param higherOrderEstimate The integrated result with the higher order coefficients.
      * \param stepSize The step size used to obtain these results.
-     * \return True if teh error was within bounds, false otherwise.
+     * \return True if the error was within bounds, false otherwise.
      */
     virtual bool computeNextStepSizeAndValidateResult( const StateType& lowerOrderEstimate,
                                                        const StateType& higherOrderEstimate,
@@ -337,11 +352,12 @@ protected:
     /*!
      * Computes the new step size based on a generic definition of the local truncation error.
      * \param stepSize Integration step size of current step.
-     * \param lowerOrder Lower of the two orders of the two schemes used in variable step size
-     *          integration.
-     * \param higherOrder Higher of the two orders of the two schemes used in variable step size
-     *           integration.
+     * \param orders Pair of lower and higher orders of the two schemes used in variable step size
+     *           integration. Note that the order is important (lower first, higher second).
      * \param safetyFactorForNextStepSize Safety factor used to scale prediction of next step size.
+     * \param minimumAndMaximumFactorsForNextStepSize Pair of minimum and maximum safety factor
+     *          decrease and increase for computing the next step size. Note that the order is
+     *          important (minimum first, maximum second).
      * \param relativeErrorTolerance Allowable relative error between integrations using two
      *           schemes.
      * \param absoluteErrorTolerance Allowable relative error between integrations using two
@@ -352,9 +368,10 @@ protected:
      *           was succesfull, i.e. whether tolerances etc. are met.
      */
     virtual std::pair< TimeStepType, bool > computeNewStepSize(
-            const TimeStepType stepSize, const TimeStepType lowerOrder,
-            const TimeStepType higherOrder,
+            const TimeStepType stepSize,
+            const std::pair< TimeStepType, TimeStepType >& orders,
             const TimeStepType safetyFactorForNextStepSize,
+            const std::pair< TimeStepType, TimeStepType >& minimumAndMaximumFactorsForNextStepSize,
             const StateType& relativeErrorTolerance, const StateType& absoluteErrorTolerance,
             const StateType& lowerOrderEstimate, const StateType& higherOrderEstimate );
 
@@ -457,6 +474,7 @@ protected:
 
     //! Boolean denoting whether step size control is to be used
     bool useStepSizeControl_;
+
 };
 
 //! Perform a single integration step.
@@ -470,8 +488,7 @@ RungeKuttaVariableStepSizeIntegrator< IndependentVariableType, StateType, StateD
     currentStateDerivatives_.reserve( this->coefficients_.cCoefficients.rows( ) );
 
     // Define lower and higher order estimates.
-    StateType lowerOrderEstimate( this->currentState_ ),
-            higherOrderEstimate( this->currentState_ );
+    StateType lowerOrderEstimate( this->currentState_ ), higherOrderEstimate( this->currentState_ );
 
     // Compute the k_i state derivatives per stage.
     for ( int stage = 0; stage < this->coefficients_.cCoefficients.rows( ); stage++ )
@@ -482,8 +499,8 @@ RungeKuttaVariableStepSizeIntegrator< IndependentVariableType, StateType, StateD
         // Compute the intermediate state.
         for ( int column = 0; column < stage; column++ )
         {
-            intermediateState += stepSize * this->coefficients_.aCoefficients( stage, column )
-                    * currentStateDerivatives_[ column ];
+            intermediateState += stepSize * this->coefficients_.aCoefficients( stage, column ) *
+                    currentStateDerivatives_[ column ];
         }
 
         // Compute the state derivative.
@@ -550,10 +567,10 @@ RungeKuttaVariableStepSizeIntegrator< IndependentVariableType, StateType, StateD
         // Compute new step size using new step size function, which also returns whether the
         // relative error is within bounds or not.
         std::pair< TimeStepType, bool > newStepSizePair = this->newStepSizeFunction_(
-                    stepSize, this->coefficients_.lowerOrder, this->coefficients_.higherOrder,
-                    this->safetyFactorForNextStepSize_, this->relativeErrorTolerance_,
-                    this->absoluteErrorTolerance_, lowerOrderEstimate,
-                    higherOrderEstimate );
+                    stepSize, std::make_pair( this->coefficients_.lowerOrder, this->coefficients_.higherOrder ),
+                    this->safetyFactorForNextStepSize_, std::make_pair( this->minimumFactorDecreaseForNextStepSize_,
+                                                                        this->maximumFactorIncreaseForNextStepSize_ ),
+                    this->relativeErrorTolerance_, this->absoluteErrorTolerance_, lowerOrderEstimate, higherOrderEstimate );
 
         // Check whether change in stepsize does not exceed bounds.
         // If the stepsize is reduced to less than the prescibed minimum factor, set to minimum factor.
@@ -612,15 +629,15 @@ std::pair< TimeStepType, bool >
 RungeKuttaVariableStepSizeIntegrator< IndependentVariableType, StateType, StateDerivativeType, TimeStepType >
 ::computeNewStepSize(
         const TimeStepType stepSize,
-        const TimeStepType lowerOrder,
-        const TimeStepType higherOrder,
+        const std::pair< TimeStepType, TimeStepType >& orders,
         const TimeStepType safetyFactorForNextStepSize,
+        const std::pair< TimeStepType, TimeStepType >& minimumAndMaximumFactorsForNextStepSize,
         const StateType& relativeErrorTolerance,
         const StateType& absoluteErrorTolerance,
         const StateType& lowerOrderEstimate,
         const StateType& higherOrderEstimate )
 {
-    TUDAT_UNUSED_PARAMETER( lowerOrder);
+    TUDAT_UNUSED_PARAMETER( minimumAndMaximumFactorsForNextStepSize );
 
     // Compute the truncation error based on the higher and lower order estimates.
     const StateType truncationError_ =
@@ -645,7 +662,7 @@ RungeKuttaVariableStepSizeIntegrator< IndependentVariableType, StateType, StateD
     // Compute the new step size. This is based off of the equation given in
     // (Montenbruck and Gill, 2005).
     const TimeStepType newStepSize = safetyFactorForNextStepSize * stepSize
-            * std::pow( 1.0 / maximumErrorInState_, 1.0 / higherOrder );
+            * std::pow( 1.0 / maximumErrorInState_, 1.0 / orders.second );
 
     // Check if the current state can be accepted.
     const bool isIntegrationStepAccepted = maximumErrorInState_ <= 1.0;
@@ -691,7 +708,9 @@ public:
     TimeStepType requestedStepSize;
 
 protected:
+
 private:
+
 };
 
 //! Typedef of variable-step size Runge-Kutta integrator (state/state derivative = VectorXd,
@@ -707,6 +726,7 @@ typedef boost::shared_ptr< RungeKuttaVariableStepSizeIntegratorXd >
 RungeKuttaVariableStepSizeIntegratorXdPointer;
 
 } // namespace numerical_integrators
+
 } // namespace tudat
 
 #endif // TUDAT_RUNGE_KUTTA_VARIABLE_STEP_SIZE_INTEGRATOR_H

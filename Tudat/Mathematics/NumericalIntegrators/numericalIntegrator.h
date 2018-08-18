@@ -20,8 +20,12 @@
 
 #include <Eigen/Core>
 
+#include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
+#include "Tudat/Basics/timeType.h"
+
 namespace tudat
 {
+
 namespace numerical_integrators
 {
 
@@ -136,7 +140,7 @@ public:
     virtual StateType integrateTo(
             const IndependentVariableType intervalEnd,
             const TimeStepType initialStepSize,
-            const TimeStepType finalTimeTolerance = std::numeric_limits< TimeStepType >::epsilon( )  );
+            const TimeStepType finalTimeTolerance = std::numeric_limits< TimeStepType >::epsilon( ) );
 
     //! Perform a single integration step.
     /*!
@@ -184,11 +188,26 @@ public:
 
     //! Function to toggle the use of step-size control
     /*!
-     * Function to toggle the use of step-size control To be implemented in derived classes with variable step sizes
+     * Function to toggle the use of step-size control. To be implemented in derived classes with variable step sizes
      * \param useStepSizeControl Boolean denoting whether step size control is to be used
      */
-    virtual void setStepSizeControl( const bool useStepSizeControl )
-    { }
+    virtual void setStepSizeControl( const bool useStepSizeControl ) { }
+
+    //! Modify the state at the current value of the independent variable.
+    /*!
+     * Modify the state at the current value of the independent variable.
+     * \param newState The new state to set the current state to.
+     */
+    virtual void modifyCurrentState( const StateType& newState ) { }
+
+    //! Modify the state and time for the current step.
+    /*!
+     * Modify the state and time for the current step. This function is virtual, hence it
+     * can be implemented in all derived classes.
+     * \param newState The new state to set the current state to.
+     * \param newTime The time to set the current time to.
+     */
+    virtual void modifyCurrentIntegrationVariables( const StateType& newState, const IndependentVariableType newTime = 0 ) { }
 
 protected:
 
@@ -214,6 +233,7 @@ protected:
      *  checked during the integration subteps.
      */
     boost::function< bool( const double, const double ) > propagationTerminationFunction_ = boost::lambda::constant( false );
+
 };
 
 //! Perform an integration to a specified independent variable value.
@@ -247,7 +267,6 @@ StateType NumericalIntegrator< IndependentVariableType, StateType, StateDerivati
             // off errors, it may not be possible to use
             // ( currentIndependentVariable >= independentVariableEnd ) // in the while condition.
             atIntegrationIntervalEnd = true;
-
         }
 
         // Perform the step.
@@ -295,10 +314,10 @@ typedef boost::shared_ptr< NumericalIntegrator< > > NumericalIntegratorXdPointer
  * Typedef for shared-pointer to a scalar numerical integrator (IndependentVariableType = double,
  * StateType = double, StateDerivativeType = double).
  */
-typedef boost::shared_ptr< NumericalIntegrator< double, double, double > >
-NumericalIntegratordPointer;
+typedef boost::shared_ptr< NumericalIntegrator< double, double, double > > NumericalIntegratordPointer;
 
 } // namespace numerical_integrators
+
 } // namespace tudat
 
 #endif // TUDAT_NUMERICAL_INTEGRATOR_H

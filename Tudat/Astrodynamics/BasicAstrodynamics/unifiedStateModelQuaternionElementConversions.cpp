@@ -10,8 +10,6 @@
  *    References
  *      Vittaldev, V. (2010). The unified state model: Derivation and application in astrodynamics
  *          and navigation. Master's thesis, Delft University of Technology.
- *      <Second reference>
- *
  */
 
 #include <cmath>
@@ -690,8 +688,8 @@ Eigen::Vector6d convertUnifiedStateModelQuaternionsToCartesianElements(
     auxiliaryVector1( 1 ) = auxiliaryParameter2;
 
     // Find direction cosine matrix in terms of quaternions
-    Eigen::Matrix3d inverseDirectionCosineMatrix =
-            linear_algebra::computeDirectionCosineMatrixFromQuaternions( quaternionsVector, true );
+    Eigen::Matrix3d inverseDirectionCosineMatrix = linear_algebra::convertVectorToQuaternionFormat(
+                quaternionsVector ).toRotationMatrix( );
 
     // Get Cartesian position vector
     convertedCartesianElements.segment( xCartesianPositionIndex, 3 ) =

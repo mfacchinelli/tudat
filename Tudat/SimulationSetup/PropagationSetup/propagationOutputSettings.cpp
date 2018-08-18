@@ -127,6 +127,12 @@ std::string getDependentVariableName( const PropagationDependentVariables propag
     case local_temperature_dependent_variable:
         variableName = "Local freestream temperature ";
         break;
+    case local_dynamic_pressure_dependent_variable:
+        variableName = "Local dynamic pressure ";
+        break;
+    case local_aerodynamic_heat_rate_dependent_variable:
+        variableName = "Local aerodynamic heat rate ";
+        break;
     case geodetic_latitude_dependent_variable:
         variableName = "Geodetic latitude ";
         break;
@@ -159,6 +165,15 @@ std::string getDependentVariableName( const PropagationDependentVariables propag
         break;
     case modified_equinocial_state_dependent_variable:
         variableName = "Modified equinoctial elements ";
+        break;
+    case spherical_harmonic_acceleration_terms_dependent_variable:
+        variableName = "Spherical harmonic acceleration terms ";
+        break;
+    case body_fixed_relative_cartesian_position:
+        variableName = "Body-fixed relative Cartesian position ";
+        break;
+    case body_fixed_relative_spherical_position:
+        variableName = "Body-fixed relative spherical position ";
         break;
     default:
         std::string errorMessage = "Error, dependent variable " +
@@ -238,7 +253,8 @@ std::string getDependentVariableId(
     }
 
     if( ( dependentVariableSettings->dependentVariableType_ == single_acceleration_dependent_variable ) ||
-            ( dependentVariableSettings->dependentVariableType_ == single_acceleration_norm_dependent_variable )  )
+            ( dependentVariableSettings->dependentVariableType_ == single_acceleration_norm_dependent_variable ) ||
+            ( dependentVariableSettings->dependentVariableType_ == spherical_harmonic_acceleration_terms_dependent_variable ) )
     {
         variableId += ", acting on " + dependentVariableSettings->associatedBody_;
         if( dependentVariableSettings->secondaryBody_ != dependentVariableSettings->associatedBody_ )

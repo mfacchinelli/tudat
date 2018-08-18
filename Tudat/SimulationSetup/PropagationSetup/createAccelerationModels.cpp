@@ -671,8 +671,8 @@ boost::shared_ptr< aerodynamics::AerodynamicAcceleration > createAerodynamicAcce
 
     if( bodyExertingAcceleration->getAtmosphereModel( ) == NULL )
     {
-        throw std::runtime_error(  "Error when making aerodynamic acceleration, central body " +
-                                   nameOfBodyExertingAcceleration + " has no atmosphere model.");
+        throw std::runtime_error( "Error when making aerodynamic acceleration, central body " +
+                                  nameOfBodyExertingAcceleration + " has no atmosphere model.");
     }
 
     if( bodyExertingAcceleration->getShapeModel( ) == NULL )
@@ -682,17 +682,20 @@ boost::shared_ptr< aerodynamics::AerodynamicAcceleration > createAerodynamicAcce
     }
 
     // Retrieve flight conditions; create object if not yet extant.
-    boost::shared_ptr< FlightConditions > bodyFlightConditions =
-            bodyUndergoingAcceleration->getFlightConditions( );
+    boost::shared_ptr< AtmosphericFlightConditions > bodyFlightConditions =
+            boost::dynamic_pointer_cast< AtmosphericFlightConditions >( bodyUndergoingAcceleration->getFlightConditions( ) );
 
-    if( bodyFlightConditions == NULL )
+    if( bodyFlightConditions == NULL && bodyUndergoingAcceleration->getFlightConditions( ) == NULL )
     {
-        bodyUndergoingAcceleration->setFlightConditions(
-                    createFlightConditions( bodyUndergoingAcceleration,
-                                            bodyExertingAcceleration,
-                                            nameOfBodyUndergoingAcceleration,
-                                            nameOfBodyExertingAcceleration ) );
-        bodyFlightConditions = bodyUndergoingAcceleration->getFlightConditions( );
+        bodyFlightConditions = createAtmosphericFlightConditions( bodyUndergoingAcceleration,
+                                                                  bodyExertingAcceleration,
+                                                                  nameOfBodyUndergoingAcceleration,
+                                                                  nameOfBodyExertingAcceleration );
+        bodyUndergoingAcceleration->setFlightConditions( bodyFlightConditions );
+    }
+    else if( bodyFlightConditions == NULL && bodyUndergoingAcceleration->getFlightConditions( ) != NULL )
+    {
+        throw std::runtime_error( "Error when making aerodynamic acceleration, found flight conditions that are not atmospheric." );
     }
 
     // Retrieve frame in which aerodynamic coefficients are defined.
@@ -717,7 +720,6 @@ boost::shared_ptr< aerodynamics::AerodynamicAcceleration > createAerodynamicAcce
                 boost::bind( &Body::getCurrentRotationToGlobalFrame, bodyExertingAcceleration ),
                 reference_frames::inertial_frame );
 
-
     boost::function< Eigen::Vector3d( ) > coefficientFunction =
             boost::bind( &AerodynamicCoefficientInterface::getCurrentForceCoefficients,
                          aerodynamicCoefficients );
@@ -728,8 +730,8 @@ boost::shared_ptr< aerodynamics::AerodynamicAcceleration > createAerodynamicAcce
     // Create acceleration model.
     return boost::make_shared< AerodynamicAcceleration >(
                 coefficientInPropagationFrameFunction,
-                boost::bind( &FlightConditions::getCurrentDensity, bodyFlightConditions ),
-                boost::bind( &FlightConditions::getCurrentAirspeed, bodyFlightConditions ),
+                boost::bind( &AtmosphericFlightConditions::getCurrentDensity, bodyFlightConditions ),
+                boost::bind( &AtmosphericFlightConditions::getCurrentAirspeed, bodyFlightConditions ),
                 boost::bind( &Body::getBodyMass, bodyUndergoingAcceleration ),
                 boost::bind( &AerodynamicCoefficientInterface::getReferenceArea,
                              aerodynamicCoefficients ),
@@ -765,7 +767,6 @@ createCannonballRadiationPressureAcceleratioModel(
                 boost::bind( &RadiationPressureInterface::getRadiationPressureCoefficient, radiationPressureInterface ),
                 boost::bind( &RadiationPressureInterface::getArea, radiationPressureInterface ),
                 boost::bind( &Body::getBodyMass, bodyUndergoingAcceleration ) );
-
 }
 
 //! Function to create an orbiter relativistic correction acceleration model
@@ -1231,7 +1232,15 @@ boost::shared_ptr< AccelerationModel< Eigen::Vector3d > > createAccelerationMode
                     nameOfBodyExertingAcceleration,
                     accelerationSettings );
         break;
-    case direct_tidal_dissipation_acceleration:
+    case direct_tidal_dissipation_in_central_body_acceleration:
+        accelerationModelPointer = createDirectTidalDissipationAcceleration(
+                    bodyUndergoingAcceleration,
+                    bodyExertingAcceleration,
+                    nameOfBodyUndergoingAcceleration,
+                    nameOfBodyExertingAcceleration,
+                    accelerationSettings );
+        break;
+    case direct_tidal_dissipation_in_orbiting_body_acceleration:
         accelerationModelPointer = createDirectTidalDissipationAcceleration(
                     bodyUndergoingAcceleration,
                     bodyExertingAcceleration,
