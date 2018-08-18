@@ -24,6 +24,7 @@
 
 #include <Eigen/Core>
 
+#include "Tudat/Basics/basicTypedefs.h"
 #include "Tudat/External/SpartaInterface/rarefiedFlowAnalysis.h"
 #include "Tudat/External/SpartaInterface/spartaDataReader.h"
 #include "Tudat/External/SpartaInterface/spartaInputOutput.h"
@@ -58,9 +59,9 @@ Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor > sortMat
         const Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor >& matrixToBeSorted,
         const int referenceColumn, const bool descendingOrder = false );
 
-//!
+//! SPARTA interface for aerodynamic analyses in rarefied flow.
 /*!
- *
+ *  SPARTA interface for aerodynamic analyses in rarefied flow.
  */
 class SpartaInterface
 {
@@ -71,9 +72,22 @@ public:
      *  Constructor.
      */
     SpartaInterface( const std::vector< std::vector< double > >& dataPointsOfIndependentVariables,
-                     const std::string& SPARTAExecutable = "~/sparta/src/spa_mpi",
-                     const std::string& MPIExecutable = "mpirun" ) :
-        SPARTAExecutable_( SPARTAExecutable ), MPIExecutable_( MPIExecutable ),
+                     const std::string& simulationGases,
+                     const int referenceAxis,
+                     const double gridSpacing,
+                     const double simulatedParticlesPerCell,
+                     const double wallTemperature,
+                     const double accommodationCoefficient,
+                     const bool printProgressInCommandWindow,
+                     const std::string& SpartaExecutable = "~/sparta/src/spa_mpi",
+                     const std::string& MpiExecutable = "mpirun",
+                     const unsigned int numberOfCores = 14 ) :
+        simulationGases_( simulationGases ), referenceAxis_( referenceAxis ),
+        referenceDimension_( static_cast< unsigned int >( referenceAxis_ ) ),
+        gridSpacing_( gridSpacing ), simulatedParticlesPerCell_( simulatedParticlesPerCell ),
+        wallTemperature_( wallTemperature ), accommodationCoefficient_( accommodationCoefficient ),
+        printProgressInCommandWindow_( printProgressInCommandWindow ), SpartaExecutable_( SpartaExecutable ),
+        MPIExecutable_( MpiExecutable ), numberOfCores_( numberOfCores ),
         dataPointsOfIndependentVariables_( dataPointsOfIndependentVariables ),
         temporaryOutputFile_( input_output::getSpartaOutputPath( ) + "/coeff" ),
         outputFileExtensions_( { ".400", ".600", ".800", ".1000" } )
@@ -120,22 +134,8 @@ protected:
     Eigen::Vector6d processSpartaOutput( const double referenceArea, const double referenceLength,
                                          const unsigned int h, const unsigned int m );
 
-    //! Path to SPARTA executable.
-    /*!
-     *  Path to SPARTA executable. Note that SPARTA is an external software and needs to be compiled before
-     *  it can be used in Tudat. See the instructions in the manual [2].
-     */
-    const std::string SPARTAExecutable_;
-
-    //! Path to open MPI executable.
-    /*!
-     *  Path to open MPI executable. Note that open MPI is an external software and needs to be compiled before
-     *  it can be used in Tudat. See the instructions on the website https://www.open-mpi.org.
-     */
-    std::string MPIExecutable_;
-
     //! String of gases making up the atmosphere of the target planet.
-    std::string simulationGases_;
+    const std::string simulationGases_;
 
     //! Reference axis for the aerodynamic analysis.
     /*!
@@ -144,44 +144,58 @@ protected:
      *  to get this value right. The axis should be an integer (i.e., a signed integer), such that the flow of
      *  particles comes from the opposite direction of this axis.
      */
-    int referenceAxis_;
-
-    //! Grid size for simulation environment.
-    /*!
-     *  Grid size for simulation environment. Used to define the size of each cell, and the number of cells in
-     *  the environment.
-     */
-    double gridSpacing_;
-
-    //! Number of simulated particles per cell.
-    double simulatedParticlesPerCell_;
-
-    //! Temperature of surface of vehicle.
-    double wallTemperature_;
-
-    //! Accommodation coefficient of surface of vehicle.
-    double accommodationCoefficient_;
-
-    //! Boolean to toggle showing of progress in command window.
-    /*!
-     *  Boolean to toggle showing of progress in command window. SPARTA outputs information on the geometry and other environment
-     *  details, and during the simulation it prints statistics on the progress. This value is set to false by default.
-     */
-    bool printProgressInCommandWindow_;
-
-    //! Number of cores to be used to run the simulation with open MPI.
-    /*!
-     *  Number of cores to be used to run the simulation with open MPI. Note that this can only be used if a path to the MPI
-     *  executable has been set.
-     */
-    unsigned int numberOfCores_;
+    const int referenceAxis_;
 
     //! Reference dimension for the aerodynamic analysis.
     /*!
      *  Reference dimension for the aerodynamic analysis. This value is based on the referenceAxis_ variable, but
      *  without the information on the sign, such that it can be used to access vector entries.
      */
-    unsigned int referenceDimension_;
+    const unsigned int referenceDimension_;
+
+    //! Grid size for simulation environment.
+    /*!
+     *  Grid size for simulation environment. Used to define the size of each cell, and the number of cells in
+     *  the environment.
+     */
+    const double gridSpacing_;
+
+    //! Number of simulated particles per cell.
+    const double simulatedParticlesPerCell_;
+
+    //! Temperature of surface of vehicle.
+    const double wallTemperature_;
+
+    //! Accommodation coefficient of surface of vehicle.
+    const double accommodationCoefficient_;
+
+    //! Boolean to toggle showing of progress in command window.
+    /*!
+     *  Boolean to toggle showing of progress in command window. SPARTA outputs information on the geometry and other environment
+     *  details, and during the simulation it prints statistics on the progress. This value is set to false by default.
+     */
+    const bool printProgressInCommandWindow_;
+
+    //! Path to SPARTA executable.
+    /*!
+     *  Path to SPARTA executable. Note that SPARTA is an external software and needs to be compiled before
+     *  it can be used in Tudat. See the instructions in the manual [2].
+     */
+    const std::string SpartaExecutable_;
+
+    //! Path to open MPI executable.
+    /*!
+     *  Path to open MPI executable. Note that open MPI is an external software and needs to be compiled before
+     *  it can be used in Tudat. See the instructions on the website https://www.open-mpi.org.
+     */
+    std::string MPIExecutable_;
+
+    //! Number of cores to be used to run the simulation with open MPI.
+    /*!
+     *  Number of cores to be used to run the simulation with open MPI. Note that this can only be used if a path to the MPI
+     *  executable has been set.
+     */
+    const unsigned int numberOfCores_;
 
     //! List of points making up the vehicle geometry.
     /*!
@@ -198,10 +212,10 @@ protected:
     Eigen::Matrix< int, Eigen::Dynamic, 3 > shapeTriangles_;
 
     //! Total number of points making up the vehicle geometry.
-    int numberOfPoints_;
+    unsigned int numberOfPoints_;
 
     //! Total number of triangles making up the vehicle geometry.
-    int numberOfTriangles_;
+    unsigned int numberOfTriangles_;
 
     //! Maximum dimensions of the vehicle in x, y and z.
     Eigen::Vector3d maximumDimensions_;
@@ -276,19 +290,19 @@ private:
     void checkExecutableValidity( )
     {
         // Check that SPARTA executable exists and create it otherwise
-        if ( !boost::filesystem::exists( boost::filesystem::system_complete( SPARTAExecutable_ ) ) )
+        if ( !boost::filesystem::exists( boost::filesystem::system_complete( SpartaExecutable_ ) ) )
         {
-            std::cerr << "SPARTA executable not found. Cloning and building SPARTA from scratch." << std::endl;
-            std::string cloneAndBuildSPARTACommandString =
+            std::cerr << "SPARTA executable not found. Cloning and building SPARTA from scratch in ~/sparta/." << std::endl;
+            std::string cloneAndBuildSpartaCommandString =
                     "mkdir ~/sparta/; "
                     "cd ~/sparta/; git clone https://github.com/mfacchinelli/sparta.git; "
                     "cd ~/sparta/src/; make -j 14 mpi";
-//            std::system( cloneAndBuildSPARTACommandString.c_str( ) );
+//            std::system( cloneAndBuildSpartaCommandString.c_str( ) );
         }
 
         // Try running a dummy MPI example
-        std::string testMPICommandString = "info " + MPIExecutable_;
-        int systemStatus = std::system( testMPICommandString.c_str( ) );
+        std::string testMpiCommandString = "info " + MPIExecutable_;
+        int systemStatus = std::system( testMpiCommandString.c_str( ) );
         if ( systemStatus != 0 )
         {
             std::cerr <<  "Error in SPARTA interface. MPI executable not found. "

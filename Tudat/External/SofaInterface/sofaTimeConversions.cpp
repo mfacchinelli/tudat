@@ -36,7 +36,6 @@ double getDeltaAtFromUtc( const double utcInJulianDays )
                                    std::to_string( day ) );
     }
 
-
     // Get number of leap seconds and check feasibility of calculation
     double deltaAt;
     int deltaAtReturn = iauDat( year, month, day, fractionOfDay, &deltaAt);
@@ -80,7 +79,6 @@ double getDeltaAtFromTai( const double taiInJulianDays )
         deltaAt--;
         throw std::runtime_error( "Warning, Delta TAI calculation encountered error, iteration not yet implemented" );
     }
-
 
     return deltaAt;
 }
@@ -134,7 +132,6 @@ double getTDBminusTT( const double ttOrTdbSinceJ2000, const Eigen::Vector3d& sta
                           stationCartesianPosition.z( ) );
 }
 
-
-} // namespace sofa_interfaces
+} // namespace sofa_interface
 
 } // namespace tudat

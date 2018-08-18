@@ -30,7 +30,6 @@ namespace tudat
 namespace sofa_interface
 {
 
-
 //! Function to calculate number of leap seconds from UTC input
 /*!
  *  Function to calculate number of leap seconds from UTC (Universal Coordinated Time) input.
@@ -48,7 +47,6 @@ double getDeltaAtFromUtc( const double utcInJulianDays );
  *  \return Number of leap seconds at requested time.
  */
 double getDeltaAtFromTai( const double taiInJulianDays );
-
 
 //! Function to convert TAI to UTC
 /*!
@@ -86,7 +84,6 @@ TimeType convertUTCtoTAI( const TimeType utcSeconds )
     double deltaAt = getDeltaAtFromUtc( static_cast< double >( utcSeconds ) / physical_constants::JULIAN_DAY );
     return utcSeconds + static_cast< TimeType >( deltaAt );
 }
-
 
 //! Function to convert TT to UTC
 /*!

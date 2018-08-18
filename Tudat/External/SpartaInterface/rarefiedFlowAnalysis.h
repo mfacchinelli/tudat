@@ -79,10 +79,13 @@ class RarefiedFlowAnalysis: public AerodynamicCoefficientGenerator< 3, 6 >, publ
 {
 public:
 
+    // Using statements
+    using AerodynamicCoefficientGenerator< 3, 6 >::dataPointsOfIndependentVariables_;
+
     //! Default constructor.
     /*!
      *  Default constructor for SPARTA rarefied flow simulation.
-     *  \param SPARTAExecutable Path to executable for SPARTA simulation.
+     *  \param SpartaExecutable Path to executable for SPARTA simulation.
      *  \param dataPointsOfIndependentVariables Vector of vectors, with each subvector containing
      *          the data points of each of the independent variables for the coefficient generation.
      *          The physical meaning of each of the three independent variables is: 0 = altitude,
@@ -108,7 +111,7 @@ public:
      *          is 1.0, i.e., diffuse reflection).
      *  \param printProgressInCommandWindow Boolean to toggle appearance of SPARTA output in command
      *          window (default is false).
-     *  \param MPIExecutable Path to executable for multi-processor computing software (default is none).
+     *  \param MpiExecutable Path to executable for multi-processor computing software (default is none).
      *  \param numberOfCores Number of cores to be allocated for multi-processor computing of
      *          SPARTA simulation (default is 0). Note that this value can only be used if the path to MPI
      *          is set. Furthermore, the number of cores has to be an integer larger or equal to one.
@@ -127,8 +130,8 @@ public:
             const double wallTemperature = 300.0,
             const double accommodationCoefficient = 1.0,
             const bool printProgressInCommandWindow = false,
-            const std::string& SPARTAExecutable = "~/sparta/src/spa_mpi",
-            const std::string& MPIExecutable = "mpirun",
+            const std::string& SpartaExecutable = "~/sparta/src/spa_mpi",
+            const std::string& MpiExecutable = "mpirun",
             const unsigned int numberOfCores = 14 );
 
     //! Default destructor.

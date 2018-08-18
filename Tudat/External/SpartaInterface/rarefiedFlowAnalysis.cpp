@@ -138,18 +138,16 @@ RarefiedFlowAnalysis::RarefiedFlowAnalysis(
         const double gridSpacing, const double simulatedParticlesPerCell,
         const double wallTemperature, const double accommodationCoefficient,
         const bool printProgressInCommandWindow,
-        const std::string& SPARTAExecutable, const std::string& MPIExecutable, const unsigned int numberOfCores ) :
+        const std::string& SpartaExecutable, const std::string& MpiExecutable, const unsigned int numberOfCores ) :
     AerodynamicCoefficientGenerator< 3, 6 >(
         dataPointsOfIndependentVariables, referenceLength, referenceArea, referenceLength,
         momentReferencePoint,
         boost::assign::list_of( altitude_dependent )( mach_number_dependent )( angle_of_attack_dependent ),
         true, true ),
-    sparta_interface::SpartaInterface( dataPointsOfIndependentVariables, SPARTAExecutable, MPIExecutable ),
-    simulationGases_( simulationGases ), referenceAxis_( referenceAxis ),
-    gridSpacing_( gridSpacing ), simulatedParticlesPerCell_( simulatedParticlesPerCell ),
-    wallTemperature_( wallTemperature ), accommodationCoefficient_( accommodationCoefficient ),
-    printProgressInCommandWindow_( printProgressInCommandWindow ), numberOfCores_( numberOfCores ),
-    referenceDimension_( static_cast< unsigned int >( referenceAxis_ ) )
+    sparta_interface::SpartaInterface( dataPointsOfIndependentVariables, simulationGases, referenceAxis,
+                                       gridSpacing, simulatedParticlesPerCell,
+                                       wallTemperature, accommodationCoefficient, printProgressInCommandWindow,
+                                       SpartaExecutable, MpiExecutable, numberOfCores )
 {
     // Check that reference dimension makes sense
     if ( referenceDimension_ > 2 )
@@ -174,7 +172,7 @@ RarefiedFlowAnalysis::RarefiedFlowAnalysis(
         atmosphericConditions_[ sparta_interface::speed_of_sound_index ].push_back(
                     atmosphereModel->getSpeedOfSound( dataPointsOfIndependentVariables_.at( 0 ).at( h ) ) );
         atmosphericConditions_[ sparta_interface::number_density_index ].push_back(
-                    tudat::physical_constants::AVOGADRO_CONSTANT * atmosphericConditions_[ density_index ].at( h ) /
+                    tudat::physical_constants::AVOGADRO_CONSTANT * atmosphericConditions_[ sparta_interface::density_index ].at( h ) /
                     atmosphereModel->getMolarMass( dataPointsOfIndependentVariables_.at( 0 ).at( h ) ) );
     }
 

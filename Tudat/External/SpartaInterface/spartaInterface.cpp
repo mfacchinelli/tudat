@@ -42,12 +42,12 @@ Eigen::Matrix< double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor > sortMat
         // Based on requested order
         if ( descendingOrder )
         {
-            sortedMatrix.row( matrixToBeSorted.rows( ) - currentRow[ referenceColumn ] ) = currentRow;
+            sortedMatrix.row( static_cast< unsigned int >( matrixToBeSorted.rows( ) - currentRow[ referenceColumn ] ) ) = currentRow;
             // no (- 1)'s are needed since both are defined starting from 1
         }
         else
         {
-            sortedMatrix.row( currentRow[ referenceColumn ] - 1 ) = currentRow;
+            sortedMatrix.row( static_cast< unsigned int >( currentRow[ referenceColumn ] ) - 1 ) = currentRow;
         }
     }
 
@@ -88,7 +88,7 @@ void SpartaInterface::analyzeGeometryFile( const std::string& geometryFileUser,
     elementSurfaceNormal_.resize( 3, numberOfTriangles_ );
     elementSurfaceArea_.resize( 1, numberOfTriangles_ );
     elementMomentArm_.resize( 3, numberOfTriangles_ );
-    for ( int i = 0; i < numberOfTriangles_; i++ )
+    for ( unsigned int i = 0; i < numberOfTriangles_; i++ )
     {
         // Compute properties of current surface element
         for ( unsigned int j = 0; j < 3; j++ )
@@ -165,7 +165,7 @@ void SpartaInterface::getSimulationConditions( )
 void SpartaInterface::runSpartaSimulation( const unsigned int h, const unsigned int m, const unsigned int a )
 {
     // Generate command string for SPARTA
-    std::string runSPARTACommandString = "cd " + input_output::getSpartaDataPath( ) + "; ";
+    std::string runSpartaCommandString = "cd " + input_output::getSpartaDataPath( ) + "; ";
     if ( MPIExecutable_ != "" )
     {
         if ( numberOfCores_ < 1 )
@@ -173,15 +173,15 @@ void SpartaInterface::runSpartaSimulation( const unsigned int h, const unsigned 
             throw std::runtime_error( "Error in SPARTA rarefied flow analysis. Number of cores needs to be "
                                       "an integer value larger or equal to one." );
         }
-        runSPARTACommandString = runSPARTACommandString + MPIExecutable_ +
+        runSpartaCommandString = runSpartaCommandString + MPIExecutable_ +
                 " -np " + std::to_string( numberOfCores_ ) + " ";
     }
-    runSPARTACommandString = runSPARTACommandString + SPARTAExecutable_ + " -echo log ";
+    runSpartaCommandString = runSpartaCommandString + SpartaExecutable_ + " -echo log ";
     if ( !printProgressInCommandWindow_ )
     {
-        runSPARTACommandString = runSPARTACommandString + "-screen none ";
+        runSpartaCommandString = runSpartaCommandString + "-screen none ";
     }
-    runSPARTACommandString = runSPARTACommandString + "-in " + input_output::getSpartaInputFile( );
+    runSpartaCommandString = runSpartaCommandString + "-in " + input_output::getSpartaInputFile( );
 
     // Get velocity vector
     velocityVector_ = Eigen::Vector3d::Zero( );
@@ -204,7 +204,7 @@ void SpartaInterface::runSpartaSimulation( const unsigned int h, const unsigned 
     std::fclose( fileIdentifier );
 
     // Run SPARTA
-    systemStatus_ = std::system( runSPARTACommandString.c_str( ) );
+    systemStatus_ = std::system( runSpartaCommandString.c_str( ) );
     if ( systemStatus_ != 0 )
     {
         throw std::runtime_error( "Error in SPARTA rarefied flow analysis. SPARTA Simulation failed. See the log.sparta file in "

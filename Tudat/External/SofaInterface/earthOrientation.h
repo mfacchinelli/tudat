@@ -37,7 +37,8 @@ enum IAUConventions
     iau_2006
 };
 
-}
+} // namespace basic_astrodynamics
+
 namespace sofa_interface
 {
 
@@ -96,8 +97,8 @@ double calculateEarthRotationAngle(
 template< typename TimeType >
 double calculateEarthRotationAngleTemplated( const TimeType currentUt1 );
 
-}
+} // namespace sofa_interface
 
-}
+} // namespace tudat
 
 #endif // TUDAT_SOFAEARTHORIENTATION_H
