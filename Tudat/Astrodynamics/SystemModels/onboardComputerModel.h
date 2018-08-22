@@ -55,9 +55,10 @@ public:
         dummyCallCounter_ = 0; // <<<<<<<<<----------
 
         // Define internal variables
-        maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with possible need to perform a maneuver
-        atmosphericPhaseComplete_ = false;
-        deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( TUDAT_NAN ) );
+        maneuveringPhaseComplete_ = false; // simulation starts at apoapsis with possible need to perform a maneuver
+        atmosphericPhaseComplete_ = true;
+
+        deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
         atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
 
         // Create acceleration functions
@@ -80,8 +81,6 @@ public:
     //! Destructor.
     ~OnboardComputerModel( ) { }
 
-//    unsigned int showCount_ = 0;
-
     //! Function to check whether the propagation is to be be stopped.
     /*!
      *  Function to check whether the propagation is to be be stopped, based on the estimated state. The propagation
@@ -94,12 +93,6 @@ public:
     bool checkStopCondition( const double currentTime )
     {
         using mathematical_constants::PI;
-//        if ( ( showCount_ % 1000 ) == 0 )
-//        {
-//            std::cout << "Time: " << currentTime - 236455200.0 << std::endl
-//                      << "State: " << navigationSystem_->getCurrentEstimatedTranslationalState( ).first.transpose( ) << std::endl << std::endl;
-//        }
-//        showCount_++;
 
         // Define output value
         bool isPropagationToBeStopped = false;
@@ -113,9 +106,13 @@ public:
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
 
         // Check if it is time for a Deep Space Network update
+        // The Deep Space Network tracking is scheduled every N days (where N comes from the function getFrequencyOfDeepSpaceNetworkTracking
+        // of the navigation system). The following if statement makes sure that the processing of the measurements is carried out at this
+        // frequency and that it is not carried out on the very first apoapsis.
         unsigned int currentDay = static_cast< unsigned int >( ( currentTime - initialTime_ ) / physical_constants::JULIAN_DAY );
         if ( ( ( currentDay % navigationSystem_->getFrequencyOfDeepSpaceNetworkTracking( ) ) == 0 ) &&
-             ( currentDay != deepSpaceNetworkTrackingInformation_.second ) && !deepSpaceNetworkTrackingInformation_.first )
+             ( navigationSystem_->currentOrbitCounter_ > 0 ) && ( currentDay != deepSpaceNetworkTrackingInformation_.second ) &&
+             !deepSpaceNetworkTrackingInformation_.first )
         {
             deepSpaceNetworkTrackingInformation_.first = true;
             deepSpaceNetworkTrackingInformation_.second = currentDay;
@@ -134,6 +131,7 @@ public:
             {
                 deepSpaceNetworkTrackingInformation_.first = false;
                 navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
+                currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
             }
 
             // Store new value of apoapsis Keplerian state
@@ -226,7 +224,7 @@ public:
     bool isAerobrakingComplete( )
     {
         dummyCallCounter_++;
-        return ( dummyCallCounter_ > 1 );
+        return ( dummyCallCounter_ > 2 );
     }
 
 private:

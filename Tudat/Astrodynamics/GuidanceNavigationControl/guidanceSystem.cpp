@@ -130,13 +130,28 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
     maneuverBisectionRootFinder_->resetBoundaries( 2.0 * nominalApoapsisManeuverMagnitude, 0.5 * nominalApoapsisManeuverMagnitude );
 
     // Set root-finder function as the heat rate and heat load calculator
-    double estimatedApoapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
-                boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                    boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState,
-                                 std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius, transformationFromLocalToInertialFrame,
-                                 reducedStatePropagationFunction_ ) ) );
-    std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
-              << "Ratio: " << estimatedApoapsisManeuverMagnitude / nominalApoapsisManeuverMagnitude << std::endl;
+    double estimatedApoapsisManeuverMagnitude;
+    try
+    {
+        // Try using root-finder to improve estimate
+        estimatedApoapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
+                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                        boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState,
+                                     std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius, transformationFromLocalToInertialFrame,
+                                     reducedStatePropagationFunction_ ) ) );
+        std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
+                  << "Ratio: " << estimatedApoapsisManeuverMagnitude / nominalApoapsisManeuverMagnitude << std::endl;
+    }
+    catch ( std::runtime_error& caughtException )
+    {
+        // Inform user on error
+        std::cerr << "Error while computing improved estimate for apoapsis menauver. Caught this exception during root-finder "
+                     "operation: " << caughtException.what( ) << std::endl
+                  << "The nominal magnitude will be used to carry out the maneuver." << std::endl;
+
+        // Take nominal magnitude as maneuver magnitude
+        estimatedApoapsisManeuverMagnitude = nominalApoapsisManeuverMagnitude;
+    }
 
     // Add magnitude to maneuver vector and save to hisotry
     scheduledApsoapsisManeuver_[ 1 ] = estimatedApoapsisManeuverMagnitude;

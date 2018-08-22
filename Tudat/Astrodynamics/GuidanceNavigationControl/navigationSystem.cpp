@@ -66,7 +66,8 @@ void NavigationSystem::createNavigationSystemObjects(
         // Create filter
         navigationFilter_ = filters::createFilter< double, double >(
                     navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel,
-                    boost::bind( &computeSystemJacobianMatrix, _1, _2, densityFunction, planetaryGravitationalParameter_, aerodynamicParameters ),
+                    boost::bind( &computeSystemJacobianMatrix, _1, _2, densityFunction, planetaryGravitationalParameter_,
+                                 planetaryRadius_, 1.95660673369357e-3, aerodynamicParameters ),
                     boost::lambda::constant( Eigen::Matrix12d::Identity( ) ),
                     boost::bind( &computeMeasurementJacobianMatrix, _1, _2, densityFunction, aerodynamicParameters ),
                     boost::lambda::constant( Eigen::Matrix3d::Identity( ) ) );
@@ -115,8 +116,6 @@ void NavigationSystem::createNavigationSystemObjects(
             boost::make_shared< numerical_integrators::RungeKuttaVariableStepSizeSettings< double, Eigen::VectorXd > >(
                 numerical_integrators::rungeKuttaVariableStepSize, 0.0, 10.0,
                 numerical_integrators::RungeKuttaCoefficients::rungeKuttaFehlberg56, 1e-5, 1e5, 1.0e-12, 1.0e-12 );
-//            boost::make_shared< numerical_integrators::IntegratorSettings< double > >(
-//                numerical_integrators::rungeKutta4, 0.0, 10.0 );
     onboardPropagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< double > >(
                 std::vector< std::string >( 1, planetName_ ), onboardAccelerationModelMap_,
                 std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ),
@@ -142,37 +141,10 @@ void NavigationSystem::createOnboardEnvironmentUpdater( )
 
 //! Function to post-process the accelerometer measurements.
 void NavigationSystem::postProcessAccelerometerMeasurements(
-        std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-        const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface )
+        std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface )
 {
     // Inform user
     std::cout << "Removing Accelerometer Errors." << std::endl;
-
-    // Apply smoothing method to noisy accelerometer data
-    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 25.0 / navigationRefreshStepSize_ );
-    numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
-    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
-            statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
-
-    // Calibrate accelerometer errors if it is the first orbit
-    if ( !atmosphereEstimatorInitialized_ )
-    {
-        // Inform user
-        std::cout << "Calibrating Accelerometer." << std::endl;
-
-        // Initial estimate on error values
-        Eigen::Vector6d initialErrorEstimate = Eigen::Vector6d::Zero( );
-
-        // Use non-linear least squares to solve for optimal value of errors
-        estimatedAccelerometerErrors_ =
-                linear_algebra::nonLinearLeastSquaresFit( boost::bind( &accelerometerErrorEstimationFunction, _1,
-                                                                       vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
-                                                          initialErrorEstimate,
-                                                          utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
-                                                              mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
-    }
-    std::cout << "Est: " << estimatedAccelerometerErrors_.transpose( ) << std::endl
-              << "KF: " << navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ).transpose( ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
@@ -182,6 +154,12 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
                     vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ),
                     navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ) );
     }
+
+    // Apply smoothing method to noisy accelerometer data
+    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 50.0 / navigationRefreshStepSize_ );
+    numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
+    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
+            statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
 }
 
 //! Function to run the Periapse Time Estimator (PTE).

@@ -237,6 +237,40 @@ public:
         }
     }
 
+    //! Function to retrieve only the accelerometer measurement smoothed over time.
+    /*!
+     *  Function to retrieve only the accelerometer measurement smoothed over time. The translational acceleration is
+     *  retireved from the acceleration model and before being returned, it is corrupted with the accelerometer
+     *  errors provided as an input to the addInertialMeasurementUnit function.
+     *  \return Three-dimensional vector representing the smoothed translational accelerations measured by the
+     *      modeled inertial measurement unit.
+     */
+    Eigen::Vector3d getSmoothedAccelerometerMeasurement( )
+    {
+        // Check that an inertial measurement unit is present in the spacecraft
+        if ( inertialMeasurementUnitAdded_ )
+        {
+            // Compute smoothed accelerometer measurement
+            unsigned int limitingValue = ( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) < 500 ) ?
+                      currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) : 500;
+            Eigen::Vector3d smoothedAccelerometerMeasurement = Eigen::Vector3d::Zero( );
+            for ( inertialMeasurementUnitMeasurementIterator_ =
+                  std::prev( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.end( ), limitingValue );
+                  inertialMeasurementUnitMeasurementIterator_ != currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.end( );
+                  inertialMeasurementUnitMeasurementIterator_++ )
+            {
+                smoothedAccelerometerMeasurement += inertialMeasurementUnitMeasurementIterator_->second.segment( 0, 3 );
+            }
+            smoothedAccelerometerMeasurement /= 500;
+            return smoothedAccelerometerMeasurement;
+        }
+        else
+        {
+            throw std::runtime_error( "Error while retrieving translational accelerations from onboard instrument "
+                                      "system. No inertial measurement unit is present." );
+        }
+    }
+
     //! Function to retrieve only the current gyroscope measurement.
     /*!
      *  Function to retrieve only the current gyroscope measurement. The rotational velocity is retireved
@@ -256,6 +290,40 @@ public:
         {
             throw std::runtime_error( "Error while retrieving rotational velocities from onboard instrument system. "
                                       "No inertial measurement unit is present." );
+        }
+    }
+
+    //! Function to retrieve only the gyroscope measurement smoothed over time.
+    /*!
+     *  Function to retrieve only the gyroscope measurement smoothed over time. The rotational velocity is retireved
+     *  from the body model and before being returned, it is corrupted with the gyroscope
+     *  errors provided as an input to the addInertialMeasurementUnit function.
+     *  \return Three-dimensional vector representing the smoothed rotational velocities measured by the
+     *      modeled inertial measurement unit.
+     */
+    Eigen::Vector3d getSmoothedGyroscopeMeasurement( )
+    {
+        // Check that an inertial measurement unit is present in the spacecraft
+        if ( inertialMeasurementUnitAdded_ )
+        {
+            // Compute smoothed gyroscope measurement
+            unsigned int limitingValue = ( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) < 500 ) ?
+                      currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) : 500;
+            Eigen::Vector3d smoothedGyroscopeMeasurement = Eigen::Vector3d::Zero( );
+            for ( inertialMeasurementUnitMeasurementIterator_ =
+                  std::prev( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.end( ), limitingValue );
+                  inertialMeasurementUnitMeasurementIterator_ != currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.end( );
+                  inertialMeasurementUnitMeasurementIterator_++ )
+            {
+                smoothedGyroscopeMeasurement += inertialMeasurementUnitMeasurementIterator_->second.segment( 0, 3 );
+            }
+            smoothedGyroscopeMeasurement /= 500;
+            return smoothedGyroscopeMeasurement;
+        }
+        else
+        {
+            throw std::runtime_error( "Error while retrieving translational accelerations from onboard instrument "
+                                      "system. No inertial measurement unit is present." );
         }
     }
 

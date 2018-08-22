@@ -188,7 +188,6 @@ public:
         double currentIterationTime;
         std::map< double, Eigen::Vector6d > mapOfEstimatedCartesianStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
-        std::map< double, Eigen::Vector3d > mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface;
         std::vector< Eigen::Vector3d > vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface;
         for ( translationalStateConstantIterator_ = currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
               translationalStateConstantIterator_ != currentOrbitHistoryOfEstimatedTranslationalStates_.end( );
@@ -202,8 +201,6 @@ public:
                         translationalStateConstantIterator_->second.first;
                 mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ] =
                         translationalStateConstantIterator_->second.second;
-                mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface[ currentIterationTime ] =
-                        currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentIterationTime ];
                 vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.push_back(
                             mapOfMeasuredAerodynamicAcceleration.at( currentIterationTime ) );
 
@@ -219,8 +216,7 @@ public:
         if ( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ) > 0 )
         {
             // Remove errors from measured accelerations
-            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-                                                  mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
+            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
             // this function also calibrates the accelerometers if it is the first orbit
 
             // Compute magnitude of aerodynamic acceleration
@@ -255,6 +251,9 @@ public:
      */
     void processDeepSpaceNetworkTracking( const std::pair< double, Eigen::Vector6d >& currentDeepSpaceNetworkTrackingData )
     {
+        // Inform user
+        std::cout << "Processing Deep Space Network tracking information." << std::endl;
+
         // Split Deep Space Network tracking data in light-time delay and Cartesian state
         double currentLightTimeDelay = currentDeepSpaceNetworkTrackingData.first;
         Eigen::Vector6d currentTrackedState = currentDeepSpaceNetworkTrackingData.second;
@@ -265,8 +264,17 @@ public:
         Eigen::Vector6d propagatedStateBasedOnTracking = propagateStateWithCustomTerminationSettings(
                     terminationSettings, currentTrackedState, currentTime_ - currentLightTimeDelay ).first.rbegin( )->second;
 
+        // Convert to Keplerian elements and reset true anomaly
+        Eigen::Vector6d propagatedStateBasedOnTrackingInKeplerianElements = orbital_element_conversions::convertCartesianToKeplerianElements(
+                    propagatedStateBasedOnTracking, planetaryGravitationalParameter_ );
+        propagatedStateBasedOnTrackingInKeplerianElements[ 5 ] = currentEstimatedKeplerianState_[ 5 ]; // reset true anomaly
+
+        // Inform user
+        std::cout << "Propagated state for " << currentLightTimeDelay << " seconds." << std::endl;
+
         // Reset navigation filter (including covariance)
-        setCurrentEstimatedCartesianState( propagatedStateBasedOnTracking, Eigen::Matrix12d::Identity( ) );
+//        setCurrentEstimatedCartesianState( propagatedStateBasedOnTracking, Eigen::Matrix12d::Identity( ) );
+        setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, Eigen::Matrix12d::Identity( ) );
     }
 
     //! Function to propagate translational Cartesian state to specified termination settings.
@@ -704,12 +712,9 @@ private:
      *  \param vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface Vector of estimated aerodynamic acceleration
      *      below the atmospheric interface altitude and corrupted by accelerometer errors. The acceleration is thus taken
      *      directly from the IMU.
-     *  \param mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface Map of time and expected aerodynamic acceleration
-     *      below the atmospheric interface altitude.
      */
     void postProcessAccelerometerMeasurements(
-            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-            const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
+            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
 
     //! Function to run the Periapse Time Estimator (PTE).
     /*!

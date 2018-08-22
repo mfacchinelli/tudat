@@ -21,6 +21,8 @@ namespace guidance_navigation_control
 Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState,
                                               const boost::function< double( const Eigen::Vector6d& ) >& densityFunction,
                                               const double planetGravitationalParameter,
+                                              const double planetRadius,
+                                              const double secondDegreeGravitationalMoment,
                                               const double aerodynamicParameter )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
@@ -31,30 +33,57 @@ Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Ei
     // Pre-compute recurring terms
     double radialDistance = currentState.segment( 0, 3 ).norm( );
     double radialDistanceSquared = radialDistance * radialDistance;
-    double gravityRecurringTerm = planetGravitationalParameter / radialDistanceSquared / radialDistance;
+    double centralGravityRecurringTerm = planetGravitationalParameter / radialDistanceSquared / radialDistance;
 
     // Add terms due to velocity
     jacobianMatrix( 0, 3 ) = 1.0;
     jacobianMatrix( 1, 4 ) = 1.0;
     jacobianMatrix( 2, 5 ) = 1.0;
 
-    // Add terms due to gravitational acceleration
-    jacobianMatrix( 3, 0 ) = gravityRecurringTerm * ( 3.0 * currentState[ 0 ] *
+    // Add terms due to central gravitational acceleration
+    jacobianMatrix( 3, 0 ) = centralGravityRecurringTerm * ( 3.0 * currentState[ 0 ] *
             currentState[ 0 ] / radialDistanceSquared - 1.0 );
-    jacobianMatrix( 4, 0 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 1 ];
-    jacobianMatrix( 5, 0 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 2 ];
+    jacobianMatrix( 4, 0 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 1 ];
+    jacobianMatrix( 5, 0 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 2 ];
 
-    jacobianMatrix( 3, 1 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 1 ];
-    jacobianMatrix( 4, 1 ) = gravityRecurringTerm * ( 3.0 * currentState[ 1 ] *
+    jacobianMatrix( 3, 1 ) = jacobianMatrix( 4, 0 );
+    jacobianMatrix( 4, 1 ) = centralGravityRecurringTerm * ( 3.0 * currentState[ 1 ] *
             currentState[ 1 ] / radialDistanceSquared - 1.0 );
-    jacobianMatrix( 5, 1 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 1 ] * currentState[ 2 ];
+    jacobianMatrix( 5, 1 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * currentState[ 1 ] * currentState[ 2 ];
 
-    jacobianMatrix( 3, 2 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 1 ] * currentState[ 2 ];
-    jacobianMatrix( 4, 2 ) = 3.0 * gravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 2 ];
-    jacobianMatrix( 5, 2 ) = gravityRecurringTerm * ( 3.0 * currentState[ 2 ] *
+    jacobianMatrix( 3, 2 ) = jacobianMatrix( 5, 0 );
+    jacobianMatrix( 4, 2 ) = jacobianMatrix( 5, 1 );
+    jacobianMatrix( 5, 2 ) = centralGravityRecurringTerm * ( 3.0 * currentState[ 2 ] *
             currentState[ 2 ] / radialDistanceSquared - 1.0 );
 
-//    // Add terms due to aerodynamic acceleration
+    // Add terms due to J2 effect
+    Eigen::Matrix3d secondDegreeGravityJacobianMatrix = Eigen::Matrix3d::Zero( );
+    double x = currentState[ 0 ];
+    double y = currentState[ 1 ];
+    double z = currentState[ 2 ];
+    double secondDegreeGravityRecurringTerm = 3.0 / 2.0 * secondDegreeGravitationalMoment * planetRadius * planetRadius *
+            centralGravityRecurringTerm / radialDistanceSquared / radialDistanceSquared;
+    double zPositionRecurringTerm = 7.0 / radialDistanceSquared * ( radialDistanceSquared - 5.0 * z * z );
+
+    secondDegreeGravityJacobianMatrix( 0, 0 ) = - secondDegreeGravityRecurringTerm * ( 2.0 * x * x + radialDistanceSquared - 5.0 * z * z -
+                                                                                       x * x * zPositionRecurringTerm );
+    secondDegreeGravityJacobianMatrix( 0, 1 ) = - secondDegreeGravityRecurringTerm * x * y * ( 2.0 - zPositionRecurringTerm );
+    secondDegreeGravityJacobianMatrix( 0, 2 ) = secondDegreeGravityRecurringTerm * x * z * ( 8.0 + zPositionRecurringTerm );
+
+    secondDegreeGravityJacobianMatrix( 1, 0 ) = secondDegreeGravityJacobianMatrix( 0, 1 );
+    secondDegreeGravityJacobianMatrix( 1, 1 ) = - secondDegreeGravityRecurringTerm * ( 2.0 * y * y + radialDistanceSquared - 5.0 * z * z -
+                                                                                       y * y * zPositionRecurringTerm );
+    secondDegreeGravityJacobianMatrix( 1, 2 ) = secondDegreeGravityRecurringTerm * y * z * ( 8.0 + zPositionRecurringTerm );
+
+    zPositionRecurringTerm = 7.0 / radialDistanceSquared * ( 3.0 * radialDistanceSquared - 5.0 * z * z ); // overwrite
+    secondDegreeGravityJacobianMatrix( 2, 0 ) = - secondDegreeGravityRecurringTerm * x * z * ( 6.0 - zPositionRecurringTerm );
+    secondDegreeGravityJacobianMatrix( 2, 1 ) = - secondDegreeGravityRecurringTerm * y * z * ( 6.0 - zPositionRecurringTerm );
+    secondDegreeGravityJacobianMatrix( 2, 2 ) = - secondDegreeGravityRecurringTerm * z * z * ( 3.0 * radialDistanceSquared / z / z -
+                                                                                               9.0 - zPositionRecurringTerm );
+
+    jacobianMatrix.block( 3, 0, 3, 3 ) += secondDegreeGravityJacobianMatrix;
+
+    // Add terms due to aerodynamic acceleration
 //    Eigen::Vector6d perturbation;
 //    double densityDerivative;
 //    double currentVelocityParameter;
@@ -65,19 +94,23 @@ Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Ei
 //        {
 //            // Set perturbing parameter to 100 meters in the current dimesion
 //            perturbation.setZero( );
-//            perturbation[ j ] = 100.0;
+//            perturbation[ j ] = 10.0;
 
 //            // Compute derivative numerically and add to Jacobian
 //            densityDerivative = numerical_derivatives::computeCentralDifference(
-//                        densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order8 );
-//            jacobianMatrix( 3 + i, j ) = - densityDerivative * aerodynamicParameter * currentVelocityParameter;
+//                        densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order2 );
+//            jacobianMatrix( 3 + i, j ) += - densityDerivative * aerodynamicParameter * currentVelocityParameter;
 //        }
 //    }
 
     double density = densityFunction( currentState.segment( 0, 6 ) );
-    jacobianMatrix( 3, 3 ) = - density * aerodynamicParameter * std::fabs( currentState[ 3 ] );
-    jacobianMatrix( 4, 4 ) = - density * aerodynamicParameter * std::fabs( currentState[ 4 ] );
-    jacobianMatrix( 5, 5 ) = - density * aerodynamicParameter * std::fabs( currentState[ 5 ] );
+    jacobianMatrix( 3, 3 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 3 ] );
+    jacobianMatrix( 4, 4 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 4 ] );
+    jacobianMatrix( 5, 5 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 5 ] );
+
+//    double currentAltitude = radialDistance - 3.396e6;
+//    jacobianMatrix.block( 3, 0, 3, 1 ) = - aerodynamicParameter * ( density * currentState[ 0 ] / 6533.0 / currentAltitude ) *
+//            currentState.segment( 3, 3 ).cwiseProduct( currentState.segment( 3, 3 ).cwiseAbs( ) );
 
     // Give output
     return jacobianMatrix;
@@ -105,20 +138,20 @@ Eigen::Matrix< double, 3, 12 > computeMeasurementJacobianMatrix( const double cu
 //        {
 //            // Set perturbing parameter to 100 meters in the current dimesion
 //            perturbation.setZero( );
-//            perturbation[ j ] = 100.0;
+//            perturbation[ j ] = 10.0;
 
 //            // Compute derivative numerically and add to Jacobian
 //            densityDerivative = numerical_derivatives::computeCentralDifference(
-//                        densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order8 );
+//                        densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order2 );
 //            jacobianMatrix( i, j ) = - densityDerivative * aerodynamicParameter * currentVelocityParameter;
 //        }
 //    }
 
     // Add terms due to derivative w.r.t. velocity
     double density = densityFunction( currentState.segment( 0, 6 ) );
-    jacobianMatrix( 0, 3 ) = - density * aerodynamicParameter * std::fabs( currentState[ 3 ] );
-    jacobianMatrix( 1, 4 ) = - density * aerodynamicParameter * std::fabs( currentState[ 4 ] );
-    jacobianMatrix( 2, 5 ) = - density * aerodynamicParameter * std::fabs( currentState[ 5 ] );
+    jacobianMatrix( 0, 3 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 3 ] );
+    jacobianMatrix( 1, 4 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 4 ] );
+    jacobianMatrix( 2, 5 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 5 ] );
 
     // Add terms due to accelerometer bias error
     jacobianMatrix( 0, 6 ) = 1.0;

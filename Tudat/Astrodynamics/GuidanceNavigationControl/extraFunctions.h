@@ -37,12 +37,17 @@ namespace guidance_navigation_control
  *  \param currentState Vector denoting current state as given by filter.
  *  \param densityFunction Function returning the density corresponding to the input Cartesian state.
  *  \param planetGravitationalParameter Double denoting the gravitational parameter of the planet being orbited.
+ *  \param planetRadius Double denoting the radius of the planet being orbited.
+ *  \param secondDegreeGravitationalMoment Double denoting the gravitational moment corresponding to the second degree
+ *      spherical harmonics of the planet being orbited.
  *  \param aerodynamicParameter Double denoting the aerodynamic parameter of the spacecraft.
  *  \return Jacobian matrix for the system function at the current state.
  */
 Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Eigen::Vector12d& currentState,
                                               const boost::function< double( const Eigen::Vector6d& ) >& densityFunction,
                                               const double planetGravitationalParameter,
+                                              const double planetRadius,
+                                              const double secondDegreeGravitationalMoment,
                                               const double aerodynamicParameter );
 
 //! Function to compute the Jacobian matrix for the measurement function.
