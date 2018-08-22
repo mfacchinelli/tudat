@@ -72,8 +72,6 @@ public:
     //! Constructor.
     /*!
      *  Constructor for the navigation system of an aerobraking maneuver.
-     *  \param navigationFilter
-     *  \param stateTransitionMatrixFunction Function to compute the state transition matrix at the current time and state.
      */
     NavigationSystem( const simulation_setup::NamedBodyMap& onboardBodyMap,
                       const basic_astrodynamics::AccelerationMap& onboardAccelerationModelMap,
@@ -81,7 +79,8 @@ public:
                       const boost::shared_ptr< filters::FilterSettings< > > navigationFilterSettings,
                       const aerodynamics::AvailableConstantTemperatureAtmosphereModels selectedOnboardAtmosphereModel,
                       const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude,
-                      const double periapseEstimatorConstant, const unsigned int numberOfRequiredAtmosphereSamplesForInitiation,
+                      const double secondDegreeGravitationalMoment, const double periapseEstimatorConstant,
+                      const unsigned int numberOfRequiredAtmosphereSamplesForInitiation,
                       const Eigen::Vector3d& altimeterBodyFixedPointingDirection = Eigen::Vector3d::Constant( TUDAT_NAN ),
                       const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ) ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
@@ -91,7 +90,7 @@ public:
         planetaryRadius_( onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( ) ),
         atmosphericInterfaceRadius_( planetaryRadius_ + atmosphericInterfaceAltitude ),
         reducedAtmosphericInterfaceRadius_( planetaryRadius_ + reducedAtmosphericInterfaceAltitude ),
-        periapseEstimatorConstant_( periapseEstimatorConstant ),
+        secondDegreeGravitationalMoment_( secondDegreeGravitationalMoment ), periapseEstimatorConstant_( periapseEstimatorConstant ),
         numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation ),
         altimeterBodyFixedPointingDirection_( altimeterBodyFixedPointingDirection ), altimeterAltitudeRange_( altimeterAltitudeRange )
     {
@@ -228,7 +227,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            if ( atmosphereEstimatorInitialized_ ) // historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
+            if ( atmosphereEstimatorInitialized_ ) //historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -273,7 +272,6 @@ public:
         std::cout << "Propagated state for " << currentLightTimeDelay << " seconds." << std::endl;
 
         // Reset navigation filter (including covariance)
-//        setCurrentEstimatedCartesianState( propagatedStateBasedOnTracking, Eigen::Matrix12d::Identity( ) );
         setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, Eigen::Matrix12d::Identity( ) );
     }
 
@@ -794,6 +792,9 @@ private:
      *  produces higher quality results.
      */
     const double reducedAtmosphericInterfaceRadius_;
+
+    //! Double denoting the value of the second degree gravitational moment (otherwise known as J2 effect).
+    const double secondDegreeGravitationalMoment_;
 
     //! Double denoting the multiplier to account for non-Keplerian orbit.
     /*!

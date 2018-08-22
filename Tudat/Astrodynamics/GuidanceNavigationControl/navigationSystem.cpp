@@ -67,7 +67,7 @@ void NavigationSystem::createNavigationSystemObjects(
         navigationFilter_ = filters::createFilter< double, double >(
                     navigationFilterSettings_, onboardSystemModel, onboardMeasurementModel,
                     boost::bind( &computeSystemJacobianMatrix, _1, _2, densityFunction, planetaryGravitationalParameter_,
-                                 planetaryRadius_, 1.95660673369357e-3, aerodynamicParameters ),
+                                 planetaryRadius_, secondDegreeGravitationalMoment_, aerodynamicParameters ),
                     boost::lambda::constant( Eigen::Matrix12d::Identity( ) ),
                     boost::bind( &computeMeasurementJacobianMatrix, _1, _2, densityFunction, aerodynamicParameters ),
                     boost::lambda::constant( Eigen::Matrix3d::Identity( ) ) );
@@ -144,7 +144,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
         std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface )
 {
     // Inform user
-    std::cout << "Removing Accelerometer Errors." << std::endl;
+    std::cout << std::endl << "Removing Accelerometer Errors." << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
@@ -168,7 +168,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
         const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
 {
     // Inform user
-    std::cout << "Running Periapse Time Estimator." << std::endl;
+    std::cout << std::endl << "Running Periapse Time Estimator." << std::endl;
 
     // Separate time and accelerations
     std::pair< Eigen::VectorXd, Eigen::MatrixXd > pairOfEstimatedKeplerianStateBelowAtmosphericInterface =
@@ -252,7 +252,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
     estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
     estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
-//    estimatedErrorInKeplerianState /= 2.0;
+    //    estimatedErrorInKeplerianState /= 2.0;
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
     // Compute updated estimate in Keplerian state at current time by removing the estimated error
@@ -273,17 +273,16 @@ void NavigationSystem::runAtmosphereEstimator(
         const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
 {
     // Inform user
-    std::cout << "Estimating Atmospheric Parameters." << std::endl;
+    std::cout << std::endl << "Estimating Atmospheric Parameters." << std::endl;
 
     // Retrieve some physical parameters of the spacecraft
     double spacecraftMass = onboardBodyMap_.at( spacecraftName_ )->getBodyMass( );
     double referenceAerodynamicArea = onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getReferenceArea( );
-    double aerodynamicCoefficientsNorm =
-            onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getCurrentForceCoefficients( ).norm( );
+    double dragCoefficient = onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getCurrentForceCoefficients( )[ 0 ];
 
     // Pre-allocate variables
     std::vector< double > vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface;
-    std::vector< double > vectorOfEstimatedAltitudesBelowAtmosphericInterface;
+    std::vector< double > vectorOfEstimatedAltitudesBelowReducedAtmosphericInterface;
 
     // Convert estimated aerodynamic acceleration to estimated atmospheric density and compute altitude below atmospheric interface
     unsigned int i = 0;
@@ -297,29 +296,29 @@ void NavigationSystem::runAtmosphereEstimator(
         {
             // Get estimated density
             vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface.push_back(
-                        2.0 * spacecraftMass / referenceAerodynamicArea / aerodynamicCoefficientsNorm /
+                        2.0 * spacecraftMass / referenceAerodynamicArea / dragCoefficient /
                         cartesianStateIterator->second.segment( 3, 3 ).squaredNorm( ) *
                         vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.at( i ) );
 
             // Get estimated altitude
-            vectorOfEstimatedAltitudesBelowAtmosphericInterface.push_back( currentRadialDistance - planetaryRadius_ );
+            vectorOfEstimatedAltitudesBelowReducedAtmosphericInterface.push_back( currentRadialDistance - planetaryRadius_ );
         }
     }
 
     // Only proceed if satellite flew below reduced atmospheric interface altitude
-    if ( vectorOfEstimatedAltitudesBelowAtmosphericInterface.size( ) > 0 )
+    if ( vectorOfEstimatedAltitudesBelowReducedAtmosphericInterface.size( ) > 0 )
     {
         // Convert vectors to Eigen
         Eigen::VectorXd estimatedAtmosphericDensitiesBelowAtmosphericInterface =
                 utilities::convertStlVectorToEigenVector( vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface );
-        Eigen::VectorXd estimatedAltitudesBelowAtmosphericInterface =
-                utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowAtmosphericInterface );
+        Eigen::VectorXd estimatedAltitudesBelowReducedAtmosphericInterface =
+                utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowReducedAtmosphericInterface );
 
         // Find periapsis altitude
-        double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
-//        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
-//        std::cout << "Altitudes: " << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
-//        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
+        double estimatedPeriapsisAltitude = estimatedAltitudesBelowReducedAtmosphericInterface.minCoeff( );
+        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
+        std::cout << "Altitudes: " << estimatedAltitudesBelowReducedAtmosphericInterface.transpose( ) << std::endl;
+        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
 //        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
 
         // Run least squares estimation process based on selected atmosphere model
@@ -332,10 +331,10 @@ void NavigationSystem::runAtmosphereEstimator(
         {
             // Compute information matrix
             Eigen::MatrixXd informationMatrix;
-            informationMatrix.resize( estimatedAltitudesBelowAtmosphericInterface.rows( ), 2 );
-            for ( unsigned int i = 0; i < estimatedAltitudesBelowAtmosphericInterface.rows( ); i++ )
+            informationMatrix.resize( estimatedAltitudesBelowReducedAtmosphericInterface.rows( ), 2 );
+            for ( unsigned int i = 0; i < estimatedAltitudesBelowReducedAtmosphericInterface.rows( ); i++ )
             {
-                informationMatrix.row( i ) << 1.0, estimatedPeriapsisAltitude - estimatedAltitudesBelowAtmosphericInterface[ i ];
+                informationMatrix.row( i ) << 1.0, estimatedPeriapsisAltitude - estimatedAltitudesBelowReducedAtmosphericInterface[ i ];
             }
 
             // Use least squares polynomial fit
@@ -373,7 +372,7 @@ void NavigationSystem::runAtmosphereEstimator(
 
             // Use non-linear least squares to solve for optimal value of errors
             Eigen::Vector5d estimatedAtmosphereModelParameters = linear_algebra::nonLinearLeastSquaresFit(
-                        boost::bind( &threeModelParametersEstimationFunction, _1, estimatedAltitudesBelowAtmosphericInterface,
+                        boost::bind( &threeModelParametersEstimationFunction, _1, estimatedAltitudesBelowReducedAtmosphericInterface,
                                      estimatedPeriapsisAltitude ),
                         initialParameterEstimates, estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) );
 

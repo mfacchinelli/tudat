@@ -148,7 +148,7 @@ public:
         // (requirement).
         if( currentLowerBoundFunctionValue * currentUpperBoundFunctionValue > 0.0 )
         {
-            throw std::runtime_error( "The Bisection algorithm requires that the values at the upper, "
+            throw std::runtime_error( "The Bisection algorithm requires that the values at the upper "
                                       "and lower bounds have a different sign." );
         }
 
@@ -161,7 +161,7 @@ public:
             // Sanity check.
             if( currentLowerBoundFunctionValue * currentUpperBoundFunctionValue > 0.0 )
             {
-                throw std::runtime_error( "The Bisection algorithm requires that the values at the upper, "
+                throw std::runtime_error( "The Bisection algorithm requires that the values at the upper "
                                           "and lower bounds have a different sign, error during iteration." );
             }
 

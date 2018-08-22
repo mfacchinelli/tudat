@@ -124,7 +124,7 @@ public:
         if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
         {
             // Inform user
-            std::cout << "Reached apoapsis. Preparing to perform maneuver." << std::endl;
+            std::cout << std::endl << "REACHED APOAPSIS. Preparing to perform maneuver." << std::endl;
 
             // Process Deep Space Network tracking data
             if ( deepSpaceNetworkTrackingInformation_.first )
@@ -169,14 +169,24 @@ public:
             }
 
             // Run house keeping routines
-//            runHouseKeepingRoutines( );
+            if ( navigationSystem_->currentOrbitCounter_ != 0 )
+            {
+                runHouseKeepingRoutines( );
+            }
 
             // Step up orbit counter
             navigationSystem_->currentOrbitCounter_++;
 
+            // Renew random coefficients for perturbed atmosphere
+            instrumentsModel_->randomizeAtmospherePerturbations( );
+
             // Invert completion flags
             maneuveringPhaseComplete_ = true;
             atmosphericPhaseComplete_ = false;
+
+            // Inform user
+            std::cout << std::endl << "------- ORBIT " << std::to_string( navigationSystem_->currentOrbitCounter_ - 1 )
+                      << " COMPLETED -------" << std::endl;
         }
         else if ( ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceRadius_ ) > 0.0 ) &&
                     ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
@@ -184,10 +194,10 @@ public:
         {
             // Check that the current acceleration is above the standard deviation
             if ( navigationSystem_->getCurrentEstimatedGravitationalTranslationalAcceleration( ).norm( ) <
-                 ( navigationSystem_->getCurrentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations( ) ) )
+                 navigationSystem_->getCurrentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations( ) )
             {
                 // Inform user
-                std::cout << "Exited atmosphere. Running post-atmosphere processes." << std::endl;
+                std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;
 
                 // Retireve history of inertial measurement unit measurements
                 std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
@@ -223,8 +233,22 @@ public:
      */
     bool isAerobrakingComplete( )
     {
+        // Define output variable
+        bool aerobrakingComplete;
+
+        // Check if aerobraking is complete
         dummyCallCounter_++;
-        return ( dummyCallCounter_ > 2 );
+        aerobrakingComplete = ( dummyCallCounter_ > 2 );
+//        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
+
+        // Inform user
+        if ( aerobrakingComplete )
+        {
+            std::cout << std::endl << "~~~~~~~ AEROBRAKING COMPLETE ~~~~~~~" << std::endl;
+        }
+
+        // Give output
+        return aerobrakingComplete;
     }
 
 private:

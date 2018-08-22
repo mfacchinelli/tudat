@@ -15,13 +15,13 @@
 #include <Eigen/Core>
 #include <boost/shared_ptr.hpp>
 
-#include "Tudat/Mathematics/Statistics/randomVariableGenerator.h"
-
+#include "Tudat/Astrodynamics/Aerodynamics/tabulatedAtmosphere.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModel.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModelTypes.h"
 #include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
 #include "Tudat/Mathematics/Interpolators/cubicSplineInterpolator.h"
 #include "Tudat/Mathematics/Statistics/basicStatistics.h"
+#include "Tudat/Mathematics/Statistics/randomVariableGenerator.h"
 #include "Tudat/SimulationSetup/EnvironmentSetup/body.h"
 
 namespace tudat
@@ -261,7 +261,7 @@ public:
             {
                 smoothedAccelerometerMeasurement += inertialMeasurementUnitMeasurementIterator_->second.segment( 0, 3 );
             }
-            smoothedAccelerometerMeasurement /= 500;
+            smoothedAccelerometerMeasurement /= limitingValue;
             return smoothedAccelerometerMeasurement;
         }
         else
@@ -317,7 +317,7 @@ public:
             {
                 smoothedGyroscopeMeasurement += inertialMeasurementUnitMeasurementIterator_->second.segment( 0, 3 );
             }
-            smoothedGyroscopeMeasurement /= 500;
+            smoothedGyroscopeMeasurement /= limitingValue;
             return smoothedGyroscopeMeasurement;
         }
         else
@@ -442,6 +442,28 @@ public:
         return currentOrbitHistoryOfAltimeterMeasurements_;
     }
 
+    //! Function to randomize the perturbation coefficients.
+    /*!
+     *  Function to randomize the perturbation coefficients, by accessing the atmosphere of the body, transforming it
+     *  to tabulated atmosphere and randomizing the coefficient vector.
+     */
+    void randomizeAtmospherePerturbations( )
+    {
+        // Access planet atmosphere and convert it to tabulated atmosphere
+        boost::shared_ptr< aerodynamics::TabulatedAtmosphere > atmosphere =
+                boost::dynamic_pointer_cast< aerodynamics::TabulatedAtmosphere >( bodyMap_.at( planetName_ )->getAtmosphereModel( ) );
+
+        // Randomize perturbations layer
+        if ( atmosphere != nullptr )
+        {
+            atmosphere->randomizeAtmospherePerturbations( );
+        }
+        else
+        {
+            throw std::runtime_error( "Error in instruments model. The atmosphere model is not a tabulated atmosphere." );
+        }
+    }
+
     //! Clear histories of inertial measurmenet and star tracker measurements for current orbit.
     void clearCurrentOrbitMeasurementHistories( )
     {
@@ -467,7 +489,7 @@ public:
         if ( deepSpaceNetworkAdded_ )
         {
             // Loop over measurements taken
-            for ( std::map< double, std::pair< double, Eigen::Vector6d > >::iterator
+            for ( std::map< double, std::pair< double, Eigen::Vector6d > >::const_iterator
                   measurementIterator = historyOfDeepSpaceNetworkMeasurements_.begin( );
                   measurementIterator != historyOfDeepSpaceNetworkMeasurements_.end( ); measurementIterator++ )
             {

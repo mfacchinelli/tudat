@@ -19,7 +19,7 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
                                            const double planetaryGravitationalParameter )
 {
     // Inform user
-    std::cout << "Estimating Periapsis Corridor." << std::endl;
+    std::cout << std::endl << "Estimating Periapsis Corridor." << std::endl;
 
     // Create propagation termination settings based on period to be used throughout the function
     double terminationTime = currentTime + 2.0 / 3.0 *
@@ -91,7 +91,7 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
 
     // Add scaling if spacecraft is in walk-in phase
     estimatedTargetPeriapsisAltitude *= periapsisAltitudeWalkInScaling_;
-    std::cout << "Tagert periapsis altitude: " << estimatedTargetPeriapsisAltitude / 1.0e3 << " km" << std::endl;
+    std::cout << "Target periapsis altitude: " << estimatedTargetPeriapsisAltitude / 1.0e3 << " km" << std::endl;
 
     // Save periapsis corridor altitudes to history
     historyOfEstimatedPeriapsisCorridorBoundaries_.push_back( std::make_pair( estimatedLowerAltitudeBound, estimatedUpperAltitudeBound ) );
@@ -104,11 +104,11 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
 //! Function to run maneuver estimator (ME).
 void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
                                            const Eigen::Vector6d& currentEstimatedKeplerianState,
-                                           const double currentEstimatedMeanAnomaly,
+                                           const double currentEstimatedMeanMotion,
                                            const double planetaryRadius )
 {
     // Inform user
-    std::cout << "Estimating Apoapsis Maneuver." << std::endl;
+    std::cout << std::endl << "Estimating Apoapsis Maneuver." << std::endl;
 
     // Set apoapsis maneuver vector to zero
     scheduledApsoapsisManeuver_.setZero( );
@@ -118,9 +118,9 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
     double differenceInPeriapsisAltitude = std::get< 2 >( periapsisTargetingInformation_ ) - predictedPeriapsisAltitude;
 
     // Compute estimated maneuver in y-direction of local orbit frame
-    double nominalApoapsisManeuverMagnitude = 0.25 * currentEstimatedMeanAnomaly * differenceInPeriapsisAltitude * std::sqrt(
+    double nominalApoapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInPeriapsisAltitude * std::sqrt(
                 ( 1.0 + currentEstimatedKeplerianState[ 1 ] ) / ( 1.0 - currentEstimatedKeplerianState[ 1 ] ) );
-    std::cout << "Nominal mangitude: " << nominalApoapsisManeuverMagnitude << " m/s" << std::endl;
+    std::cout << "Nominal magnitude: " << nominalApoapsisManeuverMagnitude << " m/s" << std::endl;
 
     // Compute transformation from local to inertial frame
     Eigen::Matrix3d transformationFromLocalToInertialFrame =
@@ -145,7 +145,7 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
     catch ( std::runtime_error& caughtException )
     {
         // Inform user on error
-        std::cerr << "Error while computing improved estimate for apoapsis menauver. Caught this exception during root-finder "
+        std::cerr << "Error while computing improved estimate for apoapsis maneuver. Caught this exception during root-finder "
                      "operation: " << caughtException.what( ) << std::endl
                   << "The nominal magnitude will be used to carry out the maneuver." << std::endl;
 

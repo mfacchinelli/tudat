@@ -48,6 +48,10 @@ void TabulatedAtmosphere::createAtmosphereInterpolators( )
     checkVariableUniqueness< AtmosphereDependentVariables >( dependentVariables_ );
     checkVariableUniqueness< AtmosphereIndependentVariables >( independentVariables_ );
 
+    // Give random layer coefficients zero value
+    randomVariableCounter_ = 0;
+    randomLayerCoefficients_ = Eigen::Vector6d::Zero( );
+
     // Retrieve number of dependent variables from user.
     unsigned int numberOfDependentVariables = dependentVariables_.size( );
 

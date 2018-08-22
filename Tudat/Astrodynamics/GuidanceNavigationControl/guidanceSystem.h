@@ -18,6 +18,7 @@
 #include <Eigen/Geometry>
 
 #include "Tudat/Basics/basicTypedefs.h"
+#include "Tudat/Basics/utilities.h"
 
 #include "Tudat/Mathematics/RootFinders/bisection.h"
 #include "Tudat/SimulationSetup/PropagationSetup/propagationTerminationSettings.h"
@@ -39,7 +40,7 @@ public:
         walk_in_phase = 0,
         main_phase = 1,
         walk_out_phase = 2,
-        aerobraking_completed = 3
+        aerobraking_complete = 3
     };
 
     //! Constructor.
@@ -75,6 +76,10 @@ public:
     ~GuidanceSystem( ) { }
 
     //! Function to create the guidance system objects.
+    /*!
+     *  Function to create the guidance system objects.
+     *  \param statePropagationFunction
+     */
     void createGuidanceSystemObjects(
             const boost::function< std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >(
                 const boost::shared_ptr< propagators::PropagationTerminationSettings >,
@@ -88,7 +93,7 @@ public:
     /*!
      *  Function to determine in which aerobraking phase the spacecraft is currently in. Aerobraking is divided in four phases:
      *  walk-in, main, walk-out and completed. During the walk-in phase, the periapsis is slowly lowered into the atmosphere,
-     *  \param currentEstimatedKeplerianState Current estimated translational Keplerian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
      *  \param pairOfAtmosphereInitiationIndicators Pair of integers, where the first element denotes the number of atmosphere
      *      samples that have been taken so far, and the second element indicates the number of atmosphere samples required for
      *      the atmosphere estimator to be considered initialized.
@@ -113,9 +118,17 @@ public:
 
         // Check whether apoapsis is approaching target value
         double predictedApoapsisRadius = computeCurrentFirstOrderEstimatedApoapsisRadius( currentEstimatedKeplerianState );
-        if ( std::fabs( predictedApoapsisRadius - targetApoapsisAltitude_ ) < 50e3 )
+        if ( std::fabs( predictedApoapsisRadius - targetApoapsisAltitude_ ) < 50.0e3 )
         {
             detectedAerobrakingPhase = walk_out_phase;
+        }
+
+        // Check whether aerobraking is complete
+        double predictedPeriapsisRadius = computeCurrentFirstOrderEstimatedPeriapsisRadius( currentEstimatedKeplerianState );
+        if ( ( std::fabs( predictedApoapsisRadius - targetApoapsisAltitude_ ) < 5.0e3 ) &&
+             ( std::fabs( predictedPeriapsisRadius - targetPeriapsisAltitude_ ) < 5.0e3 ) )
+        {
+            detectedAerobrakingPhase = aerobraking_complete;
         }
 
         // Set current orbit aerobraking phase
@@ -128,11 +141,11 @@ public:
      *  corridor. The lower bound corresponds to the altitude where the estimated heat rate and heat load are below the maximum
      *  allowed value (which depend on the spacecraft material properties), whereas the upper bound corresponds to the altitude
      *  where the dynamic pressure is higher than the minimum allowed value (which depends on the total aerobraking duration).
-     *  \param currentTime
-     *  \param currentEstimatedCartesianState
-     *  \param currentEstimatedKeplerianState
-     *  \param planetaryRadius
-     *  \param planetaryGravitationalParameter
+     *  \param currentTime Double denoting the current time.
+     *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
+     *  \param planetaryGravitationalParameter Double denoting the gravitational parameter of the planet being orbited.
      */
     void runCorridorEstimator( const double currentTime,
                                const Eigen::Vector6d& currentEstimatedCartesianState,
@@ -144,14 +157,14 @@ public:
     /*!
      *  Function to run maneuver estimator (ME). Note that since the root-finder uses the propagator defined in the runCorridorEstimator
      *  function (i.e., reducedStatePropagationFunction_), said function needs to be run before this one.
-     *  \param currentEstimatedCartesianState
-     *  \param currentEstimatedKeplerianState
-     *  \param currentEstimatedMeanAnomaly
-     *  \param planetaryRadius
+     *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
+     *  \param currentEstimatedMeanMotion Double denoting the current estimated mean motion.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
      */
     void runManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
                                const Eigen::Vector6d& currentEstimatedKeplerianState,
-                               const double currentEstimatedMeanAnomaly,
+                               const double currentEstimatedMeanMotion,
                                const double planetaryRadius );
 
     //! Function to retrieve whether the apoapsis maneuver is to be performed.
@@ -166,6 +179,28 @@ public:
 
     //! Function to retirieve the value of the apoapsis maneuver vector.
     Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApsoapsisManeuver_; }
+
+    //! Function to retrieve whether the aerobraking maneuver has been completed.
+    /*!
+     *  Function to retrieve whether the aerobraking maneuver has been completed. The value of currentOrbitAerobrakingPhase_ is
+     *  determined by the function determineAerobrakingPhase and returns that the aerobraking phase has been completed, if the
+     *  estimated periapsis and apoapsis altitudes are within 5 km of their respective target values.
+     *  \return Boolean denoting whether the aerobraking maneuver has been completed.
+     */
+    bool getIsAerobrakingComplete( ) { return ( currentOrbitAerobrakingPhase_ == aerobraking_complete ); }
+
+    //! Function to retrieve the history of estimated periapsis corridor boundaries.
+    std::vector< std::pair< double, double > > getHistoryOfEstimatedPeriapsisCorridorBoundaries( )
+    {
+        return historyOfEstimatedPeriapsisCorridorBoundaries_;
+    }
+
+    //! Function to retrieve the history of apoapsis maneuver magnitudes.
+    std::pair< double, std::vector< double > > getHistoryOfApoapsisManeuverMagnitudes( )
+    {
+        return std::make_pair( utilities::convertStlVectorToEigenVector( historyOfApoapsisManeuverMagnitudes_ ).sum( ),
+                               historyOfApoapsisManeuverMagnitudes_ );
+    }
 
 private:
 
