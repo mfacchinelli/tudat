@@ -50,7 +50,7 @@ void TabulatedAtmosphere::createAtmosphereInterpolators( )
 
     // Give random layer coefficients zero value
     randomVariableCounter_ = 0;
-    randomLayerCoefficients_ = Eigen::Vector6d::Zero( );
+    randomPerturbationsCoefficients_ = Eigen::Vector6d::Zero( );
 
     // Retrieve number of dependent variables from user.
     unsigned int numberOfDependentVariables = dependentVariables_.size( );

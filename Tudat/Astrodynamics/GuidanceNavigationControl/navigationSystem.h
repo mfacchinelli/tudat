@@ -81,6 +81,7 @@ public:
                       const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude,
                       const double secondDegreeGravitationalMoment, const double periapseEstimatorConstant,
                       const unsigned int numberOfRequiredAtmosphereSamplesForInitiation,
+                      const unsigned int frequencyOfDeepSpaceNetworkTracking,
                       const Eigen::Vector3d& altimeterBodyFixedPointingDirection = Eigen::Vector3d::Constant( TUDAT_NAN ),
                       const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ) ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
@@ -92,6 +93,7 @@ public:
         reducedAtmosphericInterfaceRadius_( planetaryRadius_ + reducedAtmosphericInterfaceAltitude ),
         secondDegreeGravitationalMoment_( secondDegreeGravitationalMoment ), periapseEstimatorConstant_( periapseEstimatorConstant ),
         numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation ),
+        frequencyOfDeepSpaceNetworkTracking_( frequencyOfDeepSpaceNetworkTracking ),
         altimeterBodyFixedPointingDirection_( altimeterBodyFixedPointingDirection ), altimeterAltitudeRange_( altimeterAltitudeRange )
     {
         // Create environment updater
@@ -531,7 +533,7 @@ public:
     //! Function to retireve the frequency (in days) with which Deep Space Network tracking has to be performed.
     unsigned int getFrequencyOfDeepSpaceNetworkTracking( )
     {
-        return 2;
+        return frequencyOfDeepSpaceNetworkTracking_;
     }
 
     //! Function to set current Cartesian state to new value.
@@ -810,6 +812,14 @@ private:
      *  numberOfRequiredAtmosphereSamplesForInitiation_ of orbits to estimate the atmosphere model parameters.
      */
     const unsigned int numberOfRequiredAtmosphereSamplesForInitiation_;
+
+    //! Integer denoting the number of frequency of Deep Space Network tracking in days.
+    /*!
+     *  Integer denoting the number of frequency of Deep Space Network tracking in days. This means that every
+     *  frequencyOfDeepSpaceNetworkTracking_ days the Deep Space Network tracking information will be processed and used to update
+     *  the current estimated state.
+     */
+    const unsigned int frequencyOfDeepSpaceNetworkTracking_;
 
     //! Vector denoting the direction in the body frame along which the altimeter instrument is pointing.
     const Eigen::Vector3d altimeterBodyFixedPointingDirection_;

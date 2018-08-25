@@ -239,30 +239,37 @@ public:
         }
 
         // Give output
-        if ( randomLayerCoefficients_.isZero( ) )
+        if ( randomPerturbationsCoefficients_.isZero( ) )
         {
             return interpolatorForDensity_->interpolate( independentVariableData );
         }
         else
         {
             double nonConstantAltitude = altitude;
-            if ( altitude > independentVariablesData_.at( 2 ).back( ) )
+            if ( nonConstantAltitude > independentVariablesData_.at( 2 ).back( ) )
             {
                 nonConstantAltitude = independentVariablesData_.at( 2 ).back( );
             }
-            else if ( altitude < independentVariablesData_.at( 2 ).front( ) )
+            else if ( nonConstantAltitude < independentVariablesData_.at( 2 ).front( ) )
             {
                 nonConstantAltitude = independentVariablesData_.at( 2 ).front( );
             }
-            double altitudeFactor = 2.0 * mathematical_constants::PI / independentVariablesData_.at( 2 ).back( ) *
-                    ( nonConstantAltitude - independentVariablesData_.at( 2 ).front( ) );
+            double altitudeFactor = 2.0 * mathematical_constants::PI *
+                    ( nonConstantAltitude - independentVariablesData_.at( 2 ).front( ) ) /
+                    ( independentVariablesData_.at( 2 ).back( ) - independentVariablesData_.at( 2 ).front( ) );
+            double longitudeFactor = longitude + mathematical_constants::PI;
+            double latitudeFactor = 2.0 * latitude + mathematical_constants::PI;
 
-            double multiplicativeFactor =
-                    randomLayerCoefficients_[ 0 ] * std::sin( altitudeFactor ) + randomLayerCoefficients_[ 1 ] * std::cos( altitudeFactor ) +
-                    randomLayerCoefficients_[ 2 ] * std::sin( longitude ) + randomLayerCoefficients_[ 3 ] * std::cos( longitude ) +
-                    randomLayerCoefficients_[ 4 ] * std::sin( latitude ) + randomLayerCoefficients_[ 5 ] * std::cos( latitude );
+            double multiplicativeFactor = std::fabs( 1.5 +
+                    randomPerturbationsCoefficients_[ 0 ] * std::sin( altitudeFactor ) +
+                    randomPerturbationsCoefficients_[ 1 ] * std::cos( altitudeFactor ) +
+                    randomPerturbationsCoefficients_[ 2 ] * std::sin( longitudeFactor ) +
+                    randomPerturbationsCoefficients_[ 3 ] * std::cos( longitudeFactor ) +
+                    randomPerturbationsCoefficients_[ 4 ] * std::sin( latitudeFactor ) +
+                    randomPerturbationsCoefficients_[ 5 ] * std::cos( latitudeFactor ) );
+            multiplicativeFactor = ( multiplicativeFactor < 0.5 ) ? 0.5 : multiplicativeFactor;
 
-            return ( std::fabs( multiplicativeFactor ) * interpolatorForDensity_->interpolate( independentVariableData ) );
+            return ( multiplicativeFactor * interpolatorForDensity_->interpolate( independentVariableData ) );
         }
     }
 
@@ -500,16 +507,16 @@ public:
         // Create random number generator
         boost::shared_ptr< statistics::RandomVariableGenerator< double > > randomNumberGenerator =
                 statistics::createBoostContinuousRandomVariableGenerator(
-                    statistics::normal_boost_distribution, { 0.0, 1.0 }, randomVariableCounter_ );
+                    statistics::normal_boost_distribution, { 0.0, 0.25 }, randomVariableCounter_ );
 
         // Loop over each coefficient
         for ( unsigned int i = 0; i < 6; i++ )
         {
-            randomLayerCoefficients_[ i ] = randomNumberGenerator->getRandomVariableValue( );
+            randomPerturbationsCoefficients_[ i ] = randomNumberGenerator->getRandomVariableValue( );
         }
-        std::cout << randomLayerCoefficients_.transpose( ) << std::endl;
+        std::cout << randomPerturbationsCoefficients_.transpose( ) << std::endl;
 
-        // Count number of calls, to get a different random layer with each call
+        // Count number of calls, to get a different random perturbation layer with each call
         randomVariableCounter_++;
     }
 
@@ -587,7 +594,7 @@ private:
     unsigned int randomVariableCounter_;
 
     //! Vector containing the coefficients for the randomized layer.
-    Eigen::Vector6d randomLayerCoefficients_;
+    Eigen::Vector6d randomPerturbationsCoefficients_;
 
     //! Interpolation for density. Note that type of interpolator depends on number of independent variables specified.
     boost::shared_ptr< interpolators::Interpolator< double, double > > interpolatorForDensity_;

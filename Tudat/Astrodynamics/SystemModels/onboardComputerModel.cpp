@@ -43,7 +43,7 @@ Eigen::Vector3d onboardMeasurementModel(
 
     // Add translational acceleration
     currentMeasurementVector = currentEstimatedStateVector.segment( 6, 3 ) +
-            ( Eigen::Matrix3d::Identity( ) + Eigen::Matrix3d( currentEstimatedStateVector.segment( 9, 3 ).asDiagonal( ) ) ) *
+//            ( Eigen::Matrix3d::Identity( ) + Eigen::Matrix3d( currentEstimatedStateVector.segment( 9, 3 ).asDiagonal( ) ) ) *
             currenstEstimatedNonGravitationalAccelerationFunction( currentEstimatedStateVector.segment( 0, 6 ) );
 
     // Return quaternion vector
