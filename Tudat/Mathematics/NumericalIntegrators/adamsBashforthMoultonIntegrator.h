@@ -464,12 +464,17 @@ public:
         return true;
     }
 
-    //! Modify the state at the current value of the independent variable.
+    //! Replace the state with a new value.
     /*!
-     * Modify the state at the current value of the independent variable.
-     * \param newState The new state to set the current state to.
+     * Replace the state with a new value. This allows for discrete jumps in the state, often
+     * used in simulations of discrete events. In astrodynamics, this relates to simulations of rocket staging,
+     * impulsive shots, parachuting, ideal control, etc. The modified state, by default, cannot be rolled back; to do this, either
+     * set the flag to true, or store the state before calling this function the first time, and call it again with the initial state
+     * as parameter to revert to the state before the discrete change.
+     * \param newState The value of the new state.
+     * \param allowRollback Boolean denoting whether roll-back should be allowed.
      */
-    void modifyCurrentState( const StateType& newState )
+    void modifyCurrentState( const StateType& newState, const bool allowRollback = false )
     {
         currentState_ = newState;
 
@@ -479,33 +484,11 @@ public:
         stateHistory_.push_front( currentState_ );
         derivHistory_.push_front( this->stateDerivativeFunction_(
                                       currentIndependentVariable_, currentState_ ) );
-        lastIndependentVariable_ = currentIndependentVariable_;
-
-        // Allow single step integrator to determine own stepsize
-        fixedSingleStep_ = fixedStepSize_;
-    }
-
-    //! Modify the state and time for the current step.
-    /*!
-     * Modify the state and time for the current step.
-     * \param newState The new state to set the current state to.
-     * \param newTime The time to set the current time to.
-     */
-    void modifyCurrentIntegrationVariables( const StateType& newState, const IndependentVariableType newTime = 0 )
-    {
-        currentState_ = newState;
-        if ( !( newTime == 0 ) )
+        if ( !allowRollback )
         {
-            this->currentIndependentVariable_ = newTime;
+            lastIndependentVariable_ = currentIndependentVariable_;
         }
 
-        // Clear the history and initiate with new state and derivative.
-        stateHistory_.clear( );
-        derivHistory_.clear( );
-        stateHistory_.push_front( currentState_ );
-        derivHistory_.push_front( this->stateDerivativeFunction_(
-                                      currentIndependentVariable_, currentState_ ) );
-        
         // Allow single step integrator to determine own stepsize
         fixedSingleStep_ = fixedStepSize_;
     }

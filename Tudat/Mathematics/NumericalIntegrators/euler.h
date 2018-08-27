@@ -164,15 +164,23 @@ public:
         return this->lastState_;
     }
 
-    //! Modify the state at the current value of the independent variable.
+    //! Replace the state with a new value.
     /*!
-     * Modify the state at the current value of the independent variable.
-     * \param newState The new state to set the current state to.
+     * Replace the state with a new value. This allows for discrete jumps in the state, often
+     * used in simulations of discrete events. In astrodynamics, this relates to simulations of rocket staging,
+     * impulsive shots, parachuting, ideal control, etc. The modified state, by default, cannot be rolled back; to do this, either
+     * set the flag to true, or store the state before calling this function the first time, and call it again with the initial state
+     * as parameter to revert to the state before the discrete change.
+     * \param newState The value of the new state.
+     * \param allowRollback Boolean denoting whether roll-back should be allowed.
      */
-    void modifyCurrentState( const StateType& newState )
+    void modifyCurrentState( const StateType& newState, const bool allowRollback = false )
     {
-        this->currentState_ = newState;
-        this->lastIndependentVariable_ = currentIndependentVariable_;
+        currentState_ = newState;
+        if ( !allowRollback )
+        {
+            this->lastIndependentVariable_ = currentIndependentVariable_;
+        }
     }
 
     //! Modify the state and time for the current step.
@@ -180,13 +188,16 @@ public:
      * Modify the state and time for the current step.
      * \param newState The new state to set the current state to.
      * \param newTime The time to set the current time to.
+     * \param allowRollback Boolean denoting whether roll-back should be allowed.
      */
-    void modifyCurrentIntegrationVariables( const StateType& newState, const IndependentVariableType newTime = 0 )
+    void modifyCurrentIntegrationVariables( const StateType& newState, const IndependentVariableType newTime,
+                                            const bool allowRollback = false )
     {
-        this->currentState_ = newState;
-        if ( !( newTime == 0 ) )
+        currentState_ = newState;
+        currentIndependentVariable_ = newTime;
+        if ( !allowRollback )
         {
-            this->currentIndependentVariable_ = newTime;
+            this->lastIndependentVariable_ = currentIndependentVariable_;
         }
     }
 
