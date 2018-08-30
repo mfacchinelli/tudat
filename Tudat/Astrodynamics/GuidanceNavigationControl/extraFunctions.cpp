@@ -41,26 +41,23 @@ Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Ei
     jacobianMatrix( 2, 5 ) = 1.0;
 
     // Add terms due to central gravitational acceleration
-    jacobianMatrix( 3, 0 ) = centralGravityRecurringTerm * ( 3.0 * currentState[ 0 ] *
-            currentState[ 0 ] / radialDistanceSquared - 1.0 );
-    jacobianMatrix( 4, 0 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 1 ];
-    jacobianMatrix( 5, 0 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * currentState[ 0 ] * currentState[ 2 ];
-
-    jacobianMatrix( 3, 1 ) = jacobianMatrix( 4, 0 );
-    jacobianMatrix( 4, 1 ) = centralGravityRecurringTerm * ( 3.0 * currentState[ 1 ] *
-            currentState[ 1 ] / radialDistanceSquared - 1.0 );
-    jacobianMatrix( 5, 1 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * currentState[ 1 ] * currentState[ 2 ];
-
-    jacobianMatrix( 3, 2 ) = jacobianMatrix( 5, 0 );
-    jacobianMatrix( 4, 2 ) = jacobianMatrix( 5, 1 );
-    jacobianMatrix( 5, 2 ) = centralGravityRecurringTerm * ( 3.0 * currentState[ 2 ] *
-            currentState[ 2 ] / radialDistanceSquared - 1.0 );
-
-    // Add terms due to J2 effect
-    Eigen::Matrix3d secondDegreeGravityJacobianMatrix = Eigen::Matrix3d::Zero( );
     double x = currentState[ 0 ];
     double y = currentState[ 1 ];
     double z = currentState[ 2 ];
+    jacobianMatrix( 3, 0 ) = centralGravityRecurringTerm * ( 3.0 * x * x / radialDistanceSquared - 1.0 );
+    jacobianMatrix( 4, 0 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * x * y;
+    jacobianMatrix( 5, 0 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * x * z;
+
+    jacobianMatrix( 3, 1 ) = jacobianMatrix( 4, 0 );
+    jacobianMatrix( 4, 1 ) = centralGravityRecurringTerm * ( 3.0 * y * y / radialDistanceSquared - 1.0 );
+    jacobianMatrix( 5, 1 ) = 3.0 * centralGravityRecurringTerm / radialDistanceSquared * y * z;
+
+    jacobianMatrix( 3, 2 ) = jacobianMatrix( 5, 0 );
+    jacobianMatrix( 4, 2 ) = jacobianMatrix( 5, 1 );
+    jacobianMatrix( 5, 2 ) = centralGravityRecurringTerm * ( 3.0 * z * z / radialDistanceSquared - 1.0 );
+
+    // Add terms due to J2 effect
+    Eigen::Matrix3d secondDegreeGravityJacobianMatrix = Eigen::Matrix3d::Zero( );
     double secondDegreeGravityRecurringTerm = 3.0 / 2.0 * secondDegreeGravitationalMoment * planetRadius * planetRadius *
             centralGravityRecurringTerm / radialDistanceSquared / radialDistanceSquared;
     double zPositionRecurringTerm = 7.0 / radialDistanceSquared * ( radialDistanceSquared - 5.0 * z * z );
@@ -109,7 +106,7 @@ Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Ei
     jacobianMatrix( 5, 5 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 5 ] );
 
 //    double currentAltitude = radialDistance - 3.396e6;
-//    jacobianMatrix.block( 3, 0, 3, 1 ) = - aerodynamicParameter * ( density * currentState[ 0 ] / 6533.0 / currentAltitude ) *
+//    jacobianMatrix.block( 3, 0, 3, 1 ) = - aerodynamicParameter * ( density * x / 6533.0 / currentAltitude ) *
 //            currentState.segment( 3, 3 ).cwiseProduct( currentState.segment( 3, 3 ).cwiseAbs( ) );
 
     // Give output

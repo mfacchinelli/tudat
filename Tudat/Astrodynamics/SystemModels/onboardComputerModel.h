@@ -52,14 +52,12 @@ public:
         controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem ),
         instrumentsModel_( instrumentsModel )
     {
-        dummyCallCounter_ = 0; // <<<<<<<<<----------
-
         // Define internal variables
         maneuveringPhaseComplete_ = false; // simulation starts at apoapsis with possible need to perform a maneuver
         atmosphericPhaseComplete_ = true;
 
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
-        atmosphericInterfaceRadius_ = navigationSystem_->getAtmosphericInterfaceRadius( );
+        planetaryRadius_ = navigationSystem_->getRadius( );
 
         // Create acceleration functions
         boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > translationalAccelerationFuncion =
@@ -74,7 +72,7 @@ public:
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
-        guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateStateWithCustomTerminationSettings,
+        guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
                                                                    navigationSystem_, _1, _2, -1.0 ) );
     }
 
@@ -118,9 +116,13 @@ public:
             deepSpaceNetworkTrackingInformation_.second = currentDay;
         }
 
-        // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
+        // Access current state and extract interesting variables
         std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
         double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
+        double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedState.second[ 0 ] *
+                ( 1.0 + currentEstimatedState.second[ 1 ] ) ) + planetaryRadius_;
+
+        // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
         {
             // Inform user
@@ -167,6 +169,11 @@ public:
                 // Feed maneuver to the control system
                 controlSystem_->updateOrbitController( scheduledApoapsisManeuver );
             }
+            else
+            {
+                // Check whether aerobraking is complete
+                isPropagationToBeStopped = isAerobrakingComplete( true );
+            }
 
             // Run house keeping routines
             if ( navigationSystem_->currentOrbitCounter_ != 0 )
@@ -185,41 +192,37 @@ public:
             atmosphericPhaseComplete_ = false;
 
             // Inform user
-            std::cout << std::endl << "------- ORBIT " << std::to_string( navigationSystem_->currentOrbitCounter_ - 1 )
-                      << " COMPLETED -------" << std::endl;
+            std::cout << std::endl << "-------------- ORBIT "
+                      << std::to_string( navigationSystem_->currentOrbitCounter_ - 1 )
+                      << " COMPLETED --------------" << std::endl;
         }
-        else if ( ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - atmosphericInterfaceRadius_ ) > 0.0 ) &&
+        else if ( ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - currentDynamicAtmosphericInterfaceRadius ) > 0.0 ) &&
                     ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
                   !atmosphericPhaseComplete_ ) // check altitude
         {
-            // Check that the current acceleration is above the standard deviation
-            if ( navigationSystem_->getCurrentEstimatedGravitationalTranslationalAcceleration( ).norm( ) <
-                 navigationSystem_->getCurrentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations( ) )
+            // Inform user
+            std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;
+
+            // Retireve history of inertial measurement unit measurements
+            std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
+                    instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
+
+            // Extract measured translational accelerations and transform to inertial frame
+            std::map< double, Eigen::Vector3d > currentOrbitHistoryOfMeasuredTranslationalAccelerations;
+            for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
+                  measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
+                  measurementConstantIterator_++ )
             {
-                // Inform user
-                std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;
-
-                // Retireve history of inertial measurement unit measurements
-                std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
-                        instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
-
-                // Extract measured translational accelerations and transform to inertial frame
-                std::map< double, Eigen::Vector3d > currentOrbitHistoryOfMeasuredTranslationalAccelerations;
-                for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
-                      measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
-                      measurementConstantIterator_++ )
-                {
-                    currentOrbitHistoryOfMeasuredTranslationalAccelerations[ measurementConstantIterator_->first ] =
-                            measurementConstantIterator_->second.segment( 0, 3 );
-                }
-
-                // Perform periapse time and atmosphere estimations
-                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
-
-                // Invert completion flags
-                maneuveringPhaseComplete_ = false;
-                atmosphericPhaseComplete_ = true;
+                currentOrbitHistoryOfMeasuredTranslationalAccelerations[ measurementConstantIterator_->first ] =
+                        measurementConstantIterator_->second.segment( 0, 3 );
             }
+
+            // Perform periapse time and atmosphere estimations
+            navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+
+            // Invert completion flags
+            maneuveringPhaseComplete_ = false;
+            atmosphericPhaseComplete_ = true;
         }
 
         // Give output
@@ -229,22 +232,26 @@ public:
     //! Function to check whether the aerobraking maneuver has been completed.
     /*!
      *  Function to check whether the aerobraking maneuver has been completed.
+     *  \param isCallInternal Boolean denoting whether the function is being called internally; default value is false; the only
+     *      difference is that if the call is internal, no messages will be printed.
      *  \return Boolean denoting whether the aerobraking maneuver has been completed.
      */
-    bool isAerobrakingComplete( )
+    bool isAerobrakingComplete( const bool isCallInternal = false )
     {
         // Define output variable
         bool aerobrakingComplete;
 
         // Check if aerobraking is complete
         dummyCallCounter_++;
-        aerobrakingComplete = ( dummyCallCounter_ > 4 );
+        aerobrakingComplete = ( dummyCallCounter_ > 3 );
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user
-        if ( aerobrakingComplete )
+        if ( aerobrakingComplete && !isCallInternal )
         {
-            std::cout << std::endl << "~~~~~~~ AEROBRAKING COMPLETE ~~~~~~~" << std::endl;
+            std::cout << std::endl << "~~~~~~~~~~~~~~ AEROBRAKING COMPLETE ~~~~~~~~~~~~~~" << std::endl << std::endl
+                      << "Cumulative propellant used: "
+                      << std::to_string( guidanceSystem_->getHistoryOfApoapsisManeuverMagnitudes( ).first ) << std::endl;
         }
 
         // Give output
@@ -253,7 +260,7 @@ public:
 
 private:
 
-    unsigned int dummyCallCounter_;
+    unsigned int dummyCallCounter_ = 0;
 
     //! Function to run house keeping routines when new orbit is initiated.
     void runHouseKeepingRoutines( )
@@ -285,8 +292,8 @@ private:
     //! Pair denoting whether the Deep Space Network tracking is to be performed and the last day it was performed.
     std::pair< bool, unsigned int > deepSpaceNetworkTrackingInformation_;
 
-    //! Double denoting the atmospheric interface altitude.
-    double atmosphericInterfaceRadius_;
+    //! Double denoting the radius of body being orbited.
+    double planetaryRadius_;
 
     //! Double denoting initial time of the simulation.
     double initialTime_;

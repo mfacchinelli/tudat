@@ -105,13 +105,13 @@ public:
         AerobrakingPhaseIndicator detectedAerobrakingPhase = main_phase;
 
         // Set periapsis altitude scaling to default value
-        periapsisAltitudeWalkInScaling_ = 1.0;
+        periapsisAltitudeScaling_ = 1.0;
 
         // Check whether atmosphere has been initiated
         if ( pairOfAtmosphereInitiationIndicators.first < pairOfAtmosphereInitiationIndicators.second )
         {
             detectedAerobrakingPhase = walk_in_phase;
-            periapsisAltitudeWalkInScaling_ = 1.2 - 0.2 *
+            periapsisAltitudeScaling_ = 1.2 - 0.2 *
                     static_cast< double >( pairOfAtmosphereInitiationIndicators.first ) /
                     static_cast< double >( pairOfAtmosphereInitiationIndicators.second );
         }
@@ -198,7 +198,7 @@ public:
     //! Function to retrieve the history of apoapsis maneuver magnitudes.
     std::pair< double, std::vector< double > > getHistoryOfApoapsisManeuverMagnitudes( )
     {
-        return std::make_pair( utilities::convertStlVectorToEigenVector( historyOfApoapsisManeuverMagnitudes_ ).sum( ),
+        return std::make_pair( utilities::convertStlVectorToEigenVector( historyOfApoapsisManeuverMagnitudes_ ).cwiseAbs( ).sum( ),
                                historyOfApoapsisManeuverMagnitudes_ );
     }
 
@@ -290,8 +290,8 @@ private:
     //! Function to propagate state with custom propagation termination settings.
     /*!
      *  Function to propagate state with custom propagation termination settings. This function simply refers to the
-     *  propagateStateWithCustomTerminationSettings function of the navigation system, in order to propagate the state from the
-     *  input initial condition, until the custom termination conditions are reached.
+     *  propagateTranslationalStateWithCustomTerminationSettings function of the navigation system, in order to propagate the state
+     *  from the input initial condition, until the custom termination conditions are reached.
      */
     boost::function< std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >(
             const boost::shared_ptr< propagators::PropagationTerminationSettings >, const Eigen::Vector6d& ) > statePropagationFunction_;
@@ -299,8 +299,8 @@ private:
     //! Enumeration denoting the aerobraking phase belonging to the current orbit.
     AerobrakingPhaseIndicator currentOrbitAerobrakingPhase_;
 
-    //! Double denoting the scaling to be applied to the periapsis altitude target altitude during walk-in phase.
-    double periapsisAltitudeWalkInScaling_;
+    //! Double denoting the scaling to be applied to the periapsis altitude target altitude during the walk-in and walk-out phases.
+    double periapsisAltitudeScaling_;
 
     //! Tuple containing the periapsis targeting information.
     /*!

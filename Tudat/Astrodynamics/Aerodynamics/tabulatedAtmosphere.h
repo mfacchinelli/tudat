@@ -239,38 +239,38 @@ public:
         }
 
         // Give output
-        if ( randomPerturbationsCoefficients_.isZero( ) )
+//        if ( randomPerturbationsCoefficients_.isZero( ) )
         {
             return interpolatorForDensity_->interpolate( independentVariableData );
         }
-        else
-        {
-            double nonConstantAltitude = altitude;
-            if ( nonConstantAltitude > independentVariablesData_.at( 2 ).back( ) )
-            {
-                nonConstantAltitude = independentVariablesData_.at( 2 ).back( );
-            }
-            else if ( nonConstantAltitude < independentVariablesData_.at( 2 ).front( ) )
-            {
-                nonConstantAltitude = independentVariablesData_.at( 2 ).front( );
-            }
-            double altitudeFactor = 2.0 * mathematical_constants::PI *
-                    ( nonConstantAltitude - independentVariablesData_.at( 2 ).front( ) ) /
-                    ( independentVariablesData_.at( 2 ).back( ) - independentVariablesData_.at( 2 ).front( ) );
-            double longitudeFactor = longitude + mathematical_constants::PI;
-            double latitudeFactor = 2.0 * latitude + mathematical_constants::PI;
+//        else
+//        {
+//            double nonConstantAltitude = altitude;
+//            if ( nonConstantAltitude > independentVariablesData_.at( 2 ).back( ) )
+//            {
+//                nonConstantAltitude = independentVariablesData_.at( 2 ).back( );
+//            }
+//            else if ( nonConstantAltitude < independentVariablesData_.at( 2 ).front( ) )
+//            {
+//                nonConstantAltitude = independentVariablesData_.at( 2 ).front( );
+//            }
+//            double altitudeFactor = 2.0 * mathematical_constants::PI *
+//                    ( nonConstantAltitude - independentVariablesData_.at( 2 ).front( ) ) /
+//                    ( independentVariablesData_.at( 2 ).back( ) - independentVariablesData_.at( 2 ).front( ) );
+//            double longitudeFactor = longitude + mathematical_constants::PI;
+//            double latitudeFactor = 2.0 * latitude + mathematical_constants::PI;
 
-            double multiplicativeFactor = std::fabs( 1.5 +
-                    randomPerturbationsCoefficients_[ 0 ] * std::sin( altitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 1 ] * std::cos( altitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 2 ] * std::sin( longitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 3 ] * std::cos( longitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 4 ] * std::sin( latitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 5 ] * std::cos( latitudeFactor ) );
-            multiplicativeFactor = ( multiplicativeFactor < 0.5 ) ? 0.5 : multiplicativeFactor;
+//            double multiplicativeFactor = std::fabs( 1.5 +
+//                    randomPerturbationsCoefficients_[ 0 ] * std::sin( altitudeFactor ) +
+//                    randomPerturbationsCoefficients_[ 1 ] * std::cos( altitudeFactor ) +
+//                    randomPerturbationsCoefficients_[ 2 ] * std::sin( longitudeFactor ) +
+//                    randomPerturbationsCoefficients_[ 3 ] * std::cos( longitudeFactor ) +
+//                    randomPerturbationsCoefficients_[ 4 ] * std::sin( latitudeFactor ) +
+//                    randomPerturbationsCoefficients_[ 5 ] * std::cos( latitudeFactor ) );
+//            multiplicativeFactor = ( multiplicativeFactor < 0.5 ) ? 0.5 : multiplicativeFactor;
 
-            return ( multiplicativeFactor * interpolatorForDensity_->interpolate( independentVariableData ) );
-        }
+//            return ( multiplicativeFactor * interpolatorForDensity_->interpolate( independentVariableData ) );
+//        }
     }
 
     //! Get local pressure.

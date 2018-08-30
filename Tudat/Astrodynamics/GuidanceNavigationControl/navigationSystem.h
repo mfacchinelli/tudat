@@ -102,7 +102,6 @@ public:
         // Set values to their initial conditions
         atmosphereEstimatorInitialized_ = false;
         estimatedAccelerometerErrors_.setZero( );
-        currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_ = TUDAT_NAN;
 
         // Get index of central body acceleration (which is not measured by the IMUs)
         for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -229,14 +228,14 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            if ( atmosphereEstimatorInitialized_ ) //historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //
+            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //atmosphereEstimatorInitialized_ ) //
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
             }
 
             // Run atmosphere estimator with processed results
-            runAtmosphereEstimator( mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
+            runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                     vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
         }
     }
@@ -253,7 +252,7 @@ public:
     void processDeepSpaceNetworkTracking( const std::pair< double, Eigen::Vector6d >& currentDeepSpaceNetworkTrackingData )
     {
         // Inform user
-        std::cout << "Processing Deep Space Network tracking information." << std::endl;
+        std::cout << std::endl << "Processing Deep Space Network tracking information." << std::endl;
 
         // Split Deep Space Network tracking data in light-time delay and Cartesian state
         double currentLightTimeDelay = currentDeepSpaceNetworkTrackingData.first;
@@ -262,7 +261,7 @@ public:
         // Propagate tracked state to current time
         boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
                 boost::make_shared< propagators::PropagationTimeTerminationSettings >( currentTime_ );
-        Eigen::Vector6d propagatedStateBasedOnTracking = propagateStateWithCustomTerminationSettings(
+        Eigen::Vector6d propagatedStateBasedOnTracking = propagateTranslationalStateWithCustomTerminationSettings(
                     terminationSettings, currentTrackedState, currentTime_ - currentLightTimeDelay ).first.rbegin( )->second;
 
         // Convert to Keplerian elements and reset true anomaly
@@ -274,24 +273,29 @@ public:
         std::cout << "Propagated state for " << currentLightTimeDelay << " seconds." << std::endl;
 
         // Reset navigation filter (including covariance)
-        setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, Eigen::Matrix12d::Identity( ) );
+        Eigen::Matrix12d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+        currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
+        setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, currentEstimatedCovarianceMatrix );
     }
 
     //! Function to propagate translational Cartesian state to specified termination settings.
     /*!
      *  Function to propagate translational Cartesian state to specified termination settings. Note that this function does not
      *  continuously estimate the spacecraft state, but instead it is called by the navigation system or any other onboard system
-     *  to propagate the current estimated state to some termination condition. The initial time and state are automatically set to
-     *  the current time and current estimated translational Cartesian state, respectively, but they can be overwritten by setting
-     *  them from the input.
+     *  to propagate the current estimated state with the onboard model to some termination condition. The initial time and state are
+     *  automatically set to the current time and current estimated translational Cartesian state, respectively, but they can be
+     *  overwritten by setting them as inputs.
      *  \param propagationTerminationSettings Termination settings to be used to stop the propagation.
+     *  \param initialTranslationalCartesianState Vector denoting the initial conditions for the translational state in Cartesian elements.
+     *  \param initialTime Double denoting the initial time for propagation.
      *  \return Pair of dynamics simulator results. The first element is the map of time and propagated state, whereas the second
      *      one is the map of time and dependent variable values.
      */
     std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >
-    propagateStateWithCustomTerminationSettings(
+    propagateTranslationalStateWithCustomTerminationSettings(
             const boost::shared_ptr< propagators::PropagationTerminationSettings > propagationTerminationSettings,
-            const Eigen::Vector6d& initialTranslationalCartesianState = Eigen::Vector6d::Zero( ), const double initialTime = -1.0 )
+            const Eigen::Vector6d& initialTranslationalCartesianState = Eigen::Vector6d::Zero( ),
+            const double initialTime = -1.0 )
     {
         // Set initial time
         if ( static_cast< int >( initialTime ) == -1 )
@@ -304,7 +308,7 @@ public:
         }
 
         // Set initial state
-        if ( initialTranslationalCartesianState.norm( ) == 0.0 )
+        if ( initialTranslationalCartesianState.isZero( ) )
         {
             onboardPropagatorSettings_->resetInitialStates( currentEstimatedCartesianState_ );
         }
@@ -487,37 +491,6 @@ public:
         return currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_;
     }
 
-    //! Function to retrieve the standard deviation of the estimated gravitational translational accelerations for the current orbit.
-    /*!
-     *  Function to retrieve the standard deviation of the estimated gravitational translational accelerations for the current orbit.
-     *  Since the computing the standard deviation every time step can be very expensive (since there are a lot of measurements taken
-     *  each orbit), the value is computed only once per orbit, at the first time it is requested. Its value is reset by the
-     *  clearCurrentOrbitEstimationHistory function.
-     *  \return Standard deviation of the norm of the estimated gravitational translational accelerations for the
-     *      current orbit.
-     */
-    double getCurrentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations( )
-    {
-        // If value has not been computed for current orbit, calculate it
-        if ( std::isnan( currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_ ) )
-        {
-            // Retrieve norm of accelerometer measurements
-            std::vector< double > vectorOfNormOfEstimatedGravitationalTranslationalAccelerations;
-            for ( std::map< double, Eigen::Vector3d >::iterator
-                  measurementIterator = currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.begin( );
-                  measurementIterator != currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.end( );
-                  measurementIterator++ )
-            {
-                vectorOfNormOfEstimatedGravitationalTranslationalAccelerations.push_back( measurementIterator->second.norm( ) );
-            }
-
-            // Compute and store standard deviation
-            currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_ =
-                    std::sqrt( statistics::computeSampleVariance( vectorOfNormOfEstimatedGravitationalTranslationalAccelerations ) );
-        }
-        return currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_;
-    }
-
     //! Function to retireve refresh step size of navigation system.
     double getNavigationRefreshStepSize( ) { return navigationRefreshStepSize_; }
 
@@ -587,7 +560,7 @@ public:
     //! Function to set the apoapsis value of the Keplerian state.
     void setEstimatedApoapsisKeplerianState( )
     {
-        estimatedKeplerianStateAtApoapsis_ = currentEstimatedKeplerianState_;
+        estimatedKeplerianStateAtPreviousApoapsis_ = currentEstimatedKeplerianState_;
     }
 
     //! Function to clear history of estimated states and accelerations for the current orbit.
@@ -600,10 +573,7 @@ public:
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.clear( );
 
         // Empty filter estimates
-        navigationFilter_->clearFilterHistory( );
-
-        // Reset standard deviation calculation
-        currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_ = TUDAT_NAN;
+//        navigationFilter_->clearFilterHistory( );
     }
 
     //! Integer denoting the current orbit counter.
@@ -730,19 +700,19 @@ private:
      *      the one computed from the IMU measurements and is stored as a three-dimensional vector.
      */
     void runPeriapseTimeEstimator(
-            const std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+            std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to run the Atmosphere Estimator (AE).
     /*!
      *  Function to estimate the atmospheric properties based on the selected onboard atmosphere model.
-     *  \param mapOfEstimatedCartesianStatesBelowAtmosphericInterface Map of time and estimated Cartesian elements below
+     *  \param mapOfEstimatedKeplerianStatesBelowAtmosphericInterface Map of time and estimated Keplerian elements below
      *      the atmospheric interface altitude.
      *  \param mapOfMeasuredAerodynamicAcceleration Map of time and estimated aerodynamic acceleration. The acceleration is
      *      the one computed from the IMU measurements and is stored as a three-dimensional vector.
      */
     void runAtmosphereEstimator(
-            const std::map< double, Eigen::Vector6d >& mapOfEstimatedCartesianStatesBelowAtmosphericInterface,
+            const std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to store current time and current state estimates.
@@ -856,12 +826,12 @@ private:
     //! Vector denoting the current estimated translational state in Keplerian elements.
     Eigen::Vector6d currentEstimatedKeplerianState_;
 
-    //! Vector denoting Keplerian elements at apoapsis.
+    //! Vector denoting Keplerian elements at the previous apoapsis.
     /*!
-     *  Vector denoting Keplerian elements at apoapsis. This vector is used by the Periapse Time Estimator to extract the
+     *  Vector denoting Keplerian elements at the previous apoapsis. This vector is used by the Periapse Time Estimator to extract the
      *  information on semi-major axis and eccentricity.
      */
-    Eigen::Vector6d estimatedKeplerianStateAtApoapsis_;
+    Eigen::Vector6d estimatedKeplerianStateAtPreviousApoapsis_;
 
     //! Pointer to root-finder used to esimated the time of periapsis.
     boost::shared_ptr< root_finders::BisectionCore< double > > areaBisectionRootFinder_;
@@ -941,9 +911,6 @@ private:
 
     //! History of estimated non-gravitational translational accelerations for current orbit.
     std::map< double, Eigen::Vector3d > currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_;
-
-    //! Double denoting the standard deviation of the norm of the estimated gravitational accelerations for current orbit.
-    double currentOrbitStandardDeviationOfNormOfEstimatedGravitationalTranslationalAccelerations_;
 
     //! Predefined iterator to save (de)allocation time.
     basic_astrodynamics::SingleBodyAccelerationMap::const_iterator accelerationMapConstantIterator_;

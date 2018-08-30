@@ -50,7 +50,8 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
     altitudeBisectionRootFinder_->resetBoundaries( 90.0e3, 120.0e3 );
 
     // Set root-finder function as the heat rate and heat load calculator
-    double estimatedLowerAltitudeBound = altitudeBisectionRootFinder_->execute(
+    // Add scaling if spacecraft is in walk-in or walk-out phases
+    double estimatedLowerAltitudeBound = periapsisAltitudeScaling_ * altitudeBisectionRootFinder_->execute(
                 boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
                     boost::bind( &lowerAltitudeBisectionFunction, _1, currentEstimatedKeplerianState, planetaryRadius,
                                  planetaryGravitationalParameter, maximumAllowedHeatRate_, maximumAllowedHeatLoad_,
@@ -61,7 +62,8 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
     altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 150.0e3 );
 
     // Set root-finder function as the dynamic pressure calculator
-    double estimatedUpperAltitudeBound = altitudeBisectionRootFinder_->execute(
+    // Add scaling if spacecraft is in walk-in or walk-out phases
+    double estimatedUpperAltitudeBound = periapsisAltitudeScaling_ * altitudeBisectionRootFinder_->execute(
                 boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
                     boost::bind( &upperAltitudeBisectionFunction, _1, currentEstimatedKeplerianState, planetaryRadius,
                                  planetaryGravitationalParameter, minimumAllowedDynamicPressure_, reducedStatePropagationFunction_ ) ) );
@@ -88,9 +90,6 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
     double estimatedTargetPeriapsisAltitude = isAltitudeWithinBounds ? predictedPeriapsisAltitude :
                                                                        0.5 * ( estimatedLowerAltitudeBound +
                                                                                estimatedUpperAltitudeBound );
-
-    // Add scaling if spacecraft is in walk-in phase
-    estimatedTargetPeriapsisAltitude *= periapsisAltitudeWalkInScaling_;
     std::cout << "Target periapsis altitude: " << estimatedTargetPeriapsisAltitude / 1.0e3 << " km" << std::endl;
 
     // Save periapsis corridor altitudes to history
@@ -129,27 +128,35 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
     // Set root-finder boundaries for the maneuver estimation
     maneuverBisectionRootFinder_->resetBoundaries( 2.0 * nominalApoapsisManeuverMagnitude, 0.5 * nominalApoapsisManeuverMagnitude );
 
-    // Set root-finder function as the heat rate and heat load calculator
+    // Improve the estimate if magnitude is large enough
     double estimatedApoapsisManeuverMagnitude;
-    try
+    if ( std::fabs( nominalApoapsisManeuverMagnitude ) > 0.1 )
     {
         // Try using root-finder to improve estimate
-        estimatedApoapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
-                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                        boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState,
-                                     std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius, transformationFromLocalToInertialFrame,
-                                     reducedStatePropagationFunction_ ) ) );
-        std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
-                  << "Ratio: " << estimatedApoapsisManeuverMagnitude / nominalApoapsisManeuverMagnitude << std::endl;
-    }
-    catch ( std::runtime_error& caughtException )
-    {
-        // Inform user on error
-        std::cerr << "Error while computing improved estimate for apoapsis maneuver. Caught this exception during root-finder "
-                     "operation: " << caughtException.what( ) << std::endl
-                  << "The nominal magnitude will be used to carry out the maneuver." << std::endl;
+        try
+        {
+            // Set root-finder function as the heat rate and heat load calculator
+            estimatedApoapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
+                        boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                            boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState,
+                                         std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius, transformationFromLocalToInertialFrame,
+                                         reducedStatePropagationFunction_ ) ) );
+            std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
+                      << "Ratio: " << estimatedApoapsisManeuverMagnitude / nominalApoapsisManeuverMagnitude << std::endl;
+        }
+        catch ( std::runtime_error& caughtException )
+        {
+            // Inform user on error
+            std::cerr << "Error while computing improved estimate for apoapsis maneuver. Caught this exception during root-finder "
+                         "operation: " << caughtException.what( ) << std::endl
+                      << "The nominal magnitude will be used to carry out the maneuver." << std::endl;
 
-        // Take nominal magnitude as maneuver magnitude
+            // Take nominal magnitude as maneuver magnitude
+            estimatedApoapsisManeuverMagnitude = nominalApoapsisManeuverMagnitude;
+        }
+    }
+    else
+    {
         estimatedApoapsisManeuverMagnitude = nominalApoapsisManeuverMagnitude;
     }
 
