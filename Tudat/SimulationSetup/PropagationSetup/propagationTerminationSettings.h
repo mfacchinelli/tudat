@@ -161,7 +161,7 @@ public:
     {
         if( terminateExactlyOnFinalCondition_ && ( terminationRootFinderSettings_ == NULL ) )
         {
-            throw std::runtime_error( "Error when defining exact dependent variable propagation termination settings. Root finder not defined" );
+            throw std::runtime_error( "Error when defining exact dependent variable propagation termination settings. Root finder not defined." );
         }
     }
 
