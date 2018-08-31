@@ -344,7 +344,6 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
         const double referenceAltitude )
 {
     using mathematical_constants::PI;
-    std::cout << "Parameters: " << currentParameterEstimate.transpose( ) << std::endl;
 
     // Pre-allocate variables
     double relativeAltitude;
@@ -360,7 +359,7 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
         // Find current expected measurement
         expectedDensity[ i ] = std::log( aerodynamics::threeTermAtmosphereModel(
                                              estimatedAltitudesBelowAtmosphericInterface[ i ], 0.0, 0.0, 0.0,
-                                             std::exp( currentParameterEstimate[ 0 ] ), referenceAltitude,
+                                             referenceAltitude, std::exp( currentParameterEstimate[ 0 ] ),
                                          1.0 / currentParameterEstimate[ 1 ], { currentParameterEstimate[ 2 ],
                     currentParameterEstimate[ 3 ], currentParameterEstimate[ 4 ] } ) );
 

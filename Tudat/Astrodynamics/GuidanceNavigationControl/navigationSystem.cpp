@@ -7,7 +7,6 @@
 #include "Tudat/Basics/utilities.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
 #include "Tudat/Mathematics/BasicMathematics/leastSquaresEstimation.h"
-#include "Tudat/Mathematics/BasicMathematics/nonLinearLeastSquaresEstimation.h"
 #include "Tudat/Mathematics/Interpolators/cubicSplineInterpolator.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 #include "Tudat/Mathematics/Statistics/basicStatistics.h"
@@ -151,13 +150,33 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     // Inform user
     std::cout << std::endl << "Removing Accelerometer Errors." << std::endl;
 
+    // Extract current variable history
+    std::vector< std::vector< double > > currentVariableHistory;
+    currentVariableHistory.resize( 6 );
+    std::map< double, Eigen::VectorXd > currentOrbitNavigationFilterEstimatedState = navigationFilter_->getEstimatedStateHistory( );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator stateHistoryIterator = currentOrbitNavigationFilterEstimatedState.begin( );
+          stateHistoryIterator != currentOrbitNavigationFilterEstimatedState.end( ); stateHistoryIterator++ )
+    {
+        for ( unsigned int i = 0; i < 6; i++ )
+        {
+            currentVariableHistory.at( i ).push_back( stateHistoryIterator->second[ i + 6 ] );
+        }
+    }
+
+    // Extract median of accelerometer errors
+    Eigen::Vector6d currentOrbitAccelerometerErrors;
+    for ( unsigned int i = 0; i < currentOrbitAccelerometerErrors.rows( ); i++ )
+    {
+        currentOrbitAccelerometerErrors[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( i ) );
+    }
+    std::cout << "Est errors: " << currentOrbitAccelerometerErrors.transpose( ) << std::endl;
+
     // Remove errors from accelerometer measurements and convert to inertial frame
     for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
     {
         vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
                 removeErrorsFromInertialMeasurementUnitMeasurement(
-                    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ),
-                    navigationFilter_->getCurrentStateEstimate( ).segment( 6, 6 ) );
+                    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ), currentOrbitAccelerometerErrors );
     }
 
     // Apply smoothing method to noisy accelerometer data
@@ -352,13 +371,6 @@ void NavigationSystem::runAtmosphereEstimator(
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
-//        std::cout << "Periapsis: " << estimatedPeriapsisAltitude << std::endl;
-//        std::cout << "Altitudes: " << std::endl << estimatedAltitudesBelowAtmosphericInterface.transpose( ) << std::endl;
-//        std::cout << "Altitudes: " << std::endl << estimatedAltitudesBelowAtmosphericInterface.array( ).pow( -2 ).transpose( ) << std::endl;
-//        std::cout << "Densities: " << std::endl << estimatedAtmosphericDensitiesBelowAtmosphericInterface.transpose( ) << std::endl;
-//        std::cout << "Densities: " << estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ) << std::endl;
-//        std::cout << "Accelerations: " << std::endl << utilities::convertStlVectorToEigenVector(
-//                         vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ).transpose( ) << std::endl;
 
         // Run least squares estimation process based on selected atmosphere model
         Eigen::VectorXd modelSpecificParameters;

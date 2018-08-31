@@ -243,7 +243,7 @@ public:
 
         // Check if aerobraking is complete
         dummyCallCounter_++;
-        aerobrakingComplete = ( dummyCallCounter_ > 3 );
+        aerobrakingComplete = ( dummyCallCounter_ > 1 );
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user
