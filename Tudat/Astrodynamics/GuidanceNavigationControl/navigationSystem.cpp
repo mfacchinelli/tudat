@@ -12,8 +12,6 @@
 #include "Tudat/Mathematics/Statistics/basicStatistics.h"
 #include "Tudat/SimulationSetup/PropagationSetup/createEnvironmentUpdater.h"
 
-#include "Tudat/InputOutput/basicInputOutput.h"
-
 namespace tudat
 {
 
@@ -169,7 +167,6 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     {
         currentOrbitAccelerometerErrors[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( i ) );
     }
-    std::cout << "Est errors: " << currentOrbitAccelerometerErrors.transpose( ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
@@ -193,12 +190,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
 {
     // Inform user
     std::cout << std::endl << "Running Periapse Time Estimator." << std::endl;
-
-    input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "/Users/Michele/Desktop/" );
-    input_output::writeMatrixToFile(
-                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/" );
 
     // Separate time and accelerations
     std::pair< Eigen::VectorXd, Eigen::MatrixXd > pairOfEstimatedKeplerianStateBelowAtmosphericInterface =
@@ -237,14 +228,19 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // periapsis is zero by definition
 
     // Propagate state to apoapsis to see what will be the value of semi-major axis and eccentricity
-    boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
-            boost::make_shared< propagators::PropagationDependentVariableTerminationSettings >(
-                boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
-                    propagators::keplerian_state_dependent_variable, spacecraftName_, planetName_, 5 ),
-                mathematical_constants::PI, false );//, true,
-//                boost::make_shared< root_finders::RootFinderSettings >( root_finders::bisection_root_finder, 0.001, 25 ) );
+    std::vector< boost::shared_ptr< propagators::PropagationTerminationSettings > > terminationSettingsList;
+    terminationSettingsList.push_back(
+                boost::make_shared< propagators::PropagationDependentVariableTerminationSettings >(
+                    boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
+                        propagators::keplerian_state_dependent_variable, spacecraftName_, planetName_, 5 ),
+                    mathematical_constants::PI, false ) );//, true,
+//                    boost::make_shared< root_finders::RootFinderSettings >( root_finders::bisection_root_finder, 0.001, 25 ) ) );
+    terminationSettingsList.push_back( boost::make_shared< propagators::PropagationCPUTimeTerminationSettings >( 15.0 ) );
+    boost::shared_ptr< propagators::PropagationTerminationSettings > propagatorSettings =
+            boost::make_shared< propagators::PropagationHybridTerminationSettings >( terminationSettingsList, true );
+
     Eigen::Vector6d estimatedCartesianStateAtNextApoapsis =
-            propagateTranslationalStateWithCustomTerminationSettings( terminationSettings ).first.rbegin( )->second;
+            propagateTranslationalStateWithCustomTerminationSettings( propagatorSettings ).first.rbegin( )->second;
     Eigen::Vector6d estimatedKeplerianStateAtNextApoapsis =
             orbital_element_conversions::convertCartesianToKeplerianElements(
                 estimatedCartesianStateAtNextApoapsis, planetaryGravitationalParameter_ );

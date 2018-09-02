@@ -81,33 +81,30 @@ Eigen::Matrix12d computeSystemJacobianMatrix( const double currentTime, const Ei
     jacobianMatrix.block( 3, 0, 3, 3 ) += secondDegreeGravityJacobianMatrix;
 
     // Add terms due to aerodynamic acceleration
-//    Eigen::Vector6d perturbation;
-//    double densityDerivative;
-//    double currentVelocityParameter;
-//    for ( unsigned int i = 0; i < 3; i++ )
-//    {
-//        currentVelocityParameter = currentState[ i ] * std::fabs( currentState[ i ] );
-//        for ( unsigned int j = 0; j < 3; j++ )
-//        {
-//            // Set perturbing parameter to 100 meters in the current dimesion
-//            perturbation.setZero( );
-//            perturbation[ j ] = 10.0;
+    double densityDerivative;
+    Eigen::Vector6d perturbation;
+    Eigen::Vector3d velocityParameter = currentState.segment( 3, 3 ).cwiseProduct( currentState.segment( 3, 3 ).cwiseAbs( ) );
+    for ( unsigned int i = 0; i < 3; i++ )
+    {
+        // Set perturbing parameter to 10 meters in the current dimesion
+        perturbation.setZero( );
+        perturbation[ i ] = 10.0;
 
-//            // Compute derivative numerically and add to Jacobian
-//            densityDerivative = numerical_derivatives::computeCentralDifference(
-//                        densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order2 );
-//            jacobianMatrix( 3 + i, j ) += - densityDerivative * aerodynamicParameter * currentVelocityParameter;
-//        }
-//    }
+        // Compute derivative numerically and add to Jacobian
+        densityDerivative = numerical_derivatives::computeCentralDifference(
+                    densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order4 );
+
+        // Compute Jacobian along row
+        for ( unsigned int j = 0; j < 3; j++ )
+        {
+            jacobianMatrix( 3 + j, i ) += - densityDerivative * aerodynamicParameter * velocityParameter[ j ];
+        }
+    }
 
     double density = densityFunction( currentState.segment( 0, 6 ) );
     jacobianMatrix( 3, 3 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 3 ] );
     jacobianMatrix( 4, 4 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 4 ] );
     jacobianMatrix( 5, 5 ) = - 2.0 * density * aerodynamicParameter * std::fabs( currentState[ 5 ] );
-
-//    double currentAltitude = radialDistance - 3.396e6;
-//    jacobianMatrix.block( 3, 0, 3, 1 ) = - aerodynamicParameter * ( density * x / 6533.0 / currentAltitude ) *
-//            currentState.segment( 3, 3 ).cwiseProduct( currentState.segment( 3, 3 ).cwiseAbs( ) );
 
     // Give output
     return jacobianMatrix;
@@ -124,25 +121,26 @@ Eigen::Matrix< double, 3, 12 > computeMeasurementJacobianMatrix( const double cu
     Eigen::Matrix< double, 3, 12 > jacobianMatrix = Eigen::Matrix< double, 3, 12 >::Zero( );
 
     // Disregard terms due to derivative w.r.t. position (i.e., disregard density dependence on position)
-//    // Add terms due to derivative w.r.t. position
-//    Eigen::Vector6d perturbation;
-//    double densityDerivative;
-//    double currentVelocityParameter;
-//    for ( unsigned int i = 0; i < 3; i++ )
-//    {
-//        currentVelocityParameter = currentState[ i ] * std::fabs( currentState[ i ] );
-//        for ( unsigned int j = 0; j < 3; j++ )
-//        {
-//            // Set perturbing parameter to 100 meters in the current dimesion
-//            perturbation.setZero( );
-//            perturbation[ j ] = 10.0;
+    // Add terms due to derivative w.r.t. position
+    double densityDerivative;
+    Eigen::Vector6d perturbation;
+    Eigen::Vector3d velocityParameter = currentState.segment( 3, 3 ).cwiseProduct( currentState.segment( 3, 3 ).cwiseAbs( ) );
+    for ( unsigned int i = 0; i < 3; i++ )
+    {
+        // Set perturbing parameter to 10 meters in the current dimesion
+        perturbation.setZero( );
+        perturbation[ i ] = 10.0;
 
-//            // Compute derivative numerically and add to Jacobian
-//            densityDerivative = numerical_derivatives::computeCentralDifference(
-//                        densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order2 );
-//            jacobianMatrix( i, j ) = - densityDerivative * aerodynamicParameter * currentVelocityParameter;
-//        }
-//    }
+        // Compute derivative numerically and add to Jacobian
+        densityDerivative = numerical_derivatives::computeCentralDifference(
+                    densityFunction, currentState.segment( 0, 6 ), perturbation, numerical_derivatives::order4 );
+
+        // Compute Jacobian along row
+        for ( unsigned int j = 0; j < 3; j++ )
+        {
+            jacobianMatrix( j, i ) = - densityDerivative * aerodynamicParameter * velocityParameter[ j ];
+        }
+    }
 
     // Add terms due to derivative w.r.t. velocity
     double density = densityFunction( currentState.segment( 0, 6 ) );

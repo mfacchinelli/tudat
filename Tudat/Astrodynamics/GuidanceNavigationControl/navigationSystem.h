@@ -473,6 +473,12 @@ public:
         return historyOfEstimatedStates_;
     }
 
+    //! Function to retrieve history of estimated atmosphere parameters.
+    std::vector< Eigen::VectorXd > getHistoryOfEstimatedAtmosphereParameters( )
+    {
+        return historyOfEstimatedAtmosphereParameters_;
+    }
+
     //! Function to retrieve history of estimated translational accelerations for the current orbit.
     std::map< double, Eigen::Vector3d > getCurrentOrbitHistoryOfEstimatedTranslationalAccelerations( )
     {

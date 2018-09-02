@@ -243,7 +243,7 @@ public:
 
         // Check if aerobraking is complete
         dummyCallCounter_++;
-        aerobrakingComplete = ( dummyCallCounter_ > 1 );
+        aerobrakingComplete = ( dummyCallCounter_ > 3 );
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user
@@ -251,7 +251,7 @@ public:
         {
             std::cout << std::endl << "~~~~~~~~~~~~~~ AEROBRAKING COMPLETE ~~~~~~~~~~~~~~" << std::endl << std::endl
                       << "Cumulative propellant used: "
-                      << std::to_string( guidanceSystem_->getHistoryOfApoapsisManeuverMagnitudes( ).first ) << std::endl;
+                      << std::to_string( guidanceSystem_->getHistoryOfApoapsisManeuverMagnitudes( ).first ) << " N" << std::endl;
         }
 
         // Give output

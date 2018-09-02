@@ -514,7 +514,6 @@ public:
         {
             randomPerturbationsCoefficients_[ i ] = randomNumberGenerator->getRandomVariableValue( );
         }
-        std::cout << randomPerturbationsCoefficients_.transpose( ) << std::endl;
 
         // Count number of calls, to get a different random perturbation layer with each call
         randomVariableCounter_++;
