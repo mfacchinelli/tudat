@@ -49,8 +49,14 @@ void TabulatedAtmosphere::createAtmosphereInterpolators( )
     checkVariableUniqueness< AtmosphereIndependentVariables >( independentVariables_ );
 
     // Give random layer coefficients zero value
-    randomVariableCounter_ = 0;
-    randomPerturbationsCoefficients_ = Eigen::Vector6d::Zero( );
+    randomPerturbationsCoefficients_.first = 0.0;
+    randomPerturbationsCoefficients_.second.setZero( );
+
+    // Create random number generator
+    randomUniformNumberGenerator_ = statistics::createBoostContinuousRandomVariableGenerator(
+                statistics::uniform_boost_distribution, { 0.75, 2.0 }, 0 );
+    randomGaussianNumberGenerator_ = statistics::createBoostContinuousRandomVariableGenerator(
+                statistics::normal_boost_distribution, { 0.0, 0.25 }, 1 );
 
     // Retrieve number of dependent variables from user.
     unsigned int numberOfDependentVariables = dependentVariables_.size( );

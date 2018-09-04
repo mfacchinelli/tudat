@@ -239,7 +239,7 @@ public:
         }
 
         // Give output
-        if ( randomPerturbationsCoefficients_.isZero( ) )
+        if ( ( randomPerturbationsCoefficients_.first == 0.0 ) && randomPerturbationsCoefficients_.second.isZero( ) )
         {
             return interpolatorForDensity_->interpolate( independentVariableData );
         }
@@ -254,19 +254,19 @@ public:
             {
                 nonConstantAltitude = independentVariablesData_.at( 2 ).front( );
             }
-            double altitudeFactor = 2.0 * mathematical_constants::PI *
+            double altitudeFactor = 2.0 * mathematical_constants::PI * randomPerturbationsCoefficients_.second[ 6 ] *
                     ( nonConstantAltitude - independentVariablesData_.at( 2 ).front( ) ) /
                     ( independentVariablesData_.at( 2 ).back( ) - independentVariablesData_.at( 2 ).front( ) );
-            double longitudeFactor = longitude + mathematical_constants::PI;
-            double latitudeFactor = 2.0 * latitude + mathematical_constants::PI;
+            double longitudeFactor = randomPerturbationsCoefficients_.second[ 7 ] * ( longitude + mathematical_constants::PI );
+            double latitudeFactor = randomPerturbationsCoefficients_.second[ 8 ] * ( 2.0 * latitude + mathematical_constants::PI );
 
-            double multiplicativeFactor = std::fabs( 1.5 +
-                    randomPerturbationsCoefficients_[ 0 ] * std::sin( altitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 1 ] * std::cos( altitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 2 ] * std::sin( longitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 3 ] * std::cos( longitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 4 ] * std::sin( latitudeFactor ) +
-                    randomPerturbationsCoefficients_[ 5 ] * std::cos( latitudeFactor ) );
+            double multiplicativeFactor = std::fabs( randomPerturbationsCoefficients_.first +
+                    randomPerturbationsCoefficients_.second[ 0 ] * std::sin( altitudeFactor ) +
+                    randomPerturbationsCoefficients_.second[ 1 ] * std::cos( altitudeFactor ) +
+                    randomPerturbationsCoefficients_.second[ 2 ] * std::sin( longitudeFactor ) +
+                    randomPerturbationsCoefficients_.second[ 3 ] * std::cos( longitudeFactor ) +
+                    randomPerturbationsCoefficients_.second[ 4 ] * std::sin( latitudeFactor ) +
+                    randomPerturbationsCoefficients_.second[ 5 ] * std::cos( latitudeFactor ) );
             multiplicativeFactor = ( multiplicativeFactor < 0.5 ) ? 0.5 : multiplicativeFactor;
 
             return ( multiplicativeFactor * interpolatorForDensity_->interpolate( independentVariableData ) );
@@ -504,19 +504,17 @@ public:
      */
     void randomizeAtmospherePerturbations( )
     {
-        // Create random number generator
-        boost::shared_ptr< statistics::RandomVariableGenerator< double > > randomNumberGenerator =
-                statistics::createBoostContinuousRandomVariableGenerator(
-                    statistics::normal_boost_distribution, { 0.0, 0.25 }, randomVariableCounter_ );
-
-        // Loop over each coefficient
-        for ( unsigned int i = 0; i < 6; i++ )
+        // Give values to each coefficient
+        randomPerturbationsCoefficients_.first = randomUniformNumberGenerator_->getRandomVariableValue( );
+        for ( unsigned int i = 0; i < 9; i++ )
         {
-            randomPerturbationsCoefficients_[ i ] = randomNumberGenerator->getRandomVariableValue( );
+            randomPerturbationsCoefficients_.second[ i ] = randomGaussianNumberGenerator_->getRandomVariableValue( );
+            if ( i > 5 )
+            {
+                randomPerturbationsCoefficients_.second[ i ] += 1.0;
+            }
         }
-
-        // Count number of calls, to get a different random perturbation layer with each call
-        randomVariableCounter_++;
+        std::cout << randomPerturbationsCoefficients_.first << " " << randomPerturbationsCoefficients_.second.transpose( ) << std::endl;
     }
 
 private:
@@ -589,11 +587,18 @@ private:
      */
     std::vector< std::vector< std::pair< double, double > > > defaultExtrapolationValue_;
 
-    //! Integer denoting the amount of times the perturbations layer is randomized.
-    unsigned int randomVariableCounter_;
+    //! Pair containing the coefficients for the randomized layer.
+    /*!
+     *  Pair containing the coefficients for the randomized layer, where the first element is the offset coefficient, and the
+     *  second element represents the weighting parameters of the trigonometric terms.
+     */
+    std::pair< double, Eigen::Matrix< double, 9, 1 > > randomPerturbationsCoefficients_;
 
-    //! Vector containing the coefficients for the randomized layer.
-    Eigen::Vector6d randomPerturbationsCoefficients_;
+    //! Uniform random variable number generator for the offset coefficient.
+    boost::shared_ptr< statistics::RandomVariableGenerator< double > > randomUniformNumberGenerator_;
+
+    //! Uniform random variable number generator for the weighting parameters of the trigonometric terms.
+    boost::shared_ptr< statistics::RandomVariableGenerator< double > > randomGaussianNumberGenerator_;
 
     //! Interpolation for density. Note that type of interpolator depends on number of independent variables specified.
     boost::shared_ptr< interpolators::Interpolator< double, double > > interpolatorForDensity_;

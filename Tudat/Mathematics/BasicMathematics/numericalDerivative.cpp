@@ -119,8 +119,35 @@ double computeCentralDifference(
     return numericalDerivative;
 }
 
+//! Function to compute central difference with double as output and Eigen::VectorXd as input.
+Eigen::VectorXd computeCentralDifference(
+        const Eigen::VectorXd& nominalIndependentVariable,
+        const Eigen::VectorXd& independentVariableStepSize,
+        const boost::function< Eigen::VectorXd( const Eigen::VectorXd& ) >& dependentVariableFunction,
+        const CentralDifferenceOrders order )
+{
+    // Retrieve coefficients
+    const std::map< int, double > coefficients = getCentralDifferenceCoefficients( order );
+
+    // Pre-allocate variables
+    Eigen::VectorXd perturbedInput;
+    Eigen::VectorXd perturbedOutput;
+    Eigen::VectorXd numericalDerivative = Eigen::VectorXd::Zero( dependentVariableFunction( nominalIndependentVariable ).size( ) );
+
+    // Compute the numerical derivative.
+    for ( std::map< int, double >::const_iterator coefficientIterator = coefficients.begin( );
+          coefficientIterator != coefficients.end( ); coefficientIterator++ )
+    {
+        // Generate deviated input.
+        perturbedInput = nominalIndependentVariable + coefficientIterator->first * independentVariableStepSize;
+        perturbedOutput = dependentVariableFunction( perturbedInput );
+
+        // Compute derivative
+        numericalDerivative += perturbedOutput * ( coefficientIterator->second / independentVariableStepSize.norm( ) );
+    }
+    return numericalDerivative;
+}
+
 } // namespace numerical_derivatives
 
 } // namespace tudat
-
-

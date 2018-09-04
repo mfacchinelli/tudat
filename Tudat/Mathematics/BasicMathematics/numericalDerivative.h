@@ -179,6 +179,13 @@ double computeCentralDifference(
         const Eigen::VectorXd& independentVariableStepSize,
         const CentralDifferenceOrders order = order2 );
 
+//! Function to compute central difference with double as output and Eigen::VectorXd as input.
+Eigen::VectorXd computeCentralDifference(
+        const Eigen::VectorXd& nominalIndependentVariable,
+        const Eigen::VectorXd& independentVariableStepSize,
+        const boost::function< Eigen::VectorXd( const Eigen::VectorXd& ) >& dependentVariableFunction,
+        const CentralDifferenceOrders order = order2 );
+
 } // namespace numerical_derivatives
 
 } // namespace tudat

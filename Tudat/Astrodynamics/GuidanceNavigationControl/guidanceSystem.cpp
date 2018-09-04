@@ -23,7 +23,7 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
 
     // Create propagation termination settings based on period to be used throughout the function
     double terminationTime = currentTime + 2.0 / 3.0 *
-            basic_astrodynamics::computeKeplerOrbitalPeriod( currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter);
+            basic_astrodynamics::computeKeplerOrbitalPeriod( currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter );
     boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
             boost::make_shared< propagators::PropagationTimeTerminationSettings >( terminationTime );
 

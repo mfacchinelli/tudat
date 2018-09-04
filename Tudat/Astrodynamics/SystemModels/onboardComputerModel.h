@@ -100,7 +100,7 @@ public:
         Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
 
         // Update filter from previous time to next time
-        navigationSystem_->determineNavigationPhase( );
+        NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
         navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
 
         // Check if it is time for a Deep Space Network update
@@ -119,8 +119,6 @@ public:
         // Access current state and extract interesting variables
         std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
         double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
-        double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedState.second[ 0 ] *
-                ( 1.0 + currentEstimatedState.second[ 1 ] ) ) + planetaryRadius_;
 
         // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
         if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
@@ -196,7 +194,7 @@ public:
                       << std::to_string( navigationSystem_->currentOrbitCounter_ - 1 )
                       << " COMPLETED --------------" << std::endl;
         }
-        else if ( ( ( ( currentEstimatedState.first.segment( 0, 3 ).norm( ) - currentDynamicAtmosphericInterfaceRadius ) > 0.0 ) &&
+        else if ( ( ( currentNavigationPhase == NavigationSystem::iman_navigation_phase ) &&
                     ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
                   !atmosphericPhaseComplete_ ) // check altitude
         {
@@ -250,8 +248,8 @@ public:
         if ( aerobrakingComplete && !isCallInternal )
         {
             std::cout << std::endl << "~~~~~~~~~~~~~~ AEROBRAKING COMPLETE ~~~~~~~~~~~~~~" << std::endl << std::endl
-                      << "Cumulative propellant used: "
-                      << std::to_string( guidanceSystem_->getHistoryOfApoapsisManeuverMagnitudes( ).first ) << " N" << std::endl;
+                      << "Cumulative velocity change: "
+                      << std::to_string( guidanceSystem_->getHistoryOfApoapsisManeuverMagnitudes( ).first ) << " m/s" << std::endl;
         }
 
         // Give output
