@@ -256,7 +256,7 @@ public:
             }
             double altitudeFactor = 2.0 * mathematical_constants::PI * randomPerturbationsCoefficients_.second[ 6 ] *
                     ( nonConstantAltitude - independentVariablesData_.at( 2 ).front( ) ) /
-                    ( independentVariablesData_.at( 2 ).back( ) - independentVariablesData_.at( 2 ).front( ) );
+                    ( 1500.0e3 - independentVariablesData_.at( 2 ).front( ) );
             double longitudeFactor = randomPerturbationsCoefficients_.second[ 7 ] * ( longitude + mathematical_constants::PI );
             double latitudeFactor = randomPerturbationsCoefficients_.second[ 8 ] * ( 2.0 * latitude + mathematical_constants::PI );
 
@@ -511,6 +511,7 @@ public:
             randomPerturbationsCoefficients_.second[ i ] = randomGaussianNumberGenerator_->getRandomVariableValue( );
             if ( i > 5 )
             {
+                randomPerturbationsCoefficients_.second[ i ] *= 0.5 / 0.25;
                 randomPerturbationsCoefficients_.second[ i ] += 1.0;
             }
         }

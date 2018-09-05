@@ -18,13 +18,14 @@
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModelTypes.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
 #include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
 #include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
+#include "Tudat/Mathematics/Filters/createFilter.h"
 #include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
 #include "Tudat/SimulationSetup/PropagationSetup/dynamicsSimulator.h"
-#include "Tudat/Mathematics/Filters/createFilter.h"
 
 //! Typedefs and using statements to simplify code.
 namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; typedef Eigen::Matrix< double, 5, 5 > Matrix5d;
@@ -42,16 +43,6 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
 
 //! Function to remove errors in the altimeter measurements based on the current orientation.
 void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const double planetaryRadius );
-
-//! Function to model the onboard system Jacobian based on the simplified onboard model.
-Eigen::Matrix12d onboardSystemJacobian(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedState,
-        const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >& currentEstimatedTranslationalAccelerationFunction );
-
-//! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-Eigen::Matrix< double, 3, 12 > onboardMeasurementJacobian(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedState,
-        const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >& currentEstimatedNonGravitationalTranslationalAccelerationFunction );
 
 //! Class for the navigation system of an aerobraking maneuver.
 class NavigationSystem
@@ -74,8 +65,9 @@ public:
     //! Enumeration for navigation phases.
     enum NavigationPhaseIndicator
     {
-        iman_navigation_phase = 0,
-        kepler_navigation_phase = 1,
+        iman_navigation_phase = 0, // only below DAIA, so spacecraft processing power can be spared for something else above altitude
+        imu_calibration_phase = 1, // not regarded as navigation phase, since only used for calibration
+        kepler_navigation_phase = 2
     };
 
     //! Constructor.
@@ -138,24 +130,27 @@ public:
      *  Function to create navigation objects for onboard state estimation. This function should be called before any feature of
      *  the navigation system is used, as it creates most of the objects that are needed for state estimation (i.e., navigation
      *  filter, root-finder, onboard integrator and propagator settings).
-     *  \param onboardSystemModel Function that defines the onboard system model (i.e., Cowell equations of motion).
-     *  \param onboardMeasurementModel Function that defines the onboard measurement model (i.e., simulated IMU and star tracker
-     *      measurements).
      */
-    void createNavigationSystemObjects(
-            const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardSystemModel,
-            const boost::function< Eigen::VectorXd( const double, const Eigen::VectorXd& ) >& onboardMeasurementModel );
+    void createNavigationSystemObjects( );
 
     //! Function to determine the navigation phase.
     NavigationPhaseIndicator determineNavigationPhase( )
     {
         // Declare navigation phase indicator and set value to unaided phase
-        NavigationPhaseIndicator detectedNavigationPhase = kepler_navigation_phase;
+        NavigationPhaseIndicator detectedNavigationPhase;
+        if ( currentOrbitCounter_ < 2 )
+        {
+            detectedNavigationPhase = imu_calibration_phase;
+        }
+        else
+        {
+            detectedNavigationPhase = kepler_navigation_phase;
+        }
 
         // Store previous navigation phase
         previousNavigationPhase_ = currentNavigationPhase_;
 
-        // Set current navigation phase based on current altitude
+        // Set current navigation phase to IMAN based on current altitude
         double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
                 ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) ) + planetaryRadius_;
         if ( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) < currentDynamicAtmosphericInterfaceRadius )
@@ -201,6 +196,7 @@ public:
             break;
         }
         case iman_navigation_phase:
+        case imu_calibration_phase:
         {
             // Update filter
             navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
@@ -210,8 +206,6 @@ public:
             setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
             break;
         }
-        default:
-            throw std::runtime_error( "Error in navigation system. Current navigation phase not recognized." );
         }
 
         // Update body and acceleration maps
@@ -238,6 +232,7 @@ public:
         double currentIterationTime;
         std::map< double, Eigen::Vector6d > mapOfEstimatedCartesianStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
+        std::map< double, Eigen::Vector3d > mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface;
         std::vector< Eigen::Vector3d > vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface;
         for ( translationalStateConstantIterator_ = currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
               translationalStateConstantIterator_ != currentOrbitHistoryOfEstimatedTranslationalStates_.end( );
@@ -251,6 +246,8 @@ public:
                         translationalStateConstantIterator_->second.first;
                 mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ] =
                         translationalStateConstantIterator_->second.second;
+                mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface[ currentIterationTime ] =
+                        currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentIterationTime ];
                 vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.push_back(
                             mapOfMeasuredAerodynamicAcceleration.at( currentIterationTime ) );
 
@@ -266,8 +263,8 @@ public:
         if ( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ) > 0 )
         {
             // Remove errors from measured accelerations
-            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
-            // this function also calibrates the accelerometers if it is the first orbit
+            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
+                                                  mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
 
             // Compute magnitude of aerodynamic acceleration
             std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
@@ -278,7 +275,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 ) //atmosphereEstimatorInitialized_ ) //
+            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -529,6 +526,9 @@ public:
         return historyOfEstimatedAtmosphereParameters_;
     }
 
+    //! Function to return the previous navigation phase indicator.
+    NavigationPhaseIndicator getPreviousNavigationPhaseIndicator( ) { return previousNavigationPhase_; }
+
     //! Function to retrieve history of estimated translational accelerations for the current orbit.
     std::map< double, Eigen::Vector3d > getCurrentOrbitHistoryOfEstimatedTranslationalAccelerations( )
     {
@@ -560,10 +560,7 @@ public:
     double getAtmosphericInterfaceRadius( ) { return atmosphericInterfaceRadius_; }
 
     //! Function to retireve the frequency (in days) with which Deep Space Network tracking has to be performed.
-    unsigned int getFrequencyOfDeepSpaceNetworkTracking( )
-    {
-        return frequencyOfDeepSpaceNetworkTracking_;
-    }
+    unsigned int getFrequencyOfDeepSpaceNetworkTracking( ) { return frequencyOfDeepSpaceNetworkTracking_; }
 
     //! Function to set current Cartesian state to new value.
     /*!
@@ -738,7 +735,8 @@ private:
      *      directly from the IMU.
      */
     void postProcessAccelerometerMeasurements(
-            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
+            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
+            const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
 
     //! Function to run the Periapse Time Estimator (PTE).
     /*!
@@ -768,6 +766,18 @@ private:
     void runAtmosphereEstimator(
             const std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+
+    //! Function to model the onboard system dynamics based on the simplified onboard model.
+    Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector );
+
+    //! Function to model the onboard measurements based on the simplified onboard model.
+    Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector );
+
+    //! Function to model the onboard system Jacobian based on the simplified onboard model.
+    Eigen::Matrix12d onboardSystemJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
+
+    //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
+    Eigen::Matrix< double, 3, 12 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
@@ -864,6 +874,9 @@ private:
 
     //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
     unsigned int sphericalHarmonicsGravityIndex_;
+
+    //! Double denoting the initial time in the estimation process.
+    double initialTime_;
 
     //! Double denoting the current time in the estimation process.
     double currentTime_;

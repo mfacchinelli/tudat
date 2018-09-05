@@ -29,16 +29,6 @@ namespace tudat
 namespace system_models
 {
 
-//! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector12d onboardSystemModel(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
-        const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >& currentEstimatedTranslationalAccelerationVectorFunction );
-
-//! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector3d onboardMeasurementModel(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector,
-        const boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) >& currenstEstimatedNonGravitationalAccelerationFunction );
-
 //! Class for the onboard computer of the spacecraft.
 class OnboardComputerModel
 {
@@ -59,16 +49,8 @@ public:
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
         planetaryRadius_ = navigationSystem_->getRadius( );
 
-        // Create acceleration functions
-        boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > translationalAccelerationFuncion =
-                boost::bind( &NavigationSystem::getCurrentEstimatedTranslationalAcceleration, navigationSystem_, _1 );
-        boost::function< Eigen::Vector3d( const Eigen::Vector6d& ) > nonGravitationalTranslationalAccelerationFuncion =
-                boost::bind( &NavigationSystem::getCurrentEstimatedNonGravitationalTranslationalAcceleration, navigationSystem_, _1 );
-
         // Create navigation system objects
-        navigationSystem_->createNavigationSystemObjects(
-                    boost::bind( &onboardSystemModel, _1, _2, translationalAccelerationFuncion ),
-                    boost::bind( &onboardMeasurementModel, _1, _2, nonGravitationalTranslationalAccelerationFuncion ) );
+        navigationSystem_->createNavigationSystemObjects( );
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
@@ -190,11 +172,11 @@ public:
             atmosphericPhaseComplete_ = false;
 
             // Inform user
-            std::cout << std::endl << "-------------- ORBIT "
-                      << std::to_string( navigationSystem_->currentOrbitCounter_ - 1 )
-                      << " COMPLETED --------------" << std::endl;
+            std::string orbitNumber = std::to_string( navigationSystem_->currentOrbitCounter_ - 1 );
+            std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
         }
-        else if ( ( ( currentNavigationPhase == NavigationSystem::iman_navigation_phase ) &&
+        else if ( ( ( ( currentNavigationPhase != NavigationSystem::iman_navigation_phase ) &&
+                      ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::iman_navigation_phase ) ) &&
                     ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
                   !atmosphericPhaseComplete_ ) // check altitude
         {
@@ -232,7 +214,7 @@ public:
      *  Function to check whether the aerobraking maneuver has been completed.
      *  \param isCallInternal Boolean denoting whether the function is being called internally; default value is false; the only
      *      difference is that if the call is internal, no messages will be printed.
-     *  \return Boolean denoting whether the aerobraking maneuver has been completed.
+     *  \return Boolean denoting whether the aerobraking maneuver has come to an end.
      */
     bool isAerobrakingComplete( const bool isCallInternal = false )
     {
@@ -241,15 +223,15 @@ public:
 
         // Check if aerobraking is complete
         dummyCallCounter_++;
-        aerobrakingComplete = ( dummyCallCounter_ > 3 );
+        aerobrakingComplete = ( dummyCallCounter_ > 1 );
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user
         if ( aerobrakingComplete && !isCallInternal )
         {
+            std::string velocityChange = std::to_string( guidanceSystem_->getHistoryOfApoapsisManeuverMagnitudes( ).first );
             std::cout << std::endl << "~~~~~~~~~~~~~~ AEROBRAKING COMPLETE ~~~~~~~~~~~~~~" << std::endl << std::endl
-                      << "Cumulative velocity change: "
-                      << std::to_string( guidanceSystem_->getHistoryOfApoapsisManeuverMagnitudes( ).first ) << " m/s" << std::endl;
+                      << "Cumulative change in velocity: " << velocityChange << " m/s" << std::endl;
         }
 
         // Give output

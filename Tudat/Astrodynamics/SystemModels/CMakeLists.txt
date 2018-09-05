@@ -18,7 +18,6 @@ set(SYSTEMMODELS_HEADERS
 
 set(SYSTEMMODELS_SOURCES
   "${SRCROOT}${SYSTEMMODELSDIR}/navigationInstrumentsModel.cpp"
-  "${SRCROOT}${SYSTEMMODELSDIR}/onboardComputerModel.cpp"
 )
 
 # Add static libraries.
