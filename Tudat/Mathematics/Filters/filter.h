@@ -144,7 +144,7 @@ public:
     {
         // Update estimates with user-provided data
         aPosterioriStateEstimate_ = newStateEstimate;
-        if ( newCovarianceEstimate.isZero( ) )
+        if ( !newCovarianceEstimate.isZero( ) )
         {
             aPosterioriCovarianceEstimate_ = newCovarianceEstimate;
         }

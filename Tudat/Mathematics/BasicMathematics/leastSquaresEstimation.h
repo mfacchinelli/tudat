@@ -7,6 +7,9 @@
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
  *
+ *    References:
+ *      Madsen, K., Nielsen, H., and Tingleff, O., Methods for Non-Linear Least Squares Problems, 2nd ed.,
+ *          Technical University of Denmark, Faculty of Informatics and Mathematical Modelling, April 2004.
  */
 
 #ifndef TUDAT_LEASTSQUARESESTIMATION_H
@@ -200,6 +203,7 @@ std::vector< double > getLeastSquaresPolynomialFit(
  *  least squares equation. The iterative process is halted whenever the norm of the update is below the user-provided
  *  threshold or when the maximum number of iterations is reached. The method used in this application is the Levenberg-Marquardt
  *  method, which uses a damping parameter \f$ \lambda \f$ to make the iterative process more stable and accurate.
+ *  The reference for this implementation is (Madsen, K., et al.).
  *  \param observationAndJacobianFunctions Function returning a pair of expected observations and Jacobian of the
  *      observation function w.r.t. the model parameters (i.e., the design matrix), where the input is the current estimate
  *      of the model parameters.
@@ -212,7 +216,7 @@ std::vector< double > getLeastSquaresPolynomialFit(
 Eigen::VectorXd nonLinearLeastSquaresFit(
         const boost::function< std::pair< Eigen::VectorXd, Eigen::MatrixXd >( const Eigen::VectorXd& ) >& observationAndJacobianFunctions,
         const Eigen::VectorXd& initialEstimate, const Eigen::VectorXd& actualObservations,
-        const double convergenceTolerance = 1.0e-8, const unsigned int maximumNumberOfIterations = 10 );
+        const double convergenceTolerance = 1.0e-8, const unsigned int maximumNumberOfIterations = 25 );
 
 } // namespace linear_algebra
 
