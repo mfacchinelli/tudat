@@ -165,6 +165,17 @@ boost::shared_ptr< PropagationTerminationCondition > createPropagationTerminatio
                     dependentVariableTerminationSettings->terminationRootFinderSettings_ );
         break;
     }
+    case custom_stopping_condition:
+    {
+        boost::shared_ptr< PropagationCustomTerminationSettings > customTerminationSettings =
+                boost::dynamic_pointer_cast< PropagationCustomTerminationSettings >( terminationSettings );
+
+        // Create dependent variable termination condition.
+        propagationTerminationCondition = boost::make_shared< CustomTerminationCondition >(
+                    customTerminationSettings->checkStopCondition_,
+                    customTerminationSettings->terminateExactlyOnFinalCondition_ );
+        break;
+    }
     case hybrid_stopping_condition:
     {
         boost::shared_ptr< PropagationHybridTerminationSettings > hybridTerminationSettings =
@@ -182,17 +193,6 @@ boost::shared_ptr< PropagationTerminationCondition > createPropagationTerminatio
         propagationTerminationCondition = boost::make_shared< HybridPropagationTerminationCondition >(
                     propagationTerminationConditionList, hybridTerminationSettings->fulfillSingleCondition_,
                     hybridTerminationSettings->terminateExactlyOnFinalCondition_ );
-        break;
-    }
-    case custom_stopping_condition:
-    {
-        boost::shared_ptr< PropagationCustomTerminationSettings > customTerminationSettings =
-                boost::dynamic_pointer_cast< PropagationCustomTerminationSettings >( terminationSettings );
-
-        // Create dependent variable termination condition.
-        propagationTerminationCondition = boost::make_shared< CustomTerminationCondition >(
-                    customTerminationSettings->checkStopCondition_,
-                    customTerminationSettings->terminateExactlyOnFinalCondition_ );
         break;
     }
     default:

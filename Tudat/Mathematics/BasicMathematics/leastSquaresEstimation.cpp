@@ -219,10 +219,10 @@ Eigen::VectorXd nonLinearLeastSquaresFit(
         // Compute update in estimate
         Eigen::VectorXd diagonalOfWeightMatrix = Eigen::VectorXd::Ones( offsetInObservations.rows( ) );
         Eigen::MatrixXd inverseOfAPrioriCovarianceMatrix = levenbergMarquardtDampingParameter *
+//                Eigen::MatrixXd( ( designMatrix.transpose( ) * designMatrix ).diagonal( ).asDiagonal( ) ); // Marquardt’s update
                 Eigen::MatrixXd::Identity( currentEstimate.rows( ), currentEstimate.rows( ) );
         updateInEstimate = linear_algebra::performLeastSquaresAdjustmentFromInformationMatrix(
                     designMatrix, offsetInObservations, diagonalOfWeightMatrix, inverseOfAPrioriCovarianceMatrix, false ).first;
-//        std::cout << "Iter: " << iteration + 1 << ". Update: " << updateInEstimate.transpose( ) << std::endl;
 
         // Check that update is real
         if ( ( !updateInEstimate.allFinite( ) ) || ( updateInEstimate.hasNaN( ) ) )
@@ -232,9 +232,9 @@ Eigen::VectorXd nonLinearLeastSquaresFit(
 
         // Compute gain ratio
         levenbergMarquardtGainRatio =
-                ( pairOfEstimatedObservationsAndDesignMatrix.first.squaredNorm( ) -
-                  observationAndJacobianFunctions( currentEstimate + updateInEstimate ).first.squaredNorm( ) ) /
-                ( updateInEstimate.transpose( ) * ( levenbergMarquardtDampingParameter * updateInEstimate -
+                ( offsetInObservations.squaredNorm( ) -
+                  ( actualObservations - observationAndJacobianFunctions( currentEstimate + updateInEstimate ).first ).squaredNorm( ) ) /
+                ( updateInEstimate.transpose( ) * ( levenbergMarquardtDampingParameter * updateInEstimate +
                                                     designMatrix.transpose( ) * offsetInObservations ) );
 
         // Update damping parameter
@@ -253,6 +253,8 @@ Eigen::VectorXd nonLinearLeastSquaresFit(
             levenbergMarquardtDampingParameter *= scalingParameterUpdate;
             scalingParameterUpdate *= 2.0;
         }
+//        std::cout << "Iter: " << iteration + 1 << ". Update: " << updateInEstimate.transpose( ) << ". "
+//                  << ( ( levenbergMarquardtGainRatio > 0 ) ? "Accepted." : "Rejected." ) << std::endl;
 
         // Increase iteration counter
         iteration++;
