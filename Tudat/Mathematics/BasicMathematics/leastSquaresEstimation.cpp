@@ -178,10 +178,10 @@ std::vector< double > getLeastSquaresPolynomialFit(
 
 }
 
-//! Function to perform a non-linear least squares estimation.
+//! Function to perform a non-linear least squares estimation with the Levenberg-Marquardt method.
 Eigen::VectorXd nonLinearLeastSquaresFit(
         const boost::function< std::pair< Eigen::VectorXd, Eigen::MatrixXd >( const Eigen::VectorXd& ) >& observationAndJacobianFunctions,
-        const Eigen::VectorXd& initialEstimate, const Eigen::VectorXd& actualObservations,
+        const Eigen::VectorXd& initialEstimate, const Eigen::VectorXd& actualObservations, const double initialScaling,
         const double convergenceTolerance, const unsigned int maximumNumberOfIterations )
 {
     // Set current estimate to initial value
@@ -196,7 +196,6 @@ Eigen::VectorXd nonLinearLeastSquaresFit(
     // Initial parameters for Levenberg–Marquardt method
     double levenbergMarquardtDampingParameter = 0.0;
     double scalingParameterUpdate = 2.0;
-    double initialScaling = 1.0e-6;
     double levenbergMarquardtGainRatio = 0.0;
 
     // Start iterative loop
