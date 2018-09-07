@@ -1,4 +1,4 @@
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
+#include "Tudat/Astrodynamics/SystemModels/extraFunctions.h"
 
 #include "Tudat/Basics/utilities.h"
 
@@ -14,7 +14,7 @@
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
@@ -231,6 +231,6 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
     return std::make_pair( expectedDensity, jacobianMatrix );
 }
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat

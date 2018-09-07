@@ -29,7 +29,6 @@
 #include "Tudat/SimulationSetup/PropagationSetup/propagationTermination.h"
 #include "Tudat/Astrodynamics/Propagators/dynamicsStateDerivativeModel.h"
 #include "Tudat/Mathematics/Interpolators/lagrangeInterpolator.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
 
 namespace tudat
 {
@@ -399,8 +398,7 @@ public:
     }
 
     //! Destructor
-    ~SingleArcDynamicsSimulator( )
-    { }
+    ~SingleArcDynamicsSimulator( ) { }
 
     //! This function numerically (re-)integrates the equations of motion.
     /*!
@@ -704,7 +702,7 @@ public:
     void resetPropagationTerminationConditions( )
     {
         propagationTerminationCondition_ = createPropagationTerminationConditions(
-                    propagatorSettings_->getTerminationSettings(), bodyMap_,
+                    propagatorSettings_->getTerminationSettings( ), bodyMap_,
                             integratorSettings_->initialTimeStep_ );
     }
 

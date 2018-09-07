@@ -10,14 +10,22 @@
 
 # Set the header files.
 set(SYSTEMMODELS_HEADERS 
+  "${SRCROOT}${SYSTEMMODELSDIR}/controlSystem.h"
   "${SRCROOT}${SYSTEMMODELSDIR}/engineModel.h"
-  "${SRCROOT}${SYSTEMMODELSDIR}/onboardComputerModel.h"
+  "${SRCROOT}${SYSTEMMODELSDIR}/extraFunctions.h"
+  "${SRCROOT}${SYSTEMMODELSDIR}/guidanceSystem.h"
   "${SRCROOT}${SYSTEMMODELSDIR}/navigationInstrumentsModel.h"
+  "${SRCROOT}${SYSTEMMODELSDIR}/navigationSystem.h"
+  "${SRCROOT}${SYSTEMMODELSDIR}/onboardComputerModel.h"
   "${SRCROOT}${SYSTEMMODELSDIR}/vehicleSystems.h"
 )
 
 set(SYSTEMMODELS_SOURCES
+  "${SRCROOT}${SYSTEMMODELSDIR}/controlSystem.cpp"
+  "${SRCROOT}${SYSTEMMODELSDIR}/extraFunctions.cpp"
+  "${SRCROOT}${SYSTEMMODELSDIR}/guidanceSystem.cpp"
   "${SRCROOT}${SYSTEMMODELSDIR}/navigationInstrumentsModel.cpp"
+  "${SRCROOT}${SYSTEMMODELSDIR}/navigationSystem.cpp"
 )
 
 # Add static libraries.

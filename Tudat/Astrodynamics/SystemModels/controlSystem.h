@@ -24,7 +24,7 @@ namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; }
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Class for control system of an aerobraking maneuver.
@@ -59,6 +59,7 @@ public:
 
     //! Function to retirieve the apoapsis maneuver.
     Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApsoapsisManeuver_; }
+    void setManeuverToZero( ) { scheduledApsoapsisManeuver_.setZero( ); }
 
     //! Clear history of control vectors for the current orbit.
     void clearCurrentOrbitControlHistory( ) { }
@@ -79,7 +80,7 @@ private:
 
 };
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat
 

@@ -36,7 +36,7 @@
 #include "Tudat/Astrodynamics/Ephemerides/rotationalEphemeris.h"
 #include "Tudat/Astrodynamics/SystemModels/vehicleSystems.h"
 #include "Tudat/Mathematics/BasicMathematics/numericalDerivative.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
+#include "Tudat/Astrodynamics/SystemModels/controlSystem.h"
 
 namespace tudat
 {
@@ -991,7 +991,7 @@ public:
      *  Function to set the control system of the body.
      *  \param controlSystem Control system of the body.
      */
-    void setControlSystem( const boost::shared_ptr< guidance_navigation_control::ControlSystem > controlSystem )
+    void setControlSystem( const boost::shared_ptr< system_models::ControlSystem > controlSystem )
     {
         controlSystem_ = controlSystem;
     }
@@ -1001,7 +1001,7 @@ public:
      *  Function to retrieve the control system of the body.
      *  \return Control system of the body.
      */
-    boost::shared_ptr< guidance_navigation_control::ControlSystem > getControlSystem( )
+    boost::shared_ptr< system_models::ControlSystem > getControlSystem( )
     {
         return controlSystem_;
     }
@@ -1256,7 +1256,7 @@ private:
     boost::shared_ptr< system_models::VehicleSystems > vehicleSystems_;
 
     //! Pointer to the control system of the body (typically only non-NULL for a vehicle).
-    boost::shared_ptr< guidance_navigation_control::ControlSystem > controlSystem_;
+    boost::shared_ptr< system_models::ControlSystem > controlSystem_;
 
 };
 

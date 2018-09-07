@@ -26,7 +26,7 @@
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Class for guidance system of an aerobraking maneuver.
@@ -330,7 +330,7 @@ private:
 
 };
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat
 

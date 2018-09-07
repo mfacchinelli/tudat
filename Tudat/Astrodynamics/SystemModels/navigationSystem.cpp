@@ -2,7 +2,7 @@
 
 #include <Eigen/LU>
 
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/navigationSystem.h"
+#include "Tudat/Astrodynamics/SystemModels/navigationSystem.h"
 
 #include "Tudat/Basics/utilities.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
@@ -18,7 +18,7 @@
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Function to remove errors in inertial measurement unit measurements based on the estimated bias and scale factors.
@@ -446,7 +446,7 @@ void NavigationSystem::runAtmosphereEstimator(
             Eigen::Vector5d estimatedAtmosphereModelParameters = linear_algebra::nonLinearLeastSquaresFit(
                         boost::bind( &threeModelParametersEstimationFunction, _1, estimatedAltitudesBelowAtmosphericInterface,
                                      estimatedPeriapsisAltitude ),
-                        initialParameterEstimates, estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ), 1e-5, 50 );
+                        initialParameterEstimates, estimatedAtmosphericDensitiesBelowAtmosphericInterface.array( ).log( ), 1e-6, 1e-5, 50 );
 
             // Add reference altitude to list of parameters and revert from logarithmic space
             modelSpecificParameters.resize( 6 );
@@ -700,6 +700,6 @@ Eigen::Matrix< double, 3, 12 > NavigationSystem::onboardMeasurementJacobian(
     return currentMeasurementJacobian;
 }
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat

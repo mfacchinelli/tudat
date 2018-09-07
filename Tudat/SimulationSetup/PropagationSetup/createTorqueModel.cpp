@@ -10,7 +10,7 @@
 
 #include "Tudat/SimulationSetup/EnvironmentSetup/createFlightConditions.h"
 #include "Tudat/SimulationSetup/PropagationSetup/createTorqueModel.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
+#include "Tudat/Astrodynamics/SystemModels/controlSystem.h"
 
 namespace tudat
 {
@@ -149,7 +149,7 @@ boost::shared_ptr< basic_astrodynamics::CustomTorque > createControlTorqueModel(
         const std::string& nameOfBodyUndergoingTorque )
 {
     // Check model availability
-    boost::shared_ptr< guidance_navigation_control::ControlSystem > controlSystem = bodyUndergoingTorque->getControlSystem( );
+    boost::shared_ptr< system_models::ControlSystem > controlSystem = bodyUndergoingTorque->getControlSystem( );
     if ( controlSystem ==  NULL )
     {
         throw std::runtime_error( "Error when making control torque, " + nameOfBodyUndergoingTorque +
@@ -158,7 +158,7 @@ boost::shared_ptr< basic_astrodynamics::CustomTorque > createControlTorqueModel(
 
     // Pass control system to torque model and return it
     return boost::make_shared< basic_astrodynamics::CustomTorque >(
-                boost::bind( &guidance_navigation_control::ControlSystem::getCurrentAttitudeControlVector, controlSystem ) );
+                boost::bind( &system_models::ControlSystem::getCurrentAttitudeControlVector, controlSystem ) );
 }
 
 //! Function to create torque model object.

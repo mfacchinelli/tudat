@@ -19,8 +19,8 @@
 #include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
 #include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
+#include "Tudat/Astrodynamics/SystemModels/extraFunctions.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
 
 #include "Tudat/Mathematics/Filters/createFilter.h"
@@ -34,7 +34,7 @@ namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; typedef Eige
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Function to remove errors in inertial measurement unit measurements based on the estimated bias and scale factors.
@@ -413,7 +413,7 @@ public:
     //! Function to retrieve the density at the input conditions according to the onboard model.
     double getDensityAtSpecifiedConditions( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
-        if ( estimatedState.norm( ) == 0.0 )
+        if ( estimatedState.isZero( ) )
         {
             return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
                         onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentAltitude( ),
@@ -616,6 +616,13 @@ public:
         estimatedKeplerianStateAtPreviousApoapsis_ = currentEstimatedKeplerianState_;
     }
 
+    //! Reset navigation filter integration step size.
+    void resetNavigationRefreshStepSize( const double newNavigationRefreshStepSize )
+    {
+        navigationRefreshStepSize_ = newNavigationRefreshStepSize;
+        navigationFilter_->resetIntegrationStepSize( newNavigationRefreshStepSize );
+    }
+
     //! Function to clear history of estimated states and accelerations for the current orbit.
     void clearCurrentOrbitEstimationHistory( )
     {
@@ -626,7 +633,7 @@ public:
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.clear( );
 
         // Empty filter estimates
-//        navigationFilter_->clearFilterHistory( );
+        navigationFilter_->clearFilterHistory( );
     }
 
     //! Integer denoting the current orbit counter.
@@ -984,7 +991,7 @@ private:
 
 };
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat
 

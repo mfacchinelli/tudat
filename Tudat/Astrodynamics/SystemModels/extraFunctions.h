@@ -26,7 +26,7 @@ namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; typedef Eige
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Function to be used as input to the root-finder to determine the centroid of the acceleration curve.
@@ -118,7 +118,7 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
         const Eigen::VectorXd& vectorOfEstimatedAltitudesBelowAtmosphericInterface,
         const double referenceAltitude );
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat
 

@@ -13,15 +13,13 @@
 
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/navigationSystem.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/guidanceSystem.h"
-
+#include "Tudat/Astrodynamics/SystemModels/controlSystem.h"
+#include "Tudat/Astrodynamics/SystemModels/guidanceSystem.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
+#include "Tudat/Astrodynamics/SystemModels/navigationSystem.h"
 
 //! Typedefs and using statements to simplify code.
 namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; }
-using namespace tudat::guidance_navigation_control;
 
 namespace tudat
 {
@@ -74,139 +72,151 @@ public:
     {
         using mathematical_constants::PI;
 
-        // Define output value
-        bool isPropagationToBeStopped = false;
-
-        // Update instrument models and extract measurements
-        instrumentsModel_->updateInstruments( currentTime );
-        Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
-
-        // Update filter from previous time to next time
-        NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
-        navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
-
-        // Check if it is time for a Deep Space Network update
-        // The Deep Space Network tracking is scheduled every N days (where N comes from the function getFrequencyOfDeepSpaceNetworkTracking
-        // of the navigation system). The following if statement makes sure that the processing of the measurements is carried out at this
-        // frequency and that it is not carried out on the very first apoapsis.
-        unsigned int currentDay = static_cast< unsigned int >( ( currentTime - initialTime_ ) / physical_constants::JULIAN_DAY );
-        if ( ( ( currentDay % navigationSystem_->getFrequencyOfDeepSpaceNetworkTracking( ) ) == 0 ) &&
-             ( navigationSystem_->currentOrbitCounter_ > 0 ) && ( currentDay != deepSpaceNetworkTrackingInformation_.second ) &&
-             !deepSpaceNetworkTrackingInformation_.first )
+        // Check if current step has already been performed
+        if ( currentTime != navigationSystem_->getCurrentTime( ) )
         {
-            deepSpaceNetworkTrackingInformation_.first = true;
-            deepSpaceNetworkTrackingInformation_.second = currentDay;
+            // Define output value
+            bool isPropagationToBeStopped = false;
+
+            // Update instrument models and extract measurements
+            instrumentsModel_->updateInstruments( currentTime );
+            Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
+
+            // Update filter from previous time to next time
+            NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
+            navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
+
+            // Check if it is time for a Deep Space Network update
+            // The Deep Space Network tracking is scheduled every N days (where N comes from the function getFrequencyOfDeepSpaceNetworkTracking
+            // of the navigation system). The following if statement makes sure that the processing of the measurements is carried out at this
+            // frequency and that it is not carried out on the very first apoapsis.
+            unsigned int currentDay = static_cast< unsigned int >( ( currentTime - initialTime_ ) / physical_constants::JULIAN_DAY );
+            if ( ( ( currentDay % navigationSystem_->getFrequencyOfDeepSpaceNetworkTracking( ) ) == 0 ) &&
+                 !deepSpaceNetworkTrackingInformation_.first && ( currentDay != deepSpaceNetworkTrackingInformation_.second ) &&
+                 ( navigationSystem_->currentOrbitCounter_ > 0 ) )
+            {
+                deepSpaceNetworkTrackingInformation_.first = true;
+                deepSpaceNetworkTrackingInformation_.second = currentDay;
+            }
+
+            // Access current state and extract interesting variables
+            std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
+            double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
+
+            // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
+            if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
+            {
+                // Inform user
+                std::cout << std::endl << "REACHED APOAPSIS. Preparing to perform maneuver." << std::endl;
+
+                // Process Deep Space Network tracking data
+                if ( deepSpaceNetworkTrackingInformation_.first )
+                {
+                    deepSpaceNetworkTrackingInformation_.first = false;
+                    navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
+                    currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
+                }
+
+                // Store new value of apoapsis Keplerian state
+                navigationSystem_->setEstimatedApoapsisKeplerianState( );
+
+                // Determine in which phase of aerobraking the spacecraft is and perform corridor estimation
+                guidanceSystem_->determineAerobrakingPhase( currentEstimatedState.second,
+                                                            navigationSystem_->getAtmosphereInitiationIndicators( ) );
+                guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
+                                                       navigationSystem_->getRadius( ),
+                                                       navigationSystem_->getStandardGravitationalParameter( ) );
+
+                // Check whether propagation needs to be stopped
+                // Propagation is stopped only if an apoapsis maneuver needs to be performed
+                isPropagationToBeStopped = guidanceSystem_->getIsApoapsisManeuverToBePerformed( );
+
+                // If propagation is to be stopped, to add Delta V to state, run remaining pre-maneuver processes
+                if ( isPropagationToBeStopped )
+                {
+                    // Run maneuver estimator
+                    guidanceSystem_->runManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
+                                                           navigationSystem_->getCurrentEstimatedMeanMotion( ),
+                                                           navigationSystem_->getRadius( ) );
+
+                    // Retireve required apoapsis maneuver
+                    Eigen::Vector3d scheduledApoapsisManeuver = guidanceSystem_->getScheduledApoapsisManeuver( );
+
+                    // Feed maneuver to the navigation system
+                    Eigen::Vector6d updatedCurrentEstimatedCartesianState = navigationSystem_->getCurrentEstimatedTranslationalState( ).first;
+                    updatedCurrentEstimatedCartesianState.segment( 3, 3 ) += scheduledApoapsisManeuver;
+                    navigationSystem_->setCurrentEstimatedCartesianState( updatedCurrentEstimatedCartesianState );
+
+                    // Feed maneuver to the control system
+                    controlSystem_->updateOrbitController( scheduledApoapsisManeuver );
+                }
+                else
+                {
+                    // Check whether aerobraking is complete
+                    isPropagationToBeStopped = isAerobrakingComplete( true );
+                }
+
+                // Run house keeping routines
+                if ( navigationSystem_->currentOrbitCounter_ != 0 )
+                {
+                    runHouseKeepingRoutines( );
+                }
+
+                // Step up orbit counter
+                navigationSystem_->currentOrbitCounter_++;
+
+                // Renew random coefficients for perturbed atmosphere
+                instrumentsModel_->randomizeAtmospherePerturbations( );
+
+                // Invert completion flags
+                maneuveringPhaseComplete_ = true;
+                atmosphericPhaseComplete_ = false;
+
+                // Inform user
+                std::string orbitNumber = std::to_string( navigationSystem_->currentOrbitCounter_ - 1 );
+                std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
+            }
+            else if ( ( ( ( currentNavigationPhase != NavigationSystem::iman_navigation_phase ) &&
+                          ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::iman_navigation_phase ) ) &&
+                        ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
+                      !atmosphericPhaseComplete_ ) // check altitude
+            {
+                // Inform user
+                std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;
+
+                // Retireve history of inertial measurement unit measurements
+                std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
+                        instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
+
+                // Extract measured translational accelerations and transform to inertial frame
+                std::map< double, Eigen::Vector3d > currentOrbitHistoryOfMeasuredTranslationalAccelerations;
+                for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
+                      measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
+                      measurementConstantIterator_++ )
+                {
+                    currentOrbitHistoryOfMeasuredTranslationalAccelerations[ measurementConstantIterator_->first ] =
+                            measurementConstantIterator_->second.segment( 0, 3 );
+                }
+
+                // Perform periapse time and atmosphere estimations
+                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+
+                // Invert completion flags
+                maneuveringPhaseComplete_ = false;
+                atmosphericPhaseComplete_ = true;
+            }
+
+            // Give output
+            previousIsPropagationToBeStopped_ = isPropagationToBeStopped;
+            return isPropagationToBeStopped;
         }
-
-        // Access current state and extract interesting variables
-        std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
-        double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
-
-        // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
-        if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
+        else
         {
-            // Inform user
-            std::cout << std::endl << "REACHED APOAPSIS. Preparing to perform maneuver." << std::endl;
-
-            // Process Deep Space Network tracking data
-            if ( deepSpaceNetworkTrackingInformation_.first )
-            {
-                deepSpaceNetworkTrackingInformation_.first = false;
-                navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
-                currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
-            }
-
-            // Store new value of apoapsis Keplerian state
-            navigationSystem_->setEstimatedApoapsisKeplerianState( );
-
-            // Determine in which phase of aerobraking the spacecraft is and perform corridor estimation
-            guidanceSystem_->determineAerobrakingPhase( currentEstimatedState.second,
-                                                        navigationSystem_->getAtmosphereInitiationIndicators( ) );
-            guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
-                                                   navigationSystem_->getRadius( ),
-                                                   navigationSystem_->getStandardGravitationalParameter( ) );
-
-            // Check whether propagation needs to be stopped
-            // Propagation is stopped only if an apoapsis maneuver needs to be performed
-            isPropagationToBeStopped = guidanceSystem_->getIsApoapsisManeuverToBePerformed( );
-
-            // If propagation is to be stopped, to add Delta V to state, run remaining pre-maneuver processes
-            if ( isPropagationToBeStopped )
-            {
-                // Run maneuver estimator
-                guidanceSystem_->runManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
-                                                       navigationSystem_->getCurrentEstimatedMeanMotion( ),
-                                                       navigationSystem_->getRadius( ) );
-
-                // Retireve required apoapsis maneuver
-                Eigen::Vector3d scheduledApoapsisManeuver = guidanceSystem_->getScheduledApoapsisManeuver( );
-
-                // Feed maneuver to the navigation system
-                Eigen::Vector6d updatedCurrentEstimatedCartesianState = navigationSystem_->getCurrentEstimatedTranslationalState( ).first;
-                updatedCurrentEstimatedCartesianState.segment( 3, 3 ) += scheduledApoapsisManeuver;
-                navigationSystem_->setCurrentEstimatedCartesianState( updatedCurrentEstimatedCartesianState );
-
-                // Feed maneuver to the control system
-                controlSystem_->updateOrbitController( scheduledApoapsisManeuver );
-            }
-            else
-            {
-                // Check whether aerobraking is complete
-                isPropagationToBeStopped = isAerobrakingComplete( true );
-            }
-
-            // Run house keeping routines
-            if ( navigationSystem_->currentOrbitCounter_ != 0 )
-            {
-                runHouseKeepingRoutines( );
-            }
-
-            // Step up orbit counter
-            navigationSystem_->currentOrbitCounter_++;
-
-            // Renew random coefficients for perturbed atmosphere
-            instrumentsModel_->randomizeAtmospherePerturbations( );
-
-            // Invert completion flags
-            maneuveringPhaseComplete_ = true;
-            atmosphericPhaseComplete_ = false;
-
-            // Inform user
-            std::string orbitNumber = std::to_string( navigationSystem_->currentOrbitCounter_ - 1 );
-            std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
+            std::cout << currentTime - initialTime_ << " " << navigationSystem_->getCurrentTime( ) - initialTime_ << std::endl;
+            bool previousIsPropagationToBeStopped = previousIsPropagationToBeStopped_;
+            previousIsPropagationToBeStopped_ = false;
+            return previousIsPropagationToBeStopped;
         }
-        else if ( ( ( ( currentNavigationPhase != NavigationSystem::iman_navigation_phase ) &&
-                      ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::iman_navigation_phase ) ) &&
-                    ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
-                  !atmosphericPhaseComplete_ ) // check altitude
-        {
-            // Inform user
-            std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;
-
-            // Retireve history of inertial measurement unit measurements
-            std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =
-                    instrumentsModel_->getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( );
-
-            // Extract measured translational accelerations and transform to inertial frame
-            std::map< double, Eigen::Vector3d > currentOrbitHistoryOfMeasuredTranslationalAccelerations;
-            for ( measurementConstantIterator_ = currentOrbitHistoryOfInertialMeasurementUnitMeasurements.begin( );
-                  measurementConstantIterator_ != currentOrbitHistoryOfInertialMeasurementUnitMeasurements.end( );
-                  measurementConstantIterator_++ )
-            {
-                currentOrbitHistoryOfMeasuredTranslationalAccelerations[ measurementConstantIterator_->first ] =
-                        measurementConstantIterator_->second.segment( 0, 3 );
-            }
-
-            // Perform periapse time and atmosphere estimations
-            navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
-
-            // Invert completion flags
-            maneuveringPhaseComplete_ = false;
-            atmosphericPhaseComplete_ = true;
-        }
-
-        // Give output
-        return isPropagationToBeStopped;
     }
 
     //! Function to check whether the aerobraking maneuver has been completed.
@@ -223,7 +233,8 @@ public:
 
         // Check if aerobraking is complete
         dummyCallCounter_++;
-        aerobrakingComplete = ( dummyCallCounter_ > 1 );
+        std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
+        aerobrakingComplete = ( dummyCallCounter_ > ( 2 * navigationSystem_->currentOrbitCounter_ + 2 ) );
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user
@@ -277,6 +288,9 @@ private:
 
     //! Double denoting initial time of the simulation.
     double initialTime_;
+
+    //! Boolean denoting the previous flag for propagation stop.
+    bool previousIsPropagationToBeStopped_;
 
     //! Predefined iterator to save (de)allocation time.
     std::map< double, Eigen::Vector6d >::const_iterator measurementConstantIterator_;

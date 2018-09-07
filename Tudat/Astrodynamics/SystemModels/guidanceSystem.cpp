@@ -1,14 +1,14 @@
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/guidanceSystem.h"
+#include "Tudat/Astrodynamics/SystemModels/guidanceSystem.h"
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/extraFunctions.h"
+#include "Tudat/Astrodynamics/SystemModels/extraFunctions.h"
 #include "Tudat/Mathematics/BasicMathematics/functionProxy.h"
 
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Function to run corridor estimator (CE).
@@ -169,6 +169,6 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
     std::cout << "Scheduled maneuver: " << scheduledApsoapsisManeuver_.transpose( ) << std::endl;
 }
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat
