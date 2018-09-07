@@ -157,42 +157,35 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     }
 
     // Extract median of accelerometer errors
-    Eigen::Vector6d currentOrbitAccelerometerErrors;
-    for ( unsigned int i = 0; i < currentOrbitAccelerometerErrors.rows( ); i++ )
+    for ( unsigned int i = 0; i < estimatedAccelerometerErrors_.rows( ); i++ )
     {
-        currentOrbitAccelerometerErrors[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( i ) );
+        estimatedAccelerometerErrors_[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( i ) );
     }
 
-//    // Calibrate accelerometer errors if it is the first orbit
-//    Eigen::Vector6d estimatedAccelerometerErrors_;
-//    if ( !atmosphereEstimatorInitialized_ )
-//    {
-//        // Inform user
-//        std::cout << "Calibrating Accelerometer." << std::endl;
+    // Calibrate accelerometer errors if it is the first orbit
+    Eigen::Vector6d estimatedAccelerometerErrorsNLSQ;
+    if ( !atmosphereEstimatorInitialized_ )
+    {
+        // Inform user
+        std::cout << "Calibrating Accelerometer." << std::endl;
 
-//        input_output::writeDataMapToTextFile( mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface,
-//                                              "expected.dat", "/Users/Michele/Desktop/" );
-//        input_output::writeMatrixToFile(
-//                    utilities::convertStlVectorToEigenMatrix( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
-//                    "measured.dat", 16, "/Users/Michele/Desktop/" );
-
-//        // Use non-linear least squares to solve for optimal value of errors
-//        estimatedAccelerometerErrors_ = linear_algebra::nonLinearLeastSquaresFit(
-//                    boost::bind( &accelerometerErrorEstimationFunction, _1,
-//                                 vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
-//                    currentOrbitAccelerometerErrors,
-//                    utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
-//                        mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
-//    }
-//    std::cout << "Est: " << estimatedAccelerometerErrors_.transpose( ) << std::endl
-//              << "KF: " << currentOrbitAccelerometerErrors.transpose( ) << std::endl;
+        // Use non-linear least squares to solve for optimal value of errors
+        estimatedAccelerometerErrorsNLSQ = linear_algebra::nonLinearLeastSquaresFit(
+                    boost::bind( &accelerometerErrorEstimationFunction, _1,
+                                 vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface ),
+                    estimatedAccelerometerErrors_,
+                    utilities::createConcatenatedEigenMatrixFromMapValues< double, double, 3 >(
+                        mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface ) );
+    }
+    std::cout << "NLSQ: " << estimatedAccelerometerErrorsNLSQ.transpose( ) << std::endl
+              << "KF: " << estimatedAccelerometerErrors_.transpose( ) << std::endl;
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
     {
         vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
                 removeErrorsFromInertialMeasurementUnitMeasurement(
-                    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ), currentOrbitAccelerometerErrors );
+                    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ), estimatedAccelerometerErrors_ );
     }
 
     // Apply smoothing method to noisy accelerometer data

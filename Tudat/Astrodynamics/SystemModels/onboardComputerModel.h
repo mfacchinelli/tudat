@@ -234,7 +234,7 @@ public:
         // Check if aerobraking is complete
         dummyCallCounter_++;
         std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 2 * navigationSystem_->currentOrbitCounter_ + 2 ) );
+        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 1 + 1 ) );
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user
