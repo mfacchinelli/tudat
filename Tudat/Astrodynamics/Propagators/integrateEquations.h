@@ -229,14 +229,14 @@ void getFinalStateForExactHybridVariableTerminationCondition(
 
     // Set converged end time/state
     bool propagationIsForwards = ( ( lastTime - secondToLastTime ) > 0.0 ) ? true : false;
-    if( ( propagationIsForwards && !hyrbidTerminationCondition->getFulFillSingleCondition( ) ) ||
-            ( !propagationIsForwards && hyrbidTerminationCondition->getFulFillSingleCondition( ) ) )
+    if( ( propagationIsForwards && !hyrbidTerminationCondition->getFulfillSingleCondition( ) ) ||
+            ( !propagationIsForwards && hyrbidTerminationCondition->getFulfillSingleCondition( ) ) )
     {
         endState = endStates[ maximumTimeIndex ];
         endTime = endTimes[ maximumTimeIndex ];
     }
-    else if( ( propagationIsForwards && hyrbidTerminationCondition->getFulFillSingleCondition( ) ) ||
-             ( !propagationIsForwards && !hyrbidTerminationCondition->getFulFillSingleCondition( ) ) )
+    else if( ( propagationIsForwards && hyrbidTerminationCondition->getFulfillSingleCondition( ) ) ||
+             ( !propagationIsForwards && !hyrbidTerminationCondition->getFulfillSingleCondition( ) ) )
     {
         endState = endStates[ minimumTimeIndex ];
         endTime = endTimes[ minimumTimeIndex ];

@@ -61,6 +61,7 @@ bool HybridPropagationTerminationCondition::checkStopCondition( const double tim
 {
     // Check if single condition is fulfilled.
     bool stopPropagation = -1;
+    unsigned int stopIndex = 0;
     if( fulfillSingleCondition_ )
     {
         stopPropagation = 0;
@@ -68,8 +69,14 @@ bool HybridPropagationTerminationCondition::checkStopCondition( const double tim
         {
             if( propagationTerminationCondition_.at( i )->checkStopCondition( time, cpuTime ) )
             {
+                stopIndex = i;
                 stopPropagation = 1;
+                isConditionMetWhenStopping_[ i ] = true;
                 break;
+            }
+            else
+            {
+                isConditionMetWhenStopping_[ i ] = false;
             }
         }
     }
@@ -81,20 +88,10 @@ bool HybridPropagationTerminationCondition::checkStopCondition( const double tim
         {
             if( !propagationTerminationCondition_.at( i )->checkStopCondition( time, cpuTime ) )
             {
+                stopIndex = i;
                 stopPropagation = 0;
-                break;
-            }
-        }
-    }
-
-    // Save if conditions were met
-    if( stopPropagation )
-    {
-        for( unsigned int i = 0; i < propagationTerminationCondition_.size( ); i++ )
-        {
-            if( propagationTerminationCondition_.at( i )->checkStopCondition( time, cpuTime ) )
-            {
                 isConditionMetWhenStopping_[ i ] = false;
+                break;
             }
             else
             {
@@ -103,8 +100,16 @@ bool HybridPropagationTerminationCondition::checkStopCondition( const double tim
         }
     }
 
-    return stopPropagation;
+    // Save if conditions were met
+    if( stopPropagation )
+    {
+        for( unsigned int i = ( stopIndex + 1 ); i < propagationTerminationCondition_.size( ); i++ )
+        {
+            isConditionMetWhenStopping_[ i ] = propagationTerminationCondition_.at( i )->checkStopCondition( time, cpuTime );
+        }
+    }
 
+    return stopPropagation;
 }
 
 

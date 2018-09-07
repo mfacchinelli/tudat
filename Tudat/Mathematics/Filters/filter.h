@@ -254,6 +254,12 @@ public:
         return std::make_pair( systemNoiseHistory_, measurementNoiseHistory_ );
     }
 
+    //! Function to reset the step size for integration.
+    void resetIntegrationStepSize( const double newIntegrationStepSize )
+    {
+        integrationStepSize_ = newIntegrationStepSize;
+    }
+
     //! Function to clear the history of stored variables.
     /*!
      *  Function to clear the history of stored variables. This function should be called if the history of state and covariance
