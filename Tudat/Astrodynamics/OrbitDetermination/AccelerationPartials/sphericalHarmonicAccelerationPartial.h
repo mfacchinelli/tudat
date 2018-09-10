@@ -116,7 +116,6 @@ public:
         }
     }
 
-
     //! Function for determining if the acceleration is dependent on a non-translational integrated state.
     /*!
      *  Function for determining if the acceleration is dependent on a non-translational integrated state.
@@ -179,7 +178,6 @@ public:
      */
     virtual void update( const double currentTime = TUDAT_NAN );
 
-
     //! Function to calculate the partial wrt the gravitational parameter.
     /*!
      *  Function to calculate the partial wrt the gravitational parameter of the central body. Note that in the case of
@@ -213,6 +211,14 @@ public:
         {
             throw std::runtime_error( "Error cannot compute partial of spherical harminic gravity w.r.t mu for zero value" );
         }
+    }
+
+    //! Function to retrieve the current spherical harmonics acceleration partial.
+    Eigen::Matrix< double, 3, 6 > getCurrentSphericalHarmonicsAccelerationPartial( )
+    {
+        Eigen::Matrix< double, 3, 6 > currentPartial = Eigen::Matrix< double, 3, 6 >::Zero( );
+        currentPartial.block( 0, 0, 3, 3 ) = currentPartialWrtPosition_;
+        return currentPartial;
     }
 
 protected:

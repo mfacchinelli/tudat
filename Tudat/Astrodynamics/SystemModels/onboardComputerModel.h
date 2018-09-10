@@ -52,6 +52,7 @@ public:
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
+        guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
         guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
                                                                    navigationSystem_, _1, _2, -1.0 ) );
     }
@@ -72,19 +73,20 @@ public:
     {
         using mathematical_constants::PI;
 
+        // Define output value
+        bool isPropagationToBeStopped = false;
+
         // Check if current step has already been performed
         if ( currentTime != navigationSystem_->getCurrentTime( ) )
         {
-            // Define output value
-            bool isPropagationToBeStopped = false;
-
             // Update instrument models and extract measurements
             instrumentsModel_->updateInstruments( currentTime );
             Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
 
             // Update filter from previous time to next time
             NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
-            navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
+            navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
+                                                  instrumentsModel_->getActualSpacecraftTranslationalState( ) );
 
             // Check if it is time for a Deep Space Network update
             // The Deep Space Network tracking is scheduled every N days (where N comes from the function getFrequencyOfDeepSpaceNetworkTracking
@@ -164,9 +166,11 @@ public:
 
                 // Step up orbit counter
                 navigationSystem_->currentOrbitCounter_++;
+                guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
 
                 // Renew random coefficients for perturbed atmosphere
-                instrumentsModel_->randomizeAtmospherePerturbations( );
+                std::cerr << "Atmosphere randomization is OFF." << std::endl;
+//                instrumentsModel_->randomizeAtmospherePerturbations( );
 
                 // Invert completion flags
                 maneuveringPhaseComplete_ = true;
@@ -206,17 +210,19 @@ public:
                 atmosphericPhaseComplete_ = true;
             }
 
-            // Give output
+            // Save current value of propagation termination index
             previousIsPropagationToBeStopped_ = isPropagationToBeStopped;
-            return isPropagationToBeStopped;
         }
         else
         {
+            // Return previous value of propagation termination index
             std::cout << currentTime - initialTime_ << " " << navigationSystem_->getCurrentTime( ) - initialTime_ << std::endl;
-            bool previousIsPropagationToBeStopped = previousIsPropagationToBeStopped_;
+            isPropagationToBeStopped = previousIsPropagationToBeStopped_;
             previousIsPropagationToBeStopped_ = false;
-            return previousIsPropagationToBeStopped;
         }
+
+        // Give output
+        return isPropagationToBeStopped;
     }
 
     //! Function to check whether the aerobraking maneuver has been completed.
@@ -234,7 +240,7 @@ public:
         // Check if aerobraking is complete
         dummyCallCounter_++;
         std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 1 + 1 ) );
+        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 3 + 1 ) );//150 );//
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user

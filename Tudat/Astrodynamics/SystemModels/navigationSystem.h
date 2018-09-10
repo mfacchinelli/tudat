@@ -19,6 +19,8 @@
 #include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
+#include "Tudat/Astrodynamics/OrbitDetermination/AccelerationPartials/aerodynamicAccelerationPartial.h"
+#include "Tudat/Astrodynamics/OrbitDetermination/AccelerationPartials/sphericalHarmonicAccelerationPartial.h"
 #include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
 #include "Tudat/Astrodynamics/SystemModels/extraFunctions.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
@@ -96,14 +98,7 @@ public:
         frequencyOfDeepSpaceNetworkTracking_( frequencyOfDeepSpaceNetworkTracking ),
         altimeterBodyFixedPointingDirection_( altimeterBodyFixedPointingDirection ), altimeterAltitudeRange_( altimeterAltitudeRange )
     {
-        // Create environment updater
-        createOnboardEnvironmentUpdater( );
-
-        // Set values to their initial conditions
-        atmosphereEstimatorInitialized_ = false;
-        estimatedAccelerometerErrors_.setZero( );
-
-        // Get index of central body acceleration (which is not measured by the IMUs)
+        // Get indeces of accelerations of interest
         for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
               accelerationMapConstantIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
               accelerationMapConstantIterator_++ )
@@ -111,15 +106,30 @@ public:
             // Loop over each acceleration
             for ( unsigned int i = 0; i < accelerationMapConstantIterator_->second.size( ); i++ )
             {
+                // Get index of spherical harmonics gravity acceleration (which is not measured by the IMUs)
                 if ( ( basic_astrodynamics::getAccelerationModelType( accelerationMapConstantIterator_->second[ i ] ) ==
                        basic_astrodynamics::spherical_harmonic_gravity ) &&
                      ( accelerationMapConstantIterator_->first == planetName_ ) )
                 {
                     sphericalHarmonicsGravityIndex_ = i;
-                    break;
+                }
+
+                // Get index of aerodynamic acceleration
+                if ( ( basic_astrodynamics::getAccelerationModelType( accelerationMapConstantIterator_->second[ i ] ) ==
+                       basic_astrodynamics::aerodynamic ) &&
+                     ( accelerationMapConstantIterator_->first == planetName_ ) )
+                {
+                    aerodynamicsIndex_ = i;
                 }
             }
         }
+
+        // Create environment updater
+        createOnboardEnvironmentUpdater( );
+
+        // Set values to their initial conditions
+        atmosphereEstimatorInitialized_ = false;
+        estimatedAccelerometerErrors_.setZero( );
     }
 
     //! Destructor.
@@ -164,10 +174,12 @@ public:
     }
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const double currentTime, const Eigen::Vector3d& currentExternalMeasurementVector )
+    void runStateEstimator( const double currentTime, const Eigen::Vector3d& currentExternalMeasurementVector,
+                            const Eigen::Vector6d& actualSpacecraftTranslationalState )
     {
         // Set time
         currentTime_ = currentTime;
+//        setCurrentEstimatedCartesianState( actualSpacecraftTranslationalState );
 
         // Update current state based on the detected navigation phase
         switch ( currentNavigationPhase_ )
@@ -275,11 +287,11 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
-            {
-                runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                          vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-            }
+//            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
+//            {
+//                runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+//                                          vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+//            }
 
             // Run atmosphere estimator with processed results
             runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
@@ -299,7 +311,7 @@ public:
     void processDeepSpaceNetworkTracking( const std::pair< double, Eigen::Vector6d >& currentDeepSpaceNetworkTrackingData )
     {
         // Inform user
-        std::cout << std::endl << "Processing Deep Space Network tracking information." << std::endl;
+        std::cout << std::endl << "Processing Deep Space Network Tracking Information." << std::endl;
 
         // Split Deep Space Network tracking data in light-time delay and Cartesian state
         double currentLightTimeDelay = currentDeepSpaceNetworkTrackingData.first;
@@ -309,7 +321,7 @@ public:
         boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
                 boost::make_shared< propagators::PropagationTimeTerminationSettings >( currentTime_ );
         Eigen::Vector6d propagatedStateBasedOnTracking = propagateTranslationalStateWithCustomTerminationSettings(
-                    terminationSettings, currentTrackedState, currentTime_ - currentLightTimeDelay ).first.rbegin( )->second;
+                    terminationSettings, currentTrackedState, currentTime_ - currentLightTimeDelay ).second.first.rbegin( )->second;
 
         // Convert to Keplerian elements and reset true anomaly
         Eigen::Vector6d propagatedStateBasedOnTrackingInKeplerianElements = orbital_element_conversions::convertCartesianToKeplerianElements(
@@ -335,10 +347,11 @@ public:
      *  \param propagationTerminationSettings Termination settings to be used to stop the propagation.
      *  \param initialTranslationalCartesianState Vector denoting the initial conditions for the translational state in Cartesian elements.
      *  \param initialTime Double denoting the initial time for propagation.
-     *  \return Pair of dynamics simulator results. The first element is the map of time and propagated state, whereas the second
-     *      one is the map of time and dependent variable values.
+     *  \return Pair of boolean denoting whether propagation was successful and pair of dynamics simulator results. The first element
+     *      of the second pair is the map of time and propagated state, whereas the second one is the map of time and dependent
+     *      variable values.
      */
-    std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >
+    std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > >
     propagateTranslationalStateWithCustomTerminationSettings(
             const boost::shared_ptr< propagators::PropagationTerminationSettings > propagationTerminationSettings,
             const Eigen::Vector6d& initialTranslationalCartesianState = Eigen::Vector6d::Zero( ),
@@ -368,15 +381,21 @@ public:
         onboardPropagatorSettings_->resetTerminationSettings( propagationTerminationSettings );
 
         // Create dynamics simulator and propagate
+        bool wasPropagationSuccessful = true;
         propagators::SingleArcDynamicsSimulator< double, double > dynamicsSimulator(
                     onboardBodyMap_, onboardIntegratorSettings_, onboardPropagatorSettings_ );
+        if ( dynamicsSimulator.getPropagationTerminationReason( )->getPropagationTerminationReason( ) !=
+             propagators::termination_condition_reached )
+        {
+            wasPropagationSuccessful = false;
+        }
 
         // Retrieve results from onboard computer and systems
         std::map< double, Eigen::VectorXd > translationalStateResult = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
         std::map< double, Eigen::VectorXd > dependentVariablesResult = dynamicsSimulator.getDependentVariableHistory( );
 
         // Give output
-        return std::make_pair( translationalStateResult, dependentVariablesResult );
+        return std::make_pair( wasPropagationSuccessful, std::make_pair( translationalStateResult, dependentVariablesResult ) );
     }
 
     //! Function to retireve current time.
@@ -521,7 +540,7 @@ public:
     }
 
     //! Function to retrieve history of estimated atmosphere parameters.
-    std::vector< Eigen::VectorXd > getHistoryOfEstimatedAtmosphereParameters( )
+    std::map< unsigned int, Eigen::VectorXd > getHistoryOfEstimatedAtmosphereParameters( )
     {
         return historyOfEstimatedAtmosphereParameters_;
     }
@@ -676,6 +695,10 @@ private:
                 accelerationMapConstantIterator_->second[ i ]->updateMembers( currentTime_ );
             }
         }
+
+        // Update Jacobians based on acceleration partials
+        onboardGravitationalAccelerationPartials_->update( currentTime_ );
+        onboardAerodynamicAccelerationPartials_->update( currentTime_ );
 
         // Update accelerations based on new translational state estimate
         updateCurrentEstimatedAccelerations( );
@@ -865,6 +888,9 @@ private:
     //! Pair denoting the lowest and highest operation altitudes of the altimeter.
     std::pair< double, double > altimeterAltitudeRange_;
 
+    //! Unordered map of states to be updated by the environment updater.
+    std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate_;
+
     //! Pointer to the onboard environment updater.
     /*!
      *  Pointer to the onboard environment updater. The environment is updated based on the current state and time.
@@ -873,14 +899,28 @@ private:
      */
     boost::shared_ptr< propagators::EnvironmentUpdater< double, double > > onboardEnvironmentUpdater_;
 
-    //! Unordered map of states to be updated by the environment updater.
-    std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate_;
+    //! Pointer to the onboard spherical harmonics gravity acceleration partial object.
+    /*!
+     *  Pointer to the onboard spherical harmonics gravity acceleration partial object, which is used to compute the Jacobian of
+     *  the spherical harmonics acceleration w.r.t. the current Cartesian state.
+     */
+    boost::shared_ptr< acceleration_partials::SphericalHarmonicsGravityPartial > onboardGravitationalAccelerationPartials_;
+
+    //! Pointer to the onboard aerodynamic acceleration partial object.
+    /*!
+     *  Pointer to the onboard aerodynamic acceleration partial object, which is used to compute the Jacobian of
+     *  the aerodynamics acceleration w.r.t. the current Cartesian state.
+     */
+    boost::shared_ptr< acceleration_partials::AerodynamicAccelerationPartial > onboardAerodynamicAccelerationPartials_;
 
     //! Filter object to be used for estimation of state.
     boost::shared_ptr< filters::FilterBase< double, double > > navigationFilter_;
 
-    //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
+    //! Integer denoting the index of the spherical harmonics gravity acceleration exerted by the planet being orbited.
     unsigned int sphericalHarmonicsGravityIndex_;
+
+    //! Integer denoting the index of the aerodynamic acceleration exerted by the planet being orbited.
+    unsigned int aerodynamicsIndex_;
 
     //! Double denoting the initial time in the estimation process.
     double initialTime_;
@@ -956,7 +996,7 @@ private:
      *  Hisotry of estimated atmosphere model parameters. These values are used as input to the moving average calculation to
      *  achieve a more accurate estimate of the atospheric properties.
      */
-    std::vector< Eigen::VectorXd > historyOfEstimatedAtmosphereParameters_;
+    std::map< unsigned int, Eigen::VectorXd > historyOfEstimatedAtmosphereParameters_;
 
     //! History of estimated translational (in Cartesian and Keplerian elements) and rotational states.
     /*!
