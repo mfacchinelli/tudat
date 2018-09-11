@@ -535,9 +535,9 @@ private:
             }
         }
 
-        // Add errors to acceleration value
-        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
-        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
+//        // Add errors to acceleration value
+//        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
+//        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
     }
 
     //! Function to retrieve current rotational velocity of the spacecraft.
