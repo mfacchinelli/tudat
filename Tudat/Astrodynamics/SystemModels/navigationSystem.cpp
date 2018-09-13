@@ -551,25 +551,27 @@ Eigen::Vector12d NavigationSystem::onboardSystemModel(
     // Translational kinematics
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedStateVector.segment( 3, 3 );
 
-    // Translational dynamics
-    switch ( currentNavigationPhase_ )
-    {
-    case iman_navigation_phase:
-    {
-        // Use full dynamics
-        currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedStateVector.segment( 0, 6 ) );
-        break;
-    }
-    case imu_calibration_phase:
-    {
-        // Only use central gravity
-        currentStateDerivative.segment( 3, 3 ) = - planetaryGravitationalParameter_ * currentEstimatedStateVector.segment( 0, 3 ) /
-                std::pow( currentEstimatedStateVector.segment( 0, 3 ).norm( ), 3 );
-        break;
-    }
-    default:
-        throw std::runtime_error( "Error in navigation system. The current navigation phase is not supported by the filter." );
-    }
+    currentStateDerivative.segment( 3, 3 ) =
+            getCurrentEstimatedGravitationalTranslationalAcceleration( currentEstimatedStateVector.segment( 0, 6 ) );
+//    // Translational dynamics
+//    switch ( currentNavigationPhase_ )
+//    {
+//    case iman_navigation_phase:
+//    {
+//        // Use full dynamics
+//        currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedStateVector.segment( 0, 6 ) );
+//        break;
+//    }
+//    case imu_calibration_phase:
+//    {
+//        // Only use central gravity
+//        currentStateDerivative.segment( 3, 3 ) = - planetaryGravitationalParameter_ * currentEstimatedStateVector.segment( 0, 3 ) /
+//                std::pow( currentEstimatedStateVector.segment( 0, 3 ).norm( ), 3 );
+//        break;
+//    }
+//    default:
+//        throw std::runtime_error( "Error in navigation system. The current navigation phase is not supported by the filter." );
+//    }
 
     // Give output
     return currentStateDerivative;
@@ -582,7 +584,7 @@ Eigen::Vector3d NavigationSystem::onboardMeasurementModel(
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare output vector
-    Eigen::Vector3d currentMeasurementVector = Eigen::Vector3d::Zero( );
+    Eigen::Vector3d currentMeasurementVector;
 
     // Add translational acceleration
     switch ( currentNavigationPhase_ )
@@ -622,15 +624,16 @@ Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
     currentSystemJacobian( 2, 5 ) = 1.0;
 
     // Pre-compute recurring terms
-    Eigen::Vector3d relativePosition = currentEstimatedState.segment( 0, 3 );
-    double relativePositionNorm = relativePosition.norm( );
-    double invSquareOfPositionNorm = 1.0 / ( relativePositionNorm * relativePositionNorm );
-    double invCubeOfPositionNorm = invSquareOfPositionNorm / relativePositionNorm;
+    Eigen::Vector3d currentRadialVector = currentEstimatedState.segment( 0, 3 );
+    double currentRadialDistance = currentRadialVector.norm( );
+    double inverseOfRadialDistanceSquared = 1.0 / ( currentRadialDistance * currentRadialDistance );
+    double inverseOfRadialDistanceCubed = inverseOfRadialDistanceSquared / currentRadialDistance;
 
     // Add terms due to central gravitational acceleration
     currentSystemJacobian.block( 3, 0, 3, 3 ) = - planetaryGravitationalParameter_ *
-            ( Eigen::Matrix3d::Identity( ) * invCubeOfPositionNorm -
-              ( 3.0 * invSquareOfPositionNorm * invCubeOfPositionNorm ) * relativePosition * relativePosition.transpose( ) );
+            ( Eigen::Matrix3d::Identity( ) * inverseOfRadialDistanceCubed -
+              ( 3.0 * inverseOfRadialDistanceSquared * inverseOfRadialDistanceCubed ) *
+              currentRadialVector * currentRadialVector.transpose( ) );
 
     // Add extra terms depending on the current navigation phase
     if ( currentNavigationPhase_ == iman_navigation_phase )

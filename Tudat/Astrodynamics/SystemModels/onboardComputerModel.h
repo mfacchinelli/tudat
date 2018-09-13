@@ -43,9 +43,9 @@ public:
         // Define internal variables
         maneuveringPhaseComplete_ = false; // simulation starts at apoapsis with possible need to perform a maneuver
         atmosphericPhaseComplete_ = true;
+        performManeuverOnNextCall_ = false;
 
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
-        planetaryRadius_ = navigationSystem_->getRadius( );
 
         // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects( );
@@ -83,10 +83,22 @@ public:
             instrumentsModel_->updateInstruments( currentTime );
             Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
 
-            // Update filter from previous time to next time
+            // Update filter to current time
             NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
-            navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
-                                                  instrumentsModel_->getActualSpacecraftTranslationalState( ) );
+            if ( performManeuverOnNextCall_ )
+            {
+                // Feed maneuver to the navigation system and update filter
+                navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
+                                                      controlSystem_->getScheduledApoapsisManeuver( ) );
+
+                // Reset flag
+                performManeuverOnNextCall_ = false;
+            }
+            else
+            {
+                // Update filter only
+                navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
+            }
 
             // Check if it is time for a Deep Space Network update
             // The Deep Space Network tracking is scheduled every N days (where N comes from the function getFrequencyOfDeepSpaceNetworkTracking
@@ -112,12 +124,12 @@ public:
                 std::cout << std::endl << "REACHED APOAPSIS. Preparing to perform maneuver." << std::endl;
 
                 // Process Deep Space Network tracking data
-                if ( deepSpaceNetworkTrackingInformation_.first )
-                {
-                    deepSpaceNetworkTrackingInformation_.first = false;
-                    navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
-                    currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
-                }
+//                if ( deepSpaceNetworkTrackingInformation_.first )
+//                {
+//                    deepSpaceNetworkTrackingInformation_.first = false;
+//                    navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
+//                    currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
+//                }
 
                 // Store new value of apoapsis Keplerian state
                 navigationSystem_->setEstimatedApoapsisKeplerianState( );
@@ -141,16 +153,11 @@ public:
                                                            navigationSystem_->getCurrentEstimatedMeanMotion( ),
                                                            navigationSystem_->getRadius( ) );
 
-                    // Retireve required apoapsis maneuver
-                    Eigen::Vector3d scheduledApoapsisManeuver = guidanceSystem_->getScheduledApoapsisManeuver( );
-
-                    // Feed maneuver to the navigation system
-                    Eigen::Vector6d updatedCurrentEstimatedCartesianState = navigationSystem_->getCurrentEstimatedTranslationalState( ).first;
-                    updatedCurrentEstimatedCartesianState.segment( 3, 3 ) += scheduledApoapsisManeuver;
-                    navigationSystem_->setCurrentEstimatedCartesianState( updatedCurrentEstimatedCartesianState );
-
+                    // Set flag to add maneuver on next time step
+                    performManeuverOnNextCall_ = true;
+                    
                     // Feed maneuver to the control system
-                    controlSystem_->updateOrbitController( scheduledApoapsisManeuver );
+                    controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
                 }
                 else
                 {
@@ -203,7 +210,8 @@ public:
                 }
 
                 // Perform periapse time and atmosphere estimations
-                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+                std::cerr << "Post-atmosphere processes are OFF." << std::endl;
+//                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
 
                 // Invert completion flags
                 maneuveringPhaseComplete_ = false;
@@ -216,7 +224,8 @@ public:
         else
         {
             // Return previous value of propagation termination index
-            std::cout << currentTime - initialTime_ << " " << navigationSystem_->getCurrentTime( ) - initialTime_ << std::endl;
+            std::cout << currentTime - initialTime_ << " " << navigationSystem_->getCurrentTime( ) - initialTime_ << " "
+                      << currentTime - navigationSystem_->getCurrentTime( ) << std::endl;
             isPropagationToBeStopped = previousIsPropagationToBeStopped_;
             previousIsPropagationToBeStopped_ = false;
         }
@@ -240,7 +249,7 @@ public:
         // Check if aerobraking is complete
         dummyCallCounter_++;
         std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 3 + 1 ) );//150 );//
+        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 2 ) );
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user
@@ -260,12 +269,30 @@ private:
     unsigned int dummyCallCounter_ = 0;
 
     //! Function to run house keeping routines when new orbit is initiated.
+    /*!
+     *  Function to run house keeping routines when new orbit is initiated. This function erases the history of all variables that
+     *  are only stored for the orbit. In this way, the computer frees-up space for other data.
+     */
     void runHouseKeepingRoutines( )
     {
         // Empty maps and vectors of data belonging to the current orbit
         controlSystem_->clearCurrentOrbitControlHistory( );
         instrumentsModel_->clearCurrentOrbitMeasurementHistories( );
         navigationSystem_->clearCurrentOrbitEstimationHistory( );
+    }
+
+    //! Function to revert to the previous time step.
+    /*!
+     *  Function to revert to the previous time step. This function is run if the current propagation needs to be stopped, since
+     *  the current time will be run the next time the GNC system is called.
+     *  \param currentTime Double denoting the current time, i.e., the instant that has to be discarded.
+     */
+    void revertToPreviousTimeStep( const double currentTime )
+    {
+        // Empty elements belonging to the current time
+        controlSystem_->revertToPreviousTimeStep( currentTime );
+        instrumentsModel_->revertToPreviousTimeStep( currentTime );
+        navigationSystem_->revertToPreviousTimeStep( currentTime );
     }
 
     //! Pointer to the control system for the aerobraking maneuver.
@@ -286,11 +313,11 @@ private:
     //! Boolean denoting whether the atmospheric phase for this orbit has been complete.
     bool atmosphericPhaseComplete_;
 
+    //! Boolean denoting whether the maneuver should be performed, by adding the velocity change to the current state.
+    bool performManeuverOnNextCall_;
+
     //! Pair denoting whether the Deep Space Network tracking is to be performed and the last day it was performed.
     std::pair< bool, unsigned int > deepSpaceNetworkTrackingInformation_;
-
-    //! Double denoting the radius of body being orbited.
-    double planetaryRadius_;
 
     //! Double denoting initial time of the simulation.
     double initialTime_;

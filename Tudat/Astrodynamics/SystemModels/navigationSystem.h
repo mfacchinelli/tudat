@@ -175,38 +175,45 @@ public:
 
     //! Function to run the State Estimator (SE).
     void runStateEstimator( const double currentTime, const Eigen::Vector3d& currentExternalMeasurementVector,
-                            const Eigen::Vector6d& actualSpacecraftTranslationalState )
+                            const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
     {
         // Set time
         currentTime_ = currentTime;
-//        setCurrentEstimatedCartesianState( actualSpacecraftTranslationalState );
+
+        // Add maneuver if requested
+        if ( !scheduledApoapsisManeuver.isZero( ) )
+        {
+            Eigen::Vector6d currentEstimatedCartesianState = currentEstimatedCartesianState_;
+            currentEstimatedCartesianState.segment( 3, 3 ) += scheduledApoapsisManeuver;
+            setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
+        }
 
         // Update current state based on the detected navigation phase
         switch ( currentNavigationPhase_ )
         {
         case kepler_navigation_phase:
-        {
-            // Assume Kepler orbit and update true anomaly only
-            Eigen::Vector6d currentEstimatedKeplerianState = currentEstimatedKeplerianState_;
-            currentEstimatedKeplerianState[ 5 ] +=
-                    std::sqrt( planetaryGravitationalParameter_ * currentEstimatedKeplerianState[ 0 ] *
-                    ( 1.0 - currentEstimatedKeplerianState[ 1 ] * currentEstimatedKeplerianState[ 1 ] ) ) /
-                    std::pow( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ), 2 ) * navigationRefreshStepSize_;
+//        {
+//            // Assume Kepler orbit and update true anomaly only
+//            Eigen::Vector6d currentEstimatedKeplerianState = currentEstimatedKeplerianState_;
+//            currentEstimatedKeplerianState[ 5 ] +=
+//                    std::sqrt( planetaryGravitationalParameter_ * currentEstimatedKeplerianState[ 0 ] *
+//                    ( 1.0 - currentEstimatedKeplerianState[ 1 ] * currentEstimatedKeplerianState[ 1 ] ) ) /
+//                    std::pow( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ), 2 ) * navigationRefreshStepSize_;
 
-            // Wrap true anomaly between 0 and 2 PI
-            if ( currentEstimatedKeplerianState[ 5 ] < 0.0 )
-            {
-                currentEstimatedKeplerianState[ 5 ] += 2.0 * mathematical_constants::PI;
-            }
-            else if ( currentEstimatedKeplerianState[ 5 ] > 2.0 * mathematical_constants::PI )
-            {
-                currentEstimatedKeplerianState[ 5 ] -= 2.0 * mathematical_constants::PI;
-            }
+//            // Wrap true anomaly between 0 and 2 PI
+//            if ( currentEstimatedKeplerianState[ 5 ] < 0.0 )
+//            {
+//                currentEstimatedKeplerianState[ 5 ] += 2.0 * mathematical_constants::PI;
+//            }
+//            else if ( currentEstimatedKeplerianState[ 5 ] > 2.0 * mathematical_constants::PI )
+//            {
+//                currentEstimatedKeplerianState[ 5 ] -= 2.0 * mathematical_constants::PI;
+//            }
 
-            // Update navigation system
-            setCurrentEstimatedKeplerianState( currentEstimatedKeplerianState );
-            break;
-        }
+//            // Update navigation system
+//            setCurrentEstimatedKeplerianState( currentEstimatedKeplerianState );
+//            break;
+//        }
         case iman_navigation_phase:
         case imu_calibration_phase:
         {
@@ -287,11 +294,11 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-//            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
-//            {
-//                runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-//                                          vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-//            }
+            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
+            {
+                runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                          vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+            }
 
             // Run atmosphere estimator with processed results
             runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
@@ -653,6 +660,46 @@ public:
 
         // Empty filter estimates
         navigationFilter_->clearFilterHistory( );
+    }
+
+    //! Function to revert to the previous time step.
+    /*!
+     *  Function to revert to the previous time step. This function is run if the current propagation needs to be stopped, since
+     *  the current time will be run the next time the GNC system is called.
+     *  \param currentTime Double denoting the current time, i.e., the instant that has to be discarded.
+     */
+    void revertToPreviousTimeStep( const double currentTime )
+    {
+        // Erase the entry corresponding to the input time for the current orbit history maps
+        if ( currentOrbitHistoryOfEstimatedTranslationalStates_.count( currentTime ) != 0 )
+        {
+            currentOrbitHistoryOfEstimatedTranslationalStates_.erase( currentTime );
+        }
+        if ( currentOrbitHistoryOfEstimatedTranslationalAccelerations_.count( currentTime ) != 0 )
+        {
+            currentOrbitHistoryOfEstimatedTranslationalAccelerations_.erase( currentTime );
+        }
+        if ( currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.count( currentTime ) != 0 )
+        {
+            currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.erase( currentTime );
+        }
+        if ( currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.count( currentTime ) != 0 )
+        {
+            currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.erase( currentTime );
+        }
+
+        // Empty filter estimates
+        navigationFilter_->revertToPreviousTimeStep( currentTime );
+
+        // Revert to previous estimates
+        currentTime_ = currentOrbitHistoryOfEstimatedTranslationalStates_.rbegin( )->first;
+        currentEstimatedCartesianState_ = currentOrbitHistoryOfEstimatedTranslationalStates_.rbegin( )->second.first;
+        currentEstimatedKeplerianState_ = currentOrbitHistoryOfEstimatedTranslationalStates_.rbegin( )->second.second;
+        currentEstimatedTranslationalAcceleration_ = currentOrbitHistoryOfEstimatedTranslationalAccelerations_.rbegin( )->second;
+        currentEstimatedGravitationalTranslationalAcceleration_ =
+                currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.rbegin( )->second;
+        currentEstimatedNonGravitationalTranslationalAcceleration_ =
+                currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.rbegin( )->second;
     }
 
     //! Integer denoting the current orbit counter.

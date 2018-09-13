@@ -553,44 +553,47 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
             if( printInterval == printInterval )
             {
                 if( ( static_cast< int >( std::fabs( static_cast< double >( currentTime - initialTime ) ) ) %
-                       static_cast< int >( printInterval ) ) <=
-                     ( static_cast< int >( std::fabs( static_cast< double >( previousTime - initialTime ) ) ) %
-                       static_cast< int >( printInterval ) ) )
+                      static_cast< int >( printInterval ) ) <=
+                        ( static_cast< int >( std::fabs( static_cast< double >( previousTime - initialTime ) ) ) %
+                          static_cast< int >( printInterval ) ) )
                 {
                     std::cout << "Current time and state in integration: " << std::setprecision( 10 ) <<
                                  timeStep << " " << currentTime << " " << newState.transpose( ) << std::endl;
                 }
             }
 
-            if( propagationTerminationCondition->checkStopCondition( static_cast< double >( currentTime ), currentCPUTime ) )
+            if ( saveIndex == 0 )
             {
-                if( propagationTerminationCondition->getTerminateExactlyOnFinalCondition( ) )
+                if( propagationTerminationCondition->checkStopCondition( static_cast< double >( currentTime ), currentCPUTime ) )
                 {
-                    propagateToExactTerminationCondition(
-                                integrator, propagationTerminationCondition,
-                                timeStep, dependentVariableFunction,
-                                solutionHistory, dependentVariableHistory, currentCPUTime );
-                }
-
-                // Set termination details
-                if( propagationTerminationCondition->getTerminationType( ) != hybrid_stopping_condition )
-                {
-                    propagationTerminationReason = boost::make_shared< PropagationTerminationDetails >(
-                            termination_condition_reached,
-                                propagationTerminationCondition->getTerminateExactlyOnFinalCondition( ) );
-                }
-                else
-                {
-                    if( boost::dynamic_pointer_cast< HybridPropagationTerminationCondition >( propagationTerminationCondition ) == nullptr )
+                    if( propagationTerminationCondition->getTerminateExactlyOnFinalCondition( ) )
                     {
-                        throw std::runtime_error( "Error when saving termination reason, type is hybrid, but class is not." );
+                        propagateToExactTerminationCondition(
+                                    integrator, propagationTerminationCondition,
+                                    timeStep, dependentVariableFunction,
+                                    solutionHistory, dependentVariableHistory, currentCPUTime );
                     }
-                    propagationTerminationReason = boost::make_shared< PropagationTerminationDetailsFromHybridCondition >(
-                                propagationTerminationCondition->getTerminateExactlyOnFinalCondition( ),
-                                boost::dynamic_pointer_cast< HybridPropagationTerminationCondition >(
-                                    propagationTerminationCondition ) );
+
+                    // Set termination details
+                    if( propagationTerminationCondition->getTerminationType( ) != hybrid_stopping_condition )
+                    {
+                        propagationTerminationReason = boost::make_shared< PropagationTerminationDetails >(
+                                    termination_condition_reached,
+                                    propagationTerminationCondition->getTerminateExactlyOnFinalCondition( ) );
+                    }
+                    else
+                    {
+                        if( boost::dynamic_pointer_cast< HybridPropagationTerminationCondition >( propagationTerminationCondition ) == nullptr )
+                        {
+                            throw std::runtime_error( "Error when saving termination reason, type is hybrid, but class is not." );
+                        }
+                        propagationTerminationReason = boost::make_shared< PropagationTerminationDetailsFromHybridCondition >(
+                                    propagationTerminationCondition->getTerminateExactlyOnFinalCondition( ),
+                                    boost::dynamic_pointer_cast< HybridPropagationTerminationCondition >(
+                                        propagationTerminationCondition ) );
+                    }
+                    breakPropagation = true;
                 }
-                breakPropagation = true;
             }
         }
         catch( const std::exception& caughtException )
@@ -604,6 +607,17 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
         }
     }
     while( !breakPropagation );
+
+    if ( solutionHistory.count( currentTime ) == 0 )
+    {
+        solutionHistory[ currentTime ] = newState;
+
+        if( !dependentVariableFunction.empty( ) )
+        {
+            integrator->getStateDerivativeFunction( )( currentTime, newState );
+            dependentVariableHistory[ currentTime ] = dependentVariableFunction( );
+        }
+    }
 
     return propagationTerminationReason;
 }

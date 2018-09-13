@@ -504,6 +504,58 @@ public:
         }
     }
 
+    //! Function to revert to the previous time step.
+    /*!
+     *  Function to revert to the previous time step. This function is run if the current propagation needs to be stopped, since
+     *  the current time will be run the next time the GNC system is called.
+     *  \param currentTime Double denoting the current time, i.e., the instant that has to be discarded.
+     */
+    void revertToPreviousTimeStep( const double currentTime )
+    {
+        // Reset time
+        currentTime_ = TUDAT_NAN;
+
+        // Erase measurement of inertial measurement unit
+        if ( inertialMeasurementUnitAdded_ )
+        {
+            currentTranslationalAcceleration_.setConstant( TUDAT_NAN );
+            currentRotationalVelocity_.setConstant( TUDAT_NAN );
+            if ( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.count( currentTime ) != 0 )
+            {
+                currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.erase( currentTime );
+            }
+        }
+
+        // Erase measurement of star tracker
+        if ( starTrackerAdded_ )
+        {
+            currentQuaternionToBaseFrame_.setConstant( TUDAT_NAN );
+            if ( currentOrbitHistoryOfStarTrackerMeasurements_.count( currentTime ) != 0 )
+            {
+                currentOrbitHistoryOfStarTrackerMeasurements_.erase( currentTime );
+            }
+        }
+
+        // Erase measurement of altimeter
+        if ( altimeterAdded_ )
+        {
+            currentAltitude_ = TUDAT_NAN;
+            if ( currentOrbitHistoryOfAltimeterMeasurements_.count( currentTime ) != 0 )
+            {
+                currentOrbitHistoryOfAltimeterMeasurements_.erase( currentTime );
+            }
+        }
+
+        // Erase measurement of Deep Space Network
+        if ( deepSpaceNetworkAdded_ )
+        {
+            if ( historyOfDeepSpaceNetworkMeasurements_.count( currentTime ) != 0 )
+            {
+                historyOfDeepSpaceNetworkMeasurements_.erase( currentTime );
+            }
+        }
+    }
+
     Eigen::Vector6d getActualSpacecraftTranslationalState( )
     {
         return bodyMap_.at( spacecraftName_ )->getState( ) - bodyMap_.at( planetName_ )->getState( );
