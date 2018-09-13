@@ -131,24 +131,13 @@ public:
 
     //! Function to update the filter with the data from the new time step.
     /*!
-     *  Function to update the filter with the new step data.
+     *  Function to update the filter with the data from the new time step. Note that this is a pure virtual function and as such
+     *  has to be implemented in the derived classes.
      *  \param currentTime Scalar representing current time.
      *  \param currentMeasurementVector Vector representing current measurement.
      */
     virtual void updateFilter( const IndependentVariableType currentTime,
                                const DependentVector& currentMeasurementVector ) = 0;
-
-    //! Function to update the a-posteriori estimates of state and covariance with external data.
-    void modifyCurrentStateAndCovarianceEstimates( const DependentVector& newStateEstimate,
-                                                   const DependentMatrix& newCovarianceEstimate = DependentMatrix::Zero( ) )
-    {
-        // Update estimates with user-provided data
-        aPosterioriStateEstimate_ = newStateEstimate;
-        if ( !newCovarianceEstimate.isZero( ) )
-        {
-            aPosterioriCovarianceEstimate_ = newCovarianceEstimate;
-        }
-    }
 
     //! Function to produce system noise.
     /*!
@@ -254,7 +243,23 @@ public:
         return std::make_pair( systemNoiseHistory_, measurementNoiseHistory_ );
     }
 
+    //! Function to update the a-posteriori estimates of state and covariance with external data.
+    void modifyCurrentStateAndCovarianceEstimates( const DependentVector& newStateEstimate,
+                                                   const DependentMatrix& newCovarianceEstimate = DependentMatrix::Zero( ) )
+    {
+        // Update estimates with user-provided data
+        aPosterioriStateEstimate_ = newStateEstimate;
+        if ( !newCovarianceEstimate.isZero( ) )
+        {
+            aPosterioriCovarianceEstimate_ = newCovarianceEstimate;
+        }
+    }
+
     //! Function to reset the step size for integration.
+    /*!
+     *  Function to reset the step size for integration without interrupting the filtering process.
+     *  \param newIntegrationStepSize Double denoting the new step size for integration.
+     */
     void resetIntegrationStepSize( const double newIntegrationStepSize )
     {
         integrationStepSize_ = newIntegrationStepSize;
@@ -270,6 +275,41 @@ public:
         historyOfStateEstimates_.clear( );
         historyOfCovarianceEstimates_.clear( );
         clearSpecificFilterHistory( );
+    }
+
+    //! Function to revert to the previous time step.
+    /*!
+     *  Function to revert to the previous time step.
+     *  \param currentTime Double denoting the current time, i.e., the instant that has to be discarded.
+     */
+    void revertToPreviousTimeStep( const double currentTime )
+    {
+        // Erase state estimate corresponding to current time
+        if ( historyOfStateEstimates_.count( currentTime ) != 0 )
+        {
+            historyOfStateEstimates_.erase( currentTime );
+        }
+        aPosterioriStateEstimate_ = historyOfStateEstimates_.rbegin( )->second;
+
+        // Erase covariance estimate corresponding to current time
+        if ( historyOfCovarianceEstimates_.count( currentTime ) != 0 )
+        {
+            historyOfCovarianceEstimates_.erase( currentTime );
+        }
+        aPosterioriCovarianceEstimate_ = historyOfCovarianceEstimates_.rbegin( )->second;
+
+        // Erase last noise entries
+        if ( systemNoiseHistory_.size( ) > 0 )
+        {
+            systemNoiseHistory_.pop_back( );
+        }
+        if ( measurementNoiseHistory_.size( ) > 0 )
+        {
+            measurementNoiseHistory_.pop_back( );
+        }
+
+        // Revert elements specific to each filter
+        specificRevertToPreviousTimeStep( currentTime );
     }
 
 protected:
@@ -338,6 +378,14 @@ protected:
      *  a derived class, to add other variables to the list of variables to be cleared.
      */
     virtual void clearSpecificFilterHistory( ) { }
+
+    //! Function to revert to the previous time step for derived class-specific variables.
+    /*!
+     *  Function to revert to the previous time step for derived class-specific variables. This function can be overwritten in
+     *  a derived class, to add other variables to the list of elements to be reverted.
+     *  \param currentTime Double denoting the current time, i.e., the instant that has to be discarded.
+     */
+    virtual void specificRevertToPreviousTimeStep( const double currentTime ) { TUDAT_UNUSED_PARAMETER( currentTime ); }
 
     //! System function.
     /*!

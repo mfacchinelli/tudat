@@ -71,8 +71,8 @@ public:
     //! Default constructor.
     /*!
      *  Default constructor. This constructor takes the system and measurement functions as models for the simulation.
-     *  These functions can be a function of time, state and (for system) control vector.
-     *  \param systemFunction Function returning the state as a function of time, state and control input. Can be a differential
+     *  These functions can be a function of time and state vector.
+     *  \param systemFunction Function returning the state as a function of time and state vector. Can be a differential
      *      equation if the integratorSettings is set (i.e., if it is not a nullptr).
      *  \param measurementFunction Function returning the measurement as a function of time and state.
      *  \param systemUncertainty Matrix defining the uncertainty in modeling of the system.
@@ -258,6 +258,20 @@ private:
      *  variables to be cleared, the history of sigma point estimates over time.
      */
     void clearSpecificFilterHistory( ) { historyOfSigmaPoints_.clear( ); }
+
+    //! Function to revert to the previous time step for derived class-specific variables.
+    /*!
+     *  Function to revert to the previous time step for derived class-specific variables. This function adds to the list of
+     *  elements to be reverted, the latest sigma point estimates.
+     *  \param currentTime Double denoting the current time, i.e., the instant that has to be discarded.
+     */
+    virtual void specificRevertToPreviousTimeStep( const double currentTime )
+    {
+        if ( historyOfSigmaPoints_.count( currentTime ) != 0 )
+        {
+            historyOfSigmaPoints_.erase( currentTime );
+        }
+    }
 
     //! Function to set the values of the constant parameters.
     /*!
