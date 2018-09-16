@@ -1,4 +1,4 @@
-#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
+#include "Tudat/Astrodynamics/SystemModels/instrumentsModel.h"
 
 namespace tudat
 {
@@ -38,14 +38,14 @@ Eigen::Vector4d sumQuaternionUncertainty( const Eigen::Vector4d& quaternionVecto
 }
 
 //! Function to add an inertial measurement unit to the spacecraft set of instruments.
-void NavigationInstrumentsModel::addInertialMeasurementUnit( const Eigen::Vector3d& accelerometerBias,
-                                                             const Eigen::Vector3d& accelerometerScaleFactor,
-                                                             const Eigen::Vector6d& accelerometerMisalignment,
-                                                             const Eigen::Vector3d& accelerometerAccuracy,
-                                                             const Eigen::Vector3d& gyroscopeBias,
-                                                             const Eigen::Vector3d& gyroscopeScaleFactor,
-                                                             const Eigen::Vector6d& gyroscopeMisalignment,
-                                                             const Eigen::Vector3d& gyroscopeAccuracy )
+void InstrumentsModel::addInertialMeasurementUnit( const Eigen::Vector3d& accelerometerBias,
+                                                   const Eigen::Vector3d& accelerometerScaleFactor,
+                                                   const Eigen::Vector6d& accelerometerMisalignment,
+                                                   const Eigen::Vector3d& accelerometerAccuracy,
+                                                   const Eigen::Vector3d& gyroscopeBias,
+                                                   const Eigen::Vector3d& gyroscopeScaleFactor,
+                                                   const Eigen::Vector6d& gyroscopeMisalignment,
+                                                   const Eigen::Vector3d& gyroscopeAccuracy )
 {
     // Check whether an inertial measurement unit is already present
     if ( !inertialMeasurementUnitAdded_ )
@@ -60,12 +60,12 @@ void NavigationInstrumentsModel::addInertialMeasurementUnit( const Eigen::Vector
 
         // Create function for computing corrupted translational accelerations
         inertialMeasurementUnitTranslationalAccelerationFunction_ = boost::bind(
-                    &NavigationInstrumentsModel::getCurrentTranslationalAcceleration, this, accelerometerBias,
+                    &InstrumentsModel::getCurrentTranslationalAcceleration, this, accelerometerBias,
                     computeScaleMisalignmentMatrix( accelerometerScaleFactor, accelerometerMisalignment ) );
 
         // Create function for computing corrupted rotational velocity
         inertialMeasurementUnitRotationalVelocityFunction_ = boost::bind(
-                    &NavigationInstrumentsModel::getCurrentRotationalVelocity, this, gyroscopeBias,
+                    &InstrumentsModel::getCurrentRotationalVelocity, this, gyroscopeBias,
                     computeScaleMisalignmentMatrix( gyroscopeScaleFactor, gyroscopeMisalignment ) );
     }
     else
@@ -76,8 +76,8 @@ void NavigationInstrumentsModel::addInertialMeasurementUnit( const Eigen::Vector
 }
 
 //! Function to add a system of orthogonal star trackers to the spacecraft set of instruments.
-void NavigationInstrumentsModel::addStarTracker( const unsigned int numberOfStarTrackers,
-                                                 const Eigen::Vector3d& starTrackerAccuracy )
+void InstrumentsModel::addStarTracker( const unsigned int numberOfStarTrackers,
+                                       const Eigen::Vector3d& starTrackerAccuracy )
 {
     // Check whether a star tracker system is already present
     if ( !starTrackerAdded_ )
@@ -91,7 +91,7 @@ void NavigationInstrumentsModel::addStarTracker( const unsigned int numberOfStar
             generateStarTrackerRandomNoiseDistribution( starTrackerAccuracy );
 
             // Create function for computing corrupted spacecraft orientation
-            starTrackerOrientationFunction_ = boost::bind( &NavigationInstrumentsModel::getCurrentAttitude, this );
+            starTrackerOrientationFunction_ = boost::bind( &InstrumentsModel::getCurrentAttitude, this );
         }
         else
         {
@@ -107,9 +107,9 @@ void NavigationInstrumentsModel::addStarTracker( const unsigned int numberOfStar
 }
 
 //! Function to add an altimeter to the spacecraft set of instruments.
-void NavigationInstrumentsModel::addAltimeter( const Eigen::Vector3d& fixedBodyFramePointingDirection,
-                                               const std::pair< double, double >& altitudeRange,
-                                               const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude )
+void InstrumentsModel::addAltimeter( const Eigen::Vector3d& fixedBodyFramePointingDirection,
+                                     const std::pair< double, double >& altitudeRange,
+                                     const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude )
 {
     // Check whether an altimeter is already present
     if ( !altimeterAdded_ )
@@ -121,7 +121,7 @@ void NavigationInstrumentsModel::addAltimeter( const Eigen::Vector3d& fixedBodyF
         generateAltimeterRandomNoiseDistribution( 1.0 );
 
         // Create function for computing corrupted spacecraft orientation
-        altimeterFunction_ = boost::bind( &NavigationInstrumentsModel::getCurrentAltitude, this, fixedBodyFramePointingDirection,
+        altimeterFunction_ = boost::bind( &InstrumentsModel::getCurrentAltitude, this, fixedBodyFramePointingDirection,
                                           altitudeRange, altimeterAccuracyAsAFunctionOfAltitude );
     }
     else
@@ -132,9 +132,9 @@ void NavigationInstrumentsModel::addAltimeter( const Eigen::Vector3d& fixedBodyF
 }
 
 //! Function to add a Deep Space Network measurement system.
-void NavigationInstrumentsModel::addDeepSpaceNetwork( const double positionAccuracy,
-                                                      const double velocityAccuracy,
-                                                      const double lightTimeAccuracy )
+void InstrumentsModel::addDeepSpaceNetwork( const double positionAccuracy,
+                                            const double velocityAccuracy,
+                                            const double lightTimeAccuracy )
 {
     // Check whether an altimeter is already present
     if ( !deepSpaceNetworkAdded_ )
@@ -153,7 +153,7 @@ void NavigationInstrumentsModel::addDeepSpaceNetwork( const double positionAccur
         generateDeepSpaceNetworkRandomNoiseDistribution( positionAccuracy, velocityAccuracy, lightTimeAccuracy );
 
         // Create function for computing corrupted spacecraft orientation
-        deepSpaceNetworkFunction_ = boost::bind( &NavigationInstrumentsModel::getCurrentDeepSpaceNetworkTracking, this );
+        deepSpaceNetworkFunction_ = boost::bind( &InstrumentsModel::getCurrentDeepSpaceNetworkTracking, this );
     }
     else
     {
@@ -163,8 +163,8 @@ void NavigationInstrumentsModel::addDeepSpaceNetwork( const double positionAccur
 }
 
 //! Function to generate the noise distributions for the inertial measurement unit.
-void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistribution( const Eigen::Vector3d& accelerometerAccuracy,
-                                                                                         const Eigen::Vector3d& gyroscopeAccuracy )
+void InstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistribution( const Eigen::Vector3d& accelerometerAccuracy,
+                                                                               const Eigen::Vector3d& gyroscopeAccuracy )
 {
     using namespace tudat::statistics;
 
@@ -200,7 +200,7 @@ void NavigationInstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistr
 }
 
 //! Function to generate the noise distributions for the star trackers.
-void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution( const Eigen::Vector3d& starTrackerAccuracy )
+void InstrumentsModel::generateStarTrackerRandomNoiseDistribution( const Eigen::Vector3d& starTrackerAccuracy )
 {
     using namespace tudat::statistics;
 
@@ -221,7 +221,7 @@ void NavigationInstrumentsModel::generateStarTrackerRandomNoiseDistribution( con
 }
 
 //! Function to generate the noise distributions for the altimeter.
-void NavigationInstrumentsModel::generateAltimeterRandomNoiseDistribution( const double altimeterAccuracy )
+void InstrumentsModel::generateAltimeterRandomNoiseDistribution( const double altimeterAccuracy )
 {
     using namespace tudat::statistics;
 
@@ -238,9 +238,9 @@ void NavigationInstrumentsModel::generateAltimeterRandomNoiseDistribution( const
 }
 
 //! Function to generate the noise distributions for the Deep Space Network system.
-void NavigationInstrumentsModel::generateDeepSpaceNetworkRandomNoiseDistribution( const double positionAccuracy,
-                                                                                  const double velocityAccuracy,
-                                                                                  const double lightTimeAccuracy )
+void InstrumentsModel::generateDeepSpaceNetworkRandomNoiseDistribution( const double positionAccuracy,
+                                                                        const double velocityAccuracy,
+                                                                        const double lightTimeAccuracy )
 {
     using namespace tudat::statistics;
 

@@ -395,6 +395,16 @@ public:
         {
             integrateEquationsOfMotion( propagatorSettings_->getInitialStates( ) );
         }
+        else
+        {
+            // Reset functions
+            dynamicsStateDerivative_->setPropagationSettings( std::vector< IntegratedStateType >( ), 1, 0 );
+            dynamicsStateDerivative_->resetFunctionEvaluationCounter( );
+            dynamicsStateDerivative_->resetCumulativeFunctionEvaluationCounter( );
+
+            // Call state derivative function to set accelerations
+            dynamicsStateDerivative_->computeStateDerivative( this->initialPropagationTime_, propagatorSettings_->getInitialStates( ) );
+        }
     }
 
     //! Destructor

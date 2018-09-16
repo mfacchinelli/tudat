@@ -15,7 +15,7 @@
 
 #include "Tudat/Astrodynamics/SystemModels/controlSystem.h"
 #include "Tudat/Astrodynamics/SystemModels/guidanceSystem.h"
-#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
+#include "Tudat/Astrodynamics/SystemModels/instrumentsModel.h"
 #include "Tudat/Astrodynamics/SystemModels/navigationSystem.h"
 
 //! Typedefs and using statements to simplify code.
@@ -36,7 +36,7 @@ public:
     OnboardComputerModel( const boost::shared_ptr< ControlSystem > controlSystem,
                           const boost::shared_ptr< GuidanceSystem > guidanceSystem,
                           const boost::shared_ptr< NavigationSystem > navigationSystem,
-                          const boost::shared_ptr< NavigationInstrumentsModel > instrumentsModel ) :
+                          const boost::shared_ptr< InstrumentsModel > instrumentsModel ) :
         controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem ),
         instrumentsModel_( instrumentsModel )
     {
@@ -79,8 +79,7 @@ public:
         // Check if current step has already been performed
         if ( currentTime != navigationSystem_->getCurrentTime( ) )
         {
-            // Update instrument models and extract measurements
-            instrumentsModel_->updateInstruments( currentTime );
+            // Extract measurements
             Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
 
             // Update filter to current time
@@ -124,12 +123,12 @@ public:
                 std::cout << std::endl << "REACHED APOAPSIS. Preparing to perform maneuver." << std::endl;
 
                 // Process Deep Space Network tracking data
-//                if ( deepSpaceNetworkTrackingInformation_.first )
-//                {
-//                    deepSpaceNetworkTrackingInformation_.first = false;
-//                    navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
-//                    currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
-//                }
+                if ( deepSpaceNetworkTrackingInformation_.first )
+                {
+                    deepSpaceNetworkTrackingInformation_.first = false;
+                    navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
+                    currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
+                }
 
                 // Store new value of apoapsis Keplerian state
                 navigationSystem_->setEstimatedApoapsisKeplerianState( );
@@ -210,13 +209,16 @@ public:
                 }
 
                 // Perform periapse time and atmosphere estimations
-                std::cerr << "Post-atmosphere processes are OFF." << std::endl;
-//                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+//                std::cerr << "Post-atmosphere processes are OFF." << std::endl;
+                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
 
                 // Invert completion flags
                 maneuveringPhaseComplete_ = false;
                 atmosphericPhaseComplete_ = true;
             }
+
+            // Update instrument models
+            instrumentsModel_->updateInstruments( currentTime );
 
             // Save current value of propagation termination index
             previousIsPropagationToBeStopped_ = isPropagationToBeStopped;
@@ -247,9 +249,9 @@ public:
         bool aerobrakingComplete;
 
         // Check if aerobraking is complete
-        dummyCallCounter_++;
         std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 2 ) );
+        aerobrakingComplete = ( dummyCallCounter_ > ( 8 ) );
+        dummyCallCounter_++;
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
         // Inform user
@@ -305,7 +307,7 @@ private:
     const boost::shared_ptr< NavigationSystem > navigationSystem_;
 
     //! Pointer to the navigation system for the aerobraking maneuver.
-    const boost::shared_ptr< NavigationInstrumentsModel > instrumentsModel_;
+    const boost::shared_ptr< InstrumentsModel > instrumentsModel_;
 
     //! Boolean denoting whether the maneuvering phase for this orbit has been complete.
     bool maneuveringPhaseComplete_;

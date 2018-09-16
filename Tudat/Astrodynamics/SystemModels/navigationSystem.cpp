@@ -343,7 +343,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // Update navigation system state estimates
     Eigen::Matrix12d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
     currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
-    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState );//, currentEstimatedCovarianceMatrix );
+//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState );//, currentEstimatedCovarianceMatrix );
     // the covariance matrix is reset to the identity, since the new state is improved in accuracy
 
     // Correct history of Keplerian elements by removing error in true anomaly
@@ -551,27 +551,25 @@ Eigen::Vector12d NavigationSystem::onboardSystemModel(
     // Translational kinematics
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedStateVector.segment( 3, 3 );
 
-    currentStateDerivative.segment( 3, 3 ) =
-            getCurrentEstimatedGravitationalTranslationalAcceleration( currentEstimatedStateVector.segment( 0, 6 ) );
-//    // Translational dynamics
-//    switch ( currentNavigationPhase_ )
-//    {
-//    case iman_navigation_phase:
-//    {
-//        // Use full dynamics
-//        currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedStateVector.segment( 0, 6 ) );
-//        break;
-//    }
-//    case imu_calibration_phase:
-//    {
-//        // Only use central gravity
-//        currentStateDerivative.segment( 3, 3 ) = - planetaryGravitationalParameter_ * currentEstimatedStateVector.segment( 0, 3 ) /
-//                std::pow( currentEstimatedStateVector.segment( 0, 3 ).norm( ), 3 );
-//        break;
-//    }
-//    default:
-//        throw std::runtime_error( "Error in navigation system. The current navigation phase is not supported by the filter." );
-//    }
+    // Translational dynamics
+    switch ( currentNavigationPhase_ )
+    {
+    case iman_navigation_phase:
+    {
+        // Use full dynamics
+        currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedStateVector.segment( 0, 6 ) );
+        break;
+    }
+    case imu_calibration_phase:
+    {
+        // Only use central gravity
+        currentStateDerivative.segment( 3, 3 ) = - planetaryGravitationalParameter_ * currentEstimatedStateVector.segment( 0, 3 ) /
+                std::pow( currentEstimatedStateVector.segment( 0, 3 ).norm( ), 3 );
+        break;
+    }
+    default:
+        throw std::runtime_error( "Error in navigation system. The current navigation phase is not supported by the filter." );
+    }
 
     // Give output
     return currentStateDerivative;

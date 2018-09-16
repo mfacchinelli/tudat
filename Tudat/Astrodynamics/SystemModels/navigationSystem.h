@@ -23,7 +23,7 @@
 #include "Tudat/Astrodynamics/OrbitDetermination/AccelerationPartials/sphericalHarmonicAccelerationPartial.h"
 #include "Tudat/Astrodynamics/Propagators/rotationalMotionQuaternionsStateDerivative.h"
 #include "Tudat/Astrodynamics/SystemModels/extraFunctions.h"
-#include "Tudat/Astrodynamics/SystemModels/navigationInstrumentsModel.h"
+#include "Tudat/Astrodynamics/SystemModels/instrumentsModel.h"
 
 #include "Tudat/Mathematics/Filters/createFilter.h"
 #include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
@@ -192,28 +192,28 @@ public:
         switch ( currentNavigationPhase_ )
         {
         case kepler_navigation_phase:
-//        {
-//            // Assume Kepler orbit and update true anomaly only
-//            Eigen::Vector6d currentEstimatedKeplerianState = currentEstimatedKeplerianState_;
-//            currentEstimatedKeplerianState[ 5 ] +=
-//                    std::sqrt( planetaryGravitationalParameter_ * currentEstimatedKeplerianState[ 0 ] *
-//                    ( 1.0 - currentEstimatedKeplerianState[ 1 ] * currentEstimatedKeplerianState[ 1 ] ) ) /
-//                    std::pow( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ), 2 ) * navigationRefreshStepSize_;
+        {
+            // Assume Kepler orbit and update true anomaly only
+            Eigen::Vector6d currentEstimatedKeplerianState = currentEstimatedKeplerianState_;
+            currentEstimatedKeplerianState[ 5 ] +=
+                    std::sqrt( planetaryGravitationalParameter_ * currentEstimatedKeplerianState[ 0 ] *
+                    ( 1.0 - currentEstimatedKeplerianState[ 1 ] * currentEstimatedKeplerianState[ 1 ] ) ) /
+                    std::pow( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ), 2 ) * navigationRefreshStepSize_;
 
-//            // Wrap true anomaly between 0 and 2 PI
-//            if ( currentEstimatedKeplerianState[ 5 ] < 0.0 )
-//            {
-//                currentEstimatedKeplerianState[ 5 ] += 2.0 * mathematical_constants::PI;
-//            }
-//            else if ( currentEstimatedKeplerianState[ 5 ] > 2.0 * mathematical_constants::PI )
-//            {
-//                currentEstimatedKeplerianState[ 5 ] -= 2.0 * mathematical_constants::PI;
-//            }
+            // Wrap true anomaly between 0 and 2 PI
+            if ( currentEstimatedKeplerianState[ 5 ] < 0.0 )
+            {
+                currentEstimatedKeplerianState[ 5 ] += 2.0 * mathematical_constants::PI;
+            }
+            else if ( currentEstimatedKeplerianState[ 5 ] > 2.0 * mathematical_constants::PI )
+            {
+                currentEstimatedKeplerianState[ 5 ] -= 2.0 * mathematical_constants::PI;
+            }
 
-//            // Update navigation system
-//            setCurrentEstimatedKeplerianState( currentEstimatedKeplerianState );
-//            break;
-//        }
+            // Update navigation system
+            setCurrentEstimatedKeplerianState( currentEstimatedKeplerianState );
+            break;
+        }
         case iman_navigation_phase:
         case imu_calibration_phase:
         {
@@ -336,7 +336,7 @@ public:
         propagatedStateBasedOnTrackingInKeplerianElements[ 5 ] = currentEstimatedKeplerianState_[ 5 ]; // reset true anomaly
 
         // Inform user
-        std::cout << "Propagated state for " << currentLightTimeDelay << " seconds." << std::endl;
+        std::cout << "Propagated state for " << currentLightTimeDelay / 60.0 << " minutes." << std::endl;
 
         // Reset navigation filter (including covariance)
         Eigen::Matrix12d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );

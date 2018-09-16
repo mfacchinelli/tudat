@@ -39,7 +39,7 @@ Eigen::Vector4d sumQuaternionUncertainty( const Eigen::Vector4d& quaternionVecto
                                           const Eigen::Vector3d& equivalentVectorUncertainty );
 
 //! Class for instrument models of a planet-bound spacecraft.
-class NavigationInstrumentsModel
+class InstrumentsModel
 {
 public:
 
@@ -51,10 +51,10 @@ public:
      *  \param spacecraftName Name of the spacecraft whose instrument model needs to be created.
      *  \param planetName Name of the planet the spacecraft is orbiting.
      */
-    NavigationInstrumentsModel( const simulation_setup::NamedBodyMap& bodyMap,
-                                const basic_astrodynamics::AccelerationMap& accelerationModelMap,
-                                const std::string& spacecraftName,
-                                const std::string& planetName ) :
+    InstrumentsModel( const simulation_setup::NamedBodyMap& bodyMap,
+                      const basic_astrodynamics::AccelerationMap& accelerationModelMap,
+                      const std::string& spacecraftName,
+                      const std::string& planetName ) :
         bodyMap_( bodyMap ), accelerationModelMap_( accelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), currentTime_( TUDAT_NAN )
     {
@@ -91,7 +91,7 @@ public:
     }
 
     //! Destructor.
-    ~NavigationInstrumentsModel( ) { }
+    ~InstrumentsModel( ) { }
 
     //! Function to add an inertial measurement unit to the spacecraft set of instruments.
     /*!
@@ -252,7 +252,7 @@ public:
         {
             // Compute smoothed accelerometer measurement
             unsigned int limitingValue = ( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) < 500 ) ?
-                      currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) : 500;
+                        currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) : 500;
             Eigen::Vector3d smoothedAccelerometerMeasurement = Eigen::Vector3d::Zero( );
             for ( inertialMeasurementUnitMeasurementIterator_ =
                   std::prev( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.end( ), limitingValue );
@@ -308,7 +308,7 @@ public:
         {
             // Compute smoothed gyroscope measurement
             unsigned int limitingValue = ( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) < 500 ) ?
-                      currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) : 500;
+                        currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.size( ) : 500;
             Eigen::Vector3d smoothedGyroscopeMeasurement = Eigen::Vector3d::Zero( );
             for ( inertialMeasurementUnitMeasurementIterator_ =
                   std::prev( currentOrbitHistoryOfInertialMeasurmentUnitMeasurements_.end( ), limitingValue );
@@ -587,9 +587,9 @@ private:
             }
         }
 
-//        // Add errors to acceleration value
-//        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
-//        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
+        // Add errors to acceleration value
+        currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
+        currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
     }
 
     //! Function to retrieve current rotational velocity of the spacecraft.
