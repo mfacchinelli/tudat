@@ -565,5 +565,54 @@ double computeAdiabaticWallTemperature(
     return airTemperature + recoveryFactor * ( totalTemperature - airTemperature );
 }
 
+//! Compute the aerodynamic coefficients from pressure and shear stress acting on element
+Eigen::Vector6d computeAerodynamicCoefficientsFromPressureShearForces(
+        const Eigen::Matrix< double, 3, Eigen::Dynamic >& pressureForceVector,
+        const Eigen::Matrix< double, 3, Eigen::Dynamic >& shearStressVector,
+        const double airDensity,
+        const double airPressure,
+        const double airSpeed,
+        const Eigen::Matrix< double, 3, Eigen::Dynamic >& elementSurfaceNormal,
+        const Eigen::Matrix< double, 1, Eigen::Dynamic >& elementSurfaceArea,
+        const Eigen::Matrix< double, 3, Eigen::Dynamic >& elementMomentArm,
+        const double referenceAerodynamicArea,
+        const double referenceAerodynamicLength )
+{
+    // Initialize output value
+    Eigen::Vector6d aerodynamicCoefficients;
+
+    // Compute dynamic pressure
+    double dynamicPressure = 0.5 * airDensity * airSpeed * airSpeed;
+
+    // Compute pressure and friction coefficient
+    Eigen::Matrix< double, 3, Eigen::Dynamic > pressureCoefficient =
+            ( pressureForceVector - airPressure * elementSurfaceNormal ) / dynamicPressure;
+    Eigen::Matrix< double, 3, Eigen::Dynamic > frictionCoefficient = shearStressVector / dynamicPressure;
+
+    // Compute aerodynamic force coefficients
+    for ( unsigned int i = 0; i < 3; i++ )
+    {
+        aerodynamicCoefficients( i ) = ( pressureCoefficient.row( i ) + frictionCoefficient.row( i ) ).dot(
+                    elementSurfaceArea );
+    }
+
+    // Compute aerodynamic moment coefficients
+    Eigen::Matrix< double, 3, Eigen::Dynamic > temporaryMatrix;
+    temporaryMatrix.resize( 3, pressureForceVector.cols( ) );
+    for ( unsigned int i = 0; i < pressureForceVector.cols( ); i++ )
+    {
+        temporaryMatrix.col( i ) = elementMomentArm.col( i ).cross(
+                    pressureCoefficient.col( i ) + frictionCoefficient.col( i ) );
+    }
+    for ( unsigned int i = 3; i < 6; i++ )
+    {
+        aerodynamicCoefficients( i ) = temporaryMatrix.row( i ).dot( elementSurfaceArea ) / referenceAerodynamicLength;
+    }
+
+    // Return coefficients
+    aerodynamicCoefficients /= - referenceAerodynamicArea;
+    return aerodynamicCoefficients;
+}
+
 } // namespace aerodynamics
 } // namespace tudat

@@ -299,11 +299,11 @@ public:
         aPosterioriCovarianceEstimate_ = historyOfCovarianceEstimates_.rbegin( )->second;
 
         // Erase last noise entries
-        if ( systemNoiseHistory_.size( ) > 0 )
+        if ( !systemNoiseHistory_.empty( ) )
         {
             systemNoiseHistory_.pop_back( );
         }
-        if ( measurementNoiseHistory_.size( ) > 0 )
+        if ( !measurementNoiseHistory_.empty( ) )
         {
             measurementNoiseHistory_.pop_back( );
         }
