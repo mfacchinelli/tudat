@@ -43,9 +43,6 @@ namespace system_models
 Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
                                                                     const Eigen::Vector6d& inertialMeasurementUnitErrors );
 
-//! Function to remove errors in the altimeter measurements based on the current orientation.
-void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const double planetaryRadius );
-
 //! Class for the navigation system of an aerobraking maneuver.
 class NavigationSystem
 {
@@ -56,10 +53,10 @@ public:
     {
         cartesian_position_index = 0,
         cartesian_velocity_index = 3,
-        quaternion_real_index = 6,
-        quaternion_imaginary_index = 7,
-        accelerometer_bias_index = 10,
-        accelerometer_scale_factor_index = 13,
+        accelerometer_bias_index = 6,
+        accelerometer_scale_factor_index = 9,
+        quaternion_real_index = 12,
+        quaternion_imaginary_index = 13,
         gyroscope_bias_index = 16,
         gyroscope_scale_factor_index = 19
     };
@@ -68,7 +65,7 @@ public:
     enum NavigationPhaseIndicator
     {
         iman_navigation_phase = 0, // only below DAIA, so spacecraft processing power can be spared for something else above altitude
-        imu_calibration_phase = 1, // not regarded as navigation phase, since only used for calibration
+        imu_calibration_phase = 1, // not regarded as navigation phase, since only used for calibration and during first orbit
         kepler_navigation_phase = 2
     };
 
@@ -282,8 +279,7 @@ public:
         if ( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ) > 0 )
         {
             // Remove errors from measured accelerations
-            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-                                                  mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
+            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
 
             // Compute magnitude of aerodynamic acceleration
             std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
@@ -645,6 +641,7 @@ public:
     //! Reset navigation filter integration step size.
     void resetNavigationRefreshStepSize( const double newNavigationRefreshStepSize )
     {
+        atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
         navigationRefreshStepSize_ = newNavigationRefreshStepSize;
         navigationFilter_->resetIntegrationStepSize( newNavigationRefreshStepSize );
     }
@@ -719,7 +716,7 @@ private:
     void updateOnboardModel( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
         // Update environment
-        if ( estimatedState.norm( ) == 0.0 )
+        if ( estimatedState.isZero( ) )
         {
             mapOfStatesToUpdate_[ propagators::translational_state ] = currentEstimatedCartesianState_;
         }
@@ -812,8 +809,7 @@ private:
      *      directly from the IMU.
      */
     void postProcessAccelerometerMeasurements(
-            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-            const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
+            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
 
     //! Function to run the Periapse Time Estimator (PTE).
     /*!
@@ -977,6 +973,9 @@ private:
 
     //! Double denoting the integration constant time step for navigation.
     double navigationRefreshStepSize_;
+
+    //! Double denoting the integration constant time step for navigation during the atmospheric phase.
+    double atmosphericNavigationRefreshStepSize_;
 
     //! Vector denoting the current estimated translational state in Cartesian elements.
     Eigen::Vector6d currentEstimatedCartesianState_;

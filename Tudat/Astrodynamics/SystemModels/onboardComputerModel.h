@@ -250,7 +250,7 @@ public:
 
         // Check if aerobraking is complete
         std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 8 ) );
+        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 3 - 1 ) );
         dummyCallCounter_++;
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 

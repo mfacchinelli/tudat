@@ -33,24 +33,6 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
             ( currentInertialMeasurementUnitMeasurement - inertialMeasurementUnitErrors.segment( 0, 3 ) );
 }
 
-//! Function to remove errors in the altimeter measurements based on the current orientation.
-void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const double planetaryRadius )
-{
-    // Assume perfect pointing
-    double currentPointingAngle = 0.0;
-
-    // If pointing angle is larger than the singularity
-    if ( std::fabs( currentPointingAngle ) > std::numeric_limits< double >::epsilon( ) )
-    {
-        // Remove pointing error from altimeter
-        double sineOfCurrentPointingAngle = std::sin( currentPointingAngle );
-        currentMeasuredAltitude = planetaryRadius * (
-                    std::sin( mathematical_constants::PI - currentPointingAngle -
-                              std::asin( currentMeasuredAltitude / planetaryRadius *
-                                         sineOfCurrentPointingAngle ) ) / sineOfCurrentPointingAngle - 1.0 );
-    }
-}
-
 //! Function to create navigation objects for onboard state estimation.
 void NavigationSystem::createNavigationSystemObjects( )
 {
@@ -86,6 +68,7 @@ void NavigationSystem::createNavigationSystemObjects( )
 
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getIntegrationStepSize( );
+    atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 20.0;
     Eigen::Vector12d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial translational state
@@ -102,7 +85,7 @@ void NavigationSystem::createNavigationSystemObjects( )
     // The values inserted are the tolerance in independent value (i.e., about twice the difference between
     // two time steps) and the maximum number of iterations (i.e., 25 iterations)
     areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >(
-                2.0 * navigationRefreshStepSize_ / currentTime_, 25 );
+                2.0 * atmosphericNavigationRefreshStepSize_ / currentTime_, 25 );
 
     // Create object of dependent variables to save
     std::vector< boost::shared_ptr< propagators::SingleDependentVariableSaveSettings > > dependentVariablesList;
@@ -154,30 +137,29 @@ void NavigationSystem::createOnboardEnvironmentUpdater( )
 
 //! Function to post-process the accelerometer measurements.
 void NavigationSystem::postProcessAccelerometerMeasurements(
-        std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-        const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface )
+        std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface )
 {
     // Inform user
     std::cout << std::endl << "Removing Accelerometer Errors." << std::endl;
 
-//    // Extract current variable history
-//    std::vector< std::vector< double > > currentVariableHistory;
-//    currentVariableHistory.resize( 6 );
-//    std::map< double, Eigen::VectorXd > currentOrbitNavigationFilterEstimatedState = navigationFilter_->getEstimatedStateHistory( );
-//    for ( std::map< double, Eigen::VectorXd >::const_iterator stateHistoryIterator = currentOrbitNavigationFilterEstimatedState.begin( );
-//          stateHistoryIterator != currentOrbitNavigationFilterEstimatedState.end( ); stateHistoryIterator++ )
-//    {
-//        for ( unsigned int i = 0; i < 6; i++ )
-//        {
-//            currentVariableHistory.at( i ).push_back( stateHistoryIterator->second[ i + 6 ] );
-//        }
-//    }
+    // Extract current variable history
+    std::vector< std::vector< double > > currentVariableHistory;
+    currentVariableHistory.resize( 6 );
+    std::map< double, Eigen::VectorXd > currentOrbitNavigationFilterEstimatedState = navigationFilter_->getEstimatedStateHistory( );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator stateHistoryIterator = currentOrbitNavigationFilterEstimatedState.begin( );
+          stateHistoryIterator != currentOrbitNavigationFilterEstimatedState.end( ); stateHistoryIterator++ )
+    {
+        for ( unsigned int i = 0; i < 6; i++ )
+        {
+            currentVariableHistory.at( i ).push_back( stateHistoryIterator->second[ i + 6 ] );
+        }
+    }
 
-//    // Extract median of accelerometer errors
-//    for ( unsigned int i = 0; i < estimatedAccelerometerErrors_.rows( ); i++ )
-//    {
-//        estimatedAccelerometerErrors_[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( i ) );
-//    }
+    // Extract median of accelerometer errors
+    for ( unsigned int i = 0; i < estimatedAccelerometerErrors_.rows( ); i++ )
+    {
+        estimatedAccelerometerErrors_[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( i ) );
+    }
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
@@ -188,7 +170,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     }
 
     // Apply smoothing method to noisy accelerometer data
-    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 50.0 / navigationRefreshStepSize_ * 20.0 );
+    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 50.0 / atmosphericNavigationRefreshStepSize_ );
     numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
             statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
@@ -235,7 +217,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
         // Set root-finder function as the area below the acceleration curve
         estimatedActualPeriapseTime = areaBisectionRootFinder_->execute(
                     boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                        boost::bind( &areaBisectionFunction, _1, navigationRefreshStepSize_, timesBelowAtmosphericInterface,
+                        boost::bind( &areaBisectionFunction, _1, atmosphericNavigationRefreshStepSize_, timesBelowAtmosphericInterface,
                                      vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ) ) );
     }
     catch ( std::runtime_error& caughtException )
@@ -288,7 +270,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double estimatedChangeInVelocity = - periapseEstimatorConstant_ * numerical_quadrature::performExtendedSimpsonsQuadrature(
-                navigationRefreshStepSize_, vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+                atmosphericNavigationRefreshStepSize_, vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
     std::cout << "Estimated Change in Velocity: " << estimatedChangeInVelocity << " m/s" << std::endl;
 
     // Compute estimated mean motion by using the semi-major axis at beginning of atmospheric phase
@@ -571,6 +553,8 @@ Eigen::Vector12d NavigationSystem::onboardSystemModel(
         throw std::runtime_error( "Error in navigation system. The current navigation phase is not supported by the filter." );
     }
 
+    currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedStateVector.segment( 0, 6 ) );
+
     // Give output
     return currentStateDerivative;
 }
@@ -628,10 +612,10 @@ Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
     double inverseOfRadialDistanceCubed = inverseOfRadialDistanceSquared / currentRadialDistance;
 
     // Add terms due to central gravitational acceleration
-    currentSystemJacobian.block( 3, 0, 3, 3 ) = - planetaryGravitationalParameter_ *
-            ( Eigen::Matrix3d::Identity( ) * inverseOfRadialDistanceCubed -
-              ( 3.0 * inverseOfRadialDistanceSquared * inverseOfRadialDistanceCubed ) *
-              currentRadialVector * currentRadialVector.transpose( ) );
+    currentSystemJacobian.block( 3, 0, 3, 3 ) = - planetaryGravitationalParameter_ * (
+                Eigen::Matrix3d::Identity( ) * inverseOfRadialDistanceCubed - (
+                    3.0 * inverseOfRadialDistanceSquared * inverseOfRadialDistanceCubed ) *
+                currentRadialVector * currentRadialVector.transpose( ) );
 
     // Add extra terms depending on the current navigation phase
     if ( currentNavigationPhase_ == iman_navigation_phase )
