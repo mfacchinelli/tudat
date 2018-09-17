@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE( test_ParameterPostFitResiduals )
 
         // Create integrator settings.
         boost::shared_ptr< IntegratorSettings< > >
-                integratorSettings = boost::make_shared< RungeKuttaVariableStepSizeSettings< double, Eigen::MatrixXd > >
+                integratorSettings = boost::make_shared< RungeKuttaVariableStepSizeSettings< double > >
                 ( ( simulationStartEpoch ), 12.0 * 3600.0, RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78,
                   3.0 * 3600.0, 12.0 * 3600.0, 1.0E-12, 1.0E-12 );
 
