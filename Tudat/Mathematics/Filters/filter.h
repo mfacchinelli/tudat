@@ -102,6 +102,12 @@ public:
             throw std::runtime_error( "Error in setting up filter. The measurement uncertainty matrix has to be square." );
         }
 
+        // Check that state vector and system uncertainty match in size
+        if ( initialStateVector.rows( ) != systemUncertainty.rows( ) )
+        {
+            throw std::runtime_error( "Error in setting up filter. The state vector and system uncertainty have different sizes." );
+        }
+
         // Create noise distributions
         generateNoiseDistributions( );
 
