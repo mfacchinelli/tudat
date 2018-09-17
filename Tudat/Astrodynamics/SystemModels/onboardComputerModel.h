@@ -80,7 +80,9 @@ public:
         if ( currentTime != navigationSystem_->getCurrentTime( ) )
         {
             // Extract measurements
-            Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
+            Eigen::Vector4d currentExternalMeasurementVector;
+            currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
+            currentExternalMeasurementVector[ 3 ] = instrumentsModel_->getCurrentAltimeterMeasurement( );
 
             // Update filter to current time
             NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );

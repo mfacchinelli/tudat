@@ -44,7 +44,8 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
                                                                     const Eigen::Vector6d& inertialMeasurementUnitErrors );
 
 //! Function to remove errors in the altimeter measurements based on the current orientation.
-void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const double planetaryRadius );
+void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, const double planetaryRadius,
+                                           const Eigen::Vector6d& currentEstimatedState );
 
 //! Class for the navigation system of an aerobraking maneuver.
 class NavigationSystem
@@ -174,11 +175,21 @@ public:
     }
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const double currentTime, const Eigen::Vector3d& currentExternalMeasurementVector,
+    /*!
+     *  Function to run the State Estimator (SE).
+     *  \param currentTime Double denoting current time.
+     *  \param currentExternalMeasurement Vector denoting the current external measurement, where the first three elements
+     *      represent the measured acceleration and the forth element represents the altitude measurement.
+     *  \param scheduledApoapsisManeuver Vector denoting the maneuver magnitude to be added to the spacecraft state.
+     */
+    void runStateEstimator( const double currentTime, Eigen::Vector4d& currentExternalMeasurement,
                             const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
     {
         // Set time
         currentTime_ = currentTime;
+
+        // Correct altitude measurement to account for possible pointing angle
+        removeErrorsFromAltimeterMeasurement( currentExternalMeasurement[ 3 ], planetaryRadius_, currentEstimatedCartesianState_ );
 
         // Add maneuver if requested
         if ( !scheduledApoapsisManeuver.isZero( ) )
@@ -218,7 +229,7 @@ public:
         case imu_calibration_phase:
         {
             // Update filter
-            navigationFilter_->updateFilter( currentTime_, currentExternalMeasurementVector );
+            navigationFilter_->updateFilter( currentTime_, currentExternalMeasurement );
 
             // Extract estimated state and update navigation system
             Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
@@ -645,6 +656,7 @@ public:
     //! Reset navigation filter integration step size.
     void resetNavigationRefreshStepSize( const double newNavigationRefreshStepSize )
     {
+        atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
         navigationRefreshStepSize_ = newNavigationRefreshStepSize;
         navigationFilter_->resetIntegrationStepSize( newNavigationRefreshStepSize );
     }
@@ -848,13 +860,13 @@ private:
     Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
-    Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector );
+    Eigen::Vector4d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
     Eigen::Matrix12d onboardSystemJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
 
     //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-    Eigen::Matrix< double, 3, 12 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
+    Eigen::Matrix< double, 4, 12 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
@@ -977,6 +989,9 @@ private:
 
     //! Double denoting the integration constant time step for navigation.
     double navigationRefreshStepSize_;
+
+    //! Double denoting the integration constant time step for navigation during the atmospheric phase.
+    double atmosphericNavigationRefreshStepSize_;
 
     //! Vector denoting the current estimated translational state in Cartesian elements.
     Eigen::Vector6d currentEstimatedCartesianState_;

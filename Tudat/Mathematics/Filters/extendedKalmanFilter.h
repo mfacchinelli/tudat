@@ -104,42 +104,6 @@ public:
      */
     void updateFilter( const IndependentVariableType currentTime, const DependentVector& currentMeasurementVector )
     {
-//        DependentVector fullMeasurementAddition = DependentVector::Zero( this->aPosterioriStateEstimate_.rows( ) );
-//        fullMeasurementAddition.segment( 3, 3 ) = currentMeasurementVector;
-
-//        DependentVector k1, k2, k3, k4;
-//        for ( unsigned int i = 1; i <= 4; i++ )
-//        {
-//            IndependentVariableType time;
-//            DependentVector state;
-//            switch ( i )
-//            {
-//            case 1:
-//                time = currentTime;
-//                state = this->aPosterioriStateEstimate_;
-//                k1 = this->integrationStepSize_ * ( inputSystemFunction_( time, state ) + fullMeasurementAddition );
-//                break;
-//            case 2:
-//                time = currentTime + this->integrationStepSize_ / 2.0;
-//                state = this->aPosterioriStateEstimate_ + k1 / 2.0;
-//                k2 = this->integrationStepSize_ * ( inputSystemFunction_( time, state ) + fullMeasurementAddition );
-//                break;
-//            case 3:
-//                time = currentTime + this->integrationStepSize_ / 2.0;
-//                state = this->aPosterioriStateEstimate_ + k2 / 2.0;
-//                k3 = this->integrationStepSize_ * ( inputSystemFunction_( time, state ) + fullMeasurementAddition );
-//                break;
-//            case 4:
-//                time = currentTime + this->integrationStepSize_;
-//                state = this->aPosterioriStateEstimate_ + k3;
-//                k4 = this->integrationStepSize_ * ( inputSystemFunction_( time, state ) + fullMeasurementAddition );
-//                break;
-//            }
-//        }
-//        this->aPosterioriStateEstimate_ += ( k1 + 2.0 * k2 + 2.0 * k3 + k4 ) / 6.0;
-//        this->historyOfStateEstimates_[ currentTime ] = this->aPosterioriStateEstimate_;
-//        this->historyOfCovarianceEstimates_[ currentTime ] = this->aPosterioriCovarianceEstimate_;
-
         // Prediction step
         DependentVector aPrioriStateEstimate = this->predictState( currentTime );
         DependentMatrix currentStateJacobianMatrix;

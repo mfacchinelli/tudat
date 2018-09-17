@@ -652,11 +652,11 @@ private:
         if ( ( currentAltitude_ < altitudeRange.first ) || ( currentAltitude_ > altitudeRange.second ) )
         {
             // Altitude cannot be measured
-            currentAltitude_ = TUDAT_NAN; // replace with function that gives large errors?
+            currentAltitude_ = TUDAT_NAN;
         }
 
-        // Add errors to altitude value
-        currentAltitude_ += produceAltimeterNoise( ) * altimeterAccuracyAsAFunctionOfAltitude( currentAltitude_ );
+//        // Add errors to altitude value
+//        currentAltitude_ += produceAltimeterNoise( ) * altimeterAccuracyAsAFunctionOfAltitude( currentAltitude_ );
     }
 
     //! Function to retrieve current position and velocity of the spacecraft.
