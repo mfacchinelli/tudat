@@ -137,7 +137,7 @@ integrateEquations( const bool performIntegrationsSequentially )
 
     // Define integrator settings.
     boost::shared_ptr< IntegratorSettings< > > matrixTypeIntegratorSettings =
-            boost::make_shared< RungeKuttaVariableStepSizeSettings< double, Eigen::MatrixXd > >
+            boost::make_shared< RungeKuttaVariableStepSizeSettings< double > >
             ( initialEphemerisTime, 10.0, RungeKuttaCoefficients::rungeKuttaFehlberg45, 0.01, 10.0, 1.0E-6, 1.0E-6 );
 
     // Define propagator settings.
