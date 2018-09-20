@@ -57,10 +57,10 @@ public:
     {
         cartesian_position_index = 0,
         cartesian_velocity_index = 3,
-        quaternion_real_index = 6,
-        quaternion_imaginary_index = 7,
-        accelerometer_bias_index = 10,
-        accelerometer_scale_factor_index = 13,
+        accelerometer_bias_index = 6,
+        accelerometer_scale_factor_index = 9,
+        quaternion_real_index = 12,
+        quaternion_imaginary_index = 13,
         gyroscope_bias_index = 16,
         gyroscope_scale_factor_index = 19
     };
@@ -69,7 +69,7 @@ public:
     enum NavigationPhaseIndicator
     {
         iman_navigation_phase = 0, // only below DAIA, so spacecraft processing power can be spared for something else above altitude
-        imu_calibration_phase = 1, // not regarded as navigation phase, since only used for calibration
+        imu_calibration_phase = 1, // not regarded as navigation phase, since only used for calibration and during first orbit
         kepler_navigation_phase = 2
     };
 
@@ -147,6 +147,9 @@ public:
     //! Function to determine the navigation phase.
     NavigationPhaseIndicator determineNavigationPhase( )
     {
+        // Store previous navigation phase
+        previousNavigationPhase_ = currentNavigationPhase_;
+
         // Declare navigation phase indicator and set value to unaided phase
         NavigationPhaseIndicator detectedNavigationPhase;
         if ( currentOrbitCounter_ < 2 )
@@ -157,9 +160,6 @@ public:
         {
             detectedNavigationPhase = kepler_navigation_phase;
         }
-
-        // Store previous navigation phase
-        previousNavigationPhase_ = currentNavigationPhase_;
 
         // Set current navigation phase to IMAN based on current altitude
         double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
@@ -175,22 +175,9 @@ public:
     }
 
     //! Function to run the State Estimator (SE).
-    /*!
-     *  Function to run the State Estimator (SE).
-     *  \param currentTime Double denoting current time.
-     *  \param currentExternalMeasurement Vector denoting the current external measurement, where the first three elements
-     *      represent the measured acceleration and the forth element represents the altitude measurement.
-     *  \param scheduledApoapsisManeuver Vector denoting the maneuver magnitude to be added to the spacecraft state.
-     */
-    void runStateEstimator( const double currentTime, Eigen::Vector4d& currentExternalMeasurement,
+    void runStateEstimator( const Eigen::Vector3d& currentExternalMeasurementVector,
                             const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
     {
-        // Set time
-        currentTime_ = currentTime;
-
-        // Correct altitude measurement to account for possible pointing angle
-        removeErrorsFromAltimeterMeasurement( currentExternalMeasurement[ 3 ], planetaryRadius_, currentEstimatedCartesianState_ );
-
         // Add maneuver if requested
         if ( !scheduledApoapsisManeuver.isZero( ) )
         {
@@ -211,6 +198,9 @@ public:
                     ( 1.0 - currentEstimatedKeplerianState[ 1 ] * currentEstimatedKeplerianState[ 1 ] ) ) /
                     std::pow( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ), 2 ) * navigationRefreshStepSize_;
 
+            // Update time
+            currentTime_ += navigationRefreshStepSize_;
+
             // Wrap true anomaly between 0 and 2 PI
             if ( currentEstimatedKeplerianState[ 5 ] < 0.0 )
             {
@@ -229,9 +219,10 @@ public:
         case imu_calibration_phase:
         {
             // Update filter
-            navigationFilter_->updateFilter( currentTime_, currentExternalMeasurement );
+            navigationFilter_->updateFilter( currentExternalMeasurementVector );
 
-            // Extract estimated state and update navigation system
+            // Extract tiem and estimated state and update navigation system
+            currentTime_ = navigationFilter_->getCurrentTime( );
             Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
             setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
             break;
@@ -293,8 +284,7 @@ public:
         if ( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ) > 0 )
         {
             // Remove errors from measured accelerations
-            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-                                                  mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
+            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
 
             // Compute magnitude of aerodynamic acceleration
             std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
@@ -621,6 +611,12 @@ public:
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
         navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                      newCurrentCovarianceMatrix );
+
+        // Update time in filter if Kepler phase
+        if ( currentNavigationPhase_ == kepler_navigation_phase )
+        {
+            navigationFilter_->modifyCurrentTime( currentTime_ );
+        }
     }
 
     //! Function to set current Keplerian state to new value.
@@ -645,6 +641,12 @@ public:
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
         navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                      newCurrentCovarianceMatrix );
+
+        // Update time in filter if Kepler phase
+        if ( currentNavigationPhase_ == kepler_navigation_phase )
+        {
+            navigationFilter_->modifyCurrentTime( currentTime_ );
+        }
     }
 
     //! Function to set the apoapsis value of the Keplerian state.
@@ -658,7 +660,7 @@ public:
     {
         atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
         navigationRefreshStepSize_ = newNavigationRefreshStepSize;
-        navigationFilter_->resetIntegrationStepSize( newNavigationRefreshStepSize );
+        navigationFilter_->resetFilteringStepSize( newNavigationRefreshStepSize );
     }
 
     //! Function to clear history of estimated states and accelerations for the current orbit.
@@ -731,7 +733,7 @@ private:
     void updateOnboardModel( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
     {
         // Update environment
-        if ( estimatedState.norm( ) == 0.0 )
+        if ( estimatedState.isZero( ) )
         {
             mapOfStatesToUpdate_[ propagators::translational_state ] = currentEstimatedCartesianState_;
         }
@@ -739,6 +741,7 @@ private:
         {
             mapOfStatesToUpdate_[ propagators::translational_state ] = estimatedState;
         }
+        mapOfStatesToUpdate_[ propagators::translational_state ] += onboardBodyMap_.at( planetName_ )->getState( );
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate_ );
 
         // Loop over bodies exerting accelerations on spacecraft
@@ -750,7 +753,6 @@ private:
             for ( unsigned int i = 0; i < accelerationMapConstantIterator_->second.size( ); i++ )
             {
                 // Update acceleration model
-                accelerationMapConstantIterator_->second[ i ]->resetTime( TUDAT_NAN ); // force update by resetting time
                 accelerationMapConstantIterator_->second[ i ]->updateMembers( currentTime_ );
             }
         }
@@ -795,9 +797,8 @@ private:
                 {
                     currentEstimatedGravitationalTranslationalAcceleration_ += currentAcceleration;
                 }
-
-                // Disregard the central gravitational accelerations, since IMUs do not measure them
-                if ( !( ( i == sphericalHarmonicsGravityIndex_ ) && ( accelerationMapConstantIterator_->first == planetName_ ) ) )
+                // Disregard the gravitational acceleration, since IMUs do not measure them
+                else
                 {
                     currentEstimatedNonGravitationalTranslationalAcceleration_ += currentAcceleration;
                 }
@@ -824,8 +825,7 @@ private:
      *      directly from the IMU.
      */
     void postProcessAccelerometerMeasurements(
-            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
-            const std::map< double, Eigen::Vector3d >& mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface );
+            std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
 
     //! Function to run the Periapse Time Estimator (PTE).
     /*!
@@ -857,10 +857,10 @@ private:
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to model the onboard system dynamics based on the simplified onboard model.
-    Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector );
+    Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
-    Eigen::Vector4d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedStateVector );
+    Eigen::Vector4d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
     Eigen::Matrix12d onboardSystemJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );

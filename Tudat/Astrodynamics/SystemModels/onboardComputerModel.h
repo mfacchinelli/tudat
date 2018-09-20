@@ -76,8 +76,8 @@ public:
         // Define output value
         bool isPropagationToBeStopped = false;
 
-        // Check if current step has already been performed
-        if ( currentTime != navigationSystem_->getCurrentTime( ) )
+        // Check whether current step has already been performed
+        if ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) )
         {
             // Extract measurements
             Eigen::Vector4d currentExternalMeasurementVector;
@@ -89,7 +89,7 @@ public:
             if ( performManeuverOnNextCall_ )
             {
                 // Feed maneuver to the navigation system and update filter
-                navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector,
+                navigationSystem_->runStateEstimator( currentExternalMeasurementVector,
                                                       controlSystem_->getScheduledApoapsisManeuver( ) );
 
                 // Reset flag
@@ -98,7 +98,7 @@ public:
             else
             {
                 // Update filter only
-                navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurementVector );
+                navigationSystem_->runStateEstimator( currentExternalMeasurementVector );
             }
 
             // Check if it is time for a Deep Space Network update
@@ -156,7 +156,7 @@ public:
 
                     // Set flag to add maneuver on next time step
                     performManeuverOnNextCall_ = true;
-                    
+
                     // Feed maneuver to the control system
                     controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
                 }
@@ -227,9 +227,12 @@ public:
         }
         else
         {
+            // Inform user
+            std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
+                         "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl
+                      << "Time difference: " << currentTime - navigationSystem_->getCurrentTime( ) << "." << std::endl;
+
             // Return previous value of propagation termination index
-            std::cout << currentTime - initialTime_ << " " << navigationSystem_->getCurrentTime( ) - initialTime_ << " "
-                      << currentTime - navigationSystem_->getCurrentTime( ) << std::endl;
             isPropagationToBeStopped = previousIsPropagationToBeStopped_;
             previousIsPropagationToBeStopped_ = false;
         }
@@ -252,7 +255,7 @@ public:
 
         // Check if aerobraking is complete
         std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 8 ) );
+        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 3 - 1 ) );
         dummyCallCounter_++;
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
