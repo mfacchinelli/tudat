@@ -625,35 +625,37 @@ private:
         double planetaryRadius = bodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( );
         double currentPointingAngle = 0.0;
 
-        // Check that pointing angle is not too large, i.e., if Mars is still in sight
-        double maximumPointingAngle = std::asin( planetaryRadius / currentRadialDistance );
-        if ( currentPointingAngle < maximumPointingAngle )
-        {
-            // Get actual altitude measurement (i.e., accounting for the pointing angle)
-            if ( std::fabs( currentPointingAngle ) < std::numeric_limits< double >::epsilon( ) )
-            {
-                currentAltitude_ = currentRadialDistance - planetaryRadius;
-            }
-            else
-            {
-                double sineOfCurrentPointingAngle = std::sin( currentPointingAngle );
-                currentAltitude_ = planetaryRadius / sineOfCurrentPointingAngle *
-                        std::sin( std::asin( currentRadialDistance / planetaryRadius * sineOfCurrentPointingAngle ) -
-                                  currentPointingAngle );
-            }
-        }
-        else
-        {
-            // Altimeter does not have Mars in sight
-            currentAltitude_ = TUDAT_NAN;
-        }
+        currentAltitude_ = currentRadialDistance - planetaryRadius;
 
-        // Check that altitude is within altimeter limits
-        if ( ( currentAltitude_ < altitudeRange.first ) || ( currentAltitude_ > altitudeRange.second ) )
-        {
-            // Altitude cannot be measured
-            currentAltitude_ = TUDAT_NAN;
-        }
+//        // Check that pointing angle is not too large, i.e., if Mars is still in sight
+//        double maximumPointingAngle = std::asin( planetaryRadius / currentRadialDistance );
+//        if ( currentPointingAngle < maximumPointingAngle )
+//        {
+//            // Get actual altitude measurement (i.e., accounting for the pointing angle)
+//            if ( std::fabs( currentPointingAngle ) < std::numeric_limits< double >::epsilon( ) )
+//            {
+//                currentAltitude_ = currentRadialDistance - planetaryRadius;
+//            }
+//            else
+//            {
+//                double sineOfCurrentPointingAngle = std::sin( currentPointingAngle );
+//                currentAltitude_ = planetaryRadius / sineOfCurrentPointingAngle *
+//                        std::sin( std::asin( currentRadialDistance / planetaryRadius * sineOfCurrentPointingAngle ) -
+//                                  currentPointingAngle );
+//            }
+//        }
+//        else
+//        {
+//            // Altimeter does not have Mars in sight
+//            currentAltitude_ = TUDAT_NAN;
+//        }
+
+//        // Check that altitude is within altimeter limits
+//        if ( ( currentAltitude_ < altitudeRange.first ) || ( currentAltitude_ > altitudeRange.second ) )
+//        {
+//            // Altitude cannot be measured
+//            currentAltitude_ = TUDAT_NAN;
+//        }
 
 //        // Add errors to altitude value
 //        currentAltitude_ += produceAltimeterNoise( ) * altimeterAccuracyAsAFunctionOfAltitude( currentAltitude_ );

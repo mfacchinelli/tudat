@@ -172,7 +172,7 @@ public:
         }
 
         // Set and give current navigation phase
-        currentNavigationPhase_ = detectedNavigationPhase;
+        currentNavigationPhase_ = iman_navigation_phase;//detectedNavigationPhase;
         return currentNavigationPhase_;
     }
 
@@ -860,14 +860,14 @@ private:
 
     //! Function to model the onboard system dynamics based on the simplified onboard model.
     Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState,
-                                         const Eigen::Vector3d& currentAccelerometerMeasurement );
+                                         const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
     Eigen::Vector1d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
     Eigen::Matrix12d onboardSystemJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState,
-                                            const Eigen::Vector3d& currentAccelerometerMeasurement );
+                                            const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
     Eigen::Matrix< double, 1, 12 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );

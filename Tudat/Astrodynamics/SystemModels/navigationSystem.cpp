@@ -75,7 +75,7 @@ void NavigationSystem::createNavigationSystemObjects( const boost::function< Eig
                                                                                   accelerometerMeasurementFunction ),
                                                                      boost::lambda::constant( Eigen::Matrix12d::Identity( ) ),
                                                                      boost::bind( &NavigationSystem::onboardMeasurementJacobian, this, _1, _2 ),
-                                                                     boost::lambda::constant( Eigen::Matrix4d::Identity( ) ) );
+                                                                     boost::lambda::constant( Eigen::Vector1d::Identity( ) ) );
         break;
     }
     case filters::unscented_kalman_filter:
@@ -552,7 +552,7 @@ void NavigationSystem::runAtmosphereEstimator(
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector12d NavigationSystem::onboardSystemModel(
         const double currentTime, const Eigen::Vector12d& currentEstimatedState,
-        const Eigen::Vector3d& currentAccelerometerMeasurement )
+        const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -565,7 +565,7 @@ Eigen::Vector12d NavigationSystem::onboardSystemModel(
     // Translational dynamics
     currentStateDerivative.segment( 3, 3 ) =
             getCurrentEstimatedNonGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) ) +
-            removeErrorsFromInertialMeasurementUnitMeasurement( currentAccelerometerMeasurement,
+            removeErrorsFromInertialMeasurementUnitMeasurement( accelerometerMeasurementFunction( ),
                                                                 currentEstimatedState.segment( 6, 6 ) );
 
     // Give output
@@ -600,7 +600,7 @@ Eigen::Vector1d NavigationSystem::onboardMeasurementModel(
 //! Function to model the onboard system Jacobian based on the simplified onboard model.
 Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
         const double currentTime, const Eigen::Vector12d& currentEstimatedState,
-        const Eigen::Vector3d& currentAccelerometerMeasurement )
+        const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -629,15 +629,18 @@ Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
             onboardGravitationalAccelerationPartials_->getCurrentSphericalHarmonicsAccelerationPartial( );
 
     // Add terms due to aerodynamic acceleration
-    Eigen::Vector3d scalingVector = Eigen::Vector3d::Ones( ) + currentEstimatedState.segment( 9, 3 );
-    currentSystemJacobian.block( 3, 0, 3, 6 ) = onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
+    Eigen::Matrix< double, 3, 6 > aerodynamicAccelerationPartial =
+            onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
+    Eigen::Vector3d scaleFactor = Eigen::Vector3d::Ones( ) + currentEstimatedState.segment( 9, 3 );
     for ( unsigned int i = 0; i < 6; i++ )
     {
         // Multiply by scaling factor
-        currentSystemJacobian.block( 3, i, 3, 1 ) = currentSystemJacobian.block( 3, i, 3, 1 ).cwiseProduct( scalingVector );
+        aerodynamicAccelerationPartial.block( 0, i, 3, 1 ) = aerodynamicAccelerationPartial.block( 0, i, 3, 1 ).cwiseProduct( scaleFactor );
     }
+    currentSystemJacobian.block( 3, 0, 3, 6 ) += aerodynamicAccelerationPartial;
 
     // Add terms due to accelerometer scaling error
+    Eigen::Vector3d currentAccelerometerMeasurement = accelerometerMeasurementFunction( );
     currentSystemJacobian( 3, 9 ) = currentAccelerometerMeasurement[ 0 ];
     currentSystemJacobian( 4, 10 ) = currentAccelerometerMeasurement[ 1 ];
     currentSystemJacobian( 5, 11 ) = currentAccelerometerMeasurement[ 2 ];

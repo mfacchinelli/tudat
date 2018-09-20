@@ -82,8 +82,7 @@ public:
         {
             // Extract measurements
             Eigen::Vector1d currentExternalMeasurementVector;
-            currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
-            currentExternalMeasurementVector[ 3 ] = instrumentsModel_->getCurrentAltimeterMeasurement( );
+            currentExternalMeasurementVector[ 0 ] = instrumentsModel_->getCurrentAltimeterMeasurement( );
 
             // Update filter to current time
             NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
