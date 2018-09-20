@@ -186,31 +186,31 @@ public:
         switch ( currentNavigationPhase_ )
         {
         case kepler_navigation_phase:
-        {
-            // Assume Kepler orbit and update true anomaly only
-            Eigen::Vector6d currentEstimatedKeplerianState = currentEstimatedKeplerianState_;
-            currentEstimatedKeplerianState[ 5 ] +=
-                    std::sqrt( planetaryGravitationalParameter_ * currentEstimatedKeplerianState[ 0 ] *
-                    ( 1.0 - currentEstimatedKeplerianState[ 1 ] * currentEstimatedKeplerianState[ 1 ] ) ) /
-                    std::pow( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ), 2 ) * navigationRefreshStepSize_;
+//        {
+//            // Assume Kepler orbit and update true anomaly only
+//            Eigen::Vector6d currentEstimatedKeplerianState = currentEstimatedKeplerianState_;
+//            currentEstimatedKeplerianState[ 5 ] +=
+//                    std::sqrt( planetaryGravitationalParameter_ * currentEstimatedKeplerianState[ 0 ] *
+//                    ( 1.0 - currentEstimatedKeplerianState[ 1 ] * currentEstimatedKeplerianState[ 1 ] ) ) /
+//                    std::pow( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ), 2 ) * navigationRefreshStepSize_;
 
-            // Update time
-            currentTime_ += navigationRefreshStepSize_;
+//            // Update time
+//            currentTime_ += navigationRefreshStepSize_;
 
-            // Wrap true anomaly between 0 and 2 PI
-            if ( currentEstimatedKeplerianState[ 5 ] < 0.0 )
-            {
-                currentEstimatedKeplerianState[ 5 ] += 2.0 * mathematical_constants::PI;
-            }
-            else if ( currentEstimatedKeplerianState[ 5 ] > 2.0 * mathematical_constants::PI )
-            {
-                currentEstimatedKeplerianState[ 5 ] -= 2.0 * mathematical_constants::PI;
-            }
+//            // Wrap true anomaly between 0 and 2 PI
+//            if ( currentEstimatedKeplerianState[ 5 ] < 0.0 )
+//            {
+//                currentEstimatedKeplerianState[ 5 ] += 2.0 * mathematical_constants::PI;
+//            }
+//            else if ( currentEstimatedKeplerianState[ 5 ] > 2.0 * mathematical_constants::PI )
+//            {
+//                currentEstimatedKeplerianState[ 5 ] -= 2.0 * mathematical_constants::PI;
+//            }
 
-            // Update navigation system
-            setCurrentEstimatedKeplerianState( currentEstimatedKeplerianState );
-            break;
-        }
+//            // Update navigation system
+//            setCurrentEstimatedKeplerianState( currentEstimatedKeplerianState );
+//            break;
+//        }
         case iman_navigation_phase:
         case imu_calibration_phase:
         {

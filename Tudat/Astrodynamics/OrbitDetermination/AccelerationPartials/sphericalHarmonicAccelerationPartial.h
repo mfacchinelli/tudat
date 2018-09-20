@@ -214,11 +214,9 @@ public:
     }
 
     //! Function to retrieve the current spherical harmonics acceleration partial.
-    Eigen::Matrix< double, 3, 6 > getCurrentSphericalHarmonicsAccelerationPartial( )
+    Eigen::Matrix3d getCurrentSphericalHarmonicsAccelerationPartial( )
     {
-        Eigen::Matrix< double, 3, 6 > currentPartial = Eigen::Matrix< double, 3, 6 >::Zero( );
-        currentPartial.block( 0, 0, 3, 3 ) = currentPartialWrtPosition_;
-        return currentPartial;
+        return currentPartialWrtPosition_;
     }
 
 protected:
