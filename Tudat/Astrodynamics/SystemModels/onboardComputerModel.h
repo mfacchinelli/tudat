@@ -77,7 +77,7 @@ public:
         bool isPropagationToBeStopped = false;
 
         // Check whether current step has already been performed
-        if ( ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) ) )
+        if ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) )
         {
             // Extract measurements
             Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
@@ -154,7 +154,7 @@ public:
 
                     // Set flag to add maneuver on next time step
                     performManeuverOnNextCall_ = true;
-                    
+
                     // Feed maneuver to the control system
                     controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
                 }
