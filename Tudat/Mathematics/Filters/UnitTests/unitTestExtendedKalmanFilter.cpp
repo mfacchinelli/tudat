@@ -129,22 +129,24 @@ BOOST_AUTO_TEST_CASE( testExtendedKalmanFilterFirstCase )
     std::map< double, Eigen::Vector2d > actualStateVectorHistory;
     std::map< double, Eigen::Vector1d > measurementVectorHistory;
     actualStateVectorHistory[ initialTime ] = initialStateVector;
-    for( unsigned int i = 0; i < numberOfTimeSteps; i++ )
+    for ( unsigned int i = 0; i < numberOfTimeSteps; i++ )
     {
         // Compute actual values and perturb them
-        currentTime += timeStep;
         currentActualStateVector += stateFunction1( currentTime, currentActualStateVector, currentControlVector ) * timeStep;
         currentNoisyStateVector = currentActualStateVector + extendedFilter->produceSystemNoise( ) * timeStep;
         currentMeasurementVector = measurementFunction1( currentTime, currentActualStateVector ) +
                 extendedFilter->produceMeasurementNoise( );
-        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
-        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Update control class
         control->setCurrentControlVector( currentTime, extendedFilter->getCurrentStateEstimate( ) );
 
         // Update filter
         extendedFilter->updateFilter( currentMeasurementVector );
+        currentTime = extendedFilter->getCurrentTime( );
+
+        // Store values
+        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
+        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Print progress
         if ( showProgress )
@@ -287,22 +289,24 @@ BOOST_AUTO_TEST_CASE( testExtendedKalmanFilterSecondCase )
     std::map< double, Eigen::Vector3d > actualStateVectorHistory;
     std::map< double, Eigen::Vector1d > measurementVectorHistory;
     actualStateVectorHistory[ initialTime ] = initialStateVector;
-    for( unsigned int i = 0; i < numberOfTimeSteps; i++ )
+    for ( unsigned int i = 0; i < numberOfTimeSteps; i++ )
     {
         // Compute actual values and perturb them
-        currentTime += timeStep;
         currentActualStateVector += stateFunction2( currentTime, currentActualStateVector, currentControlVector ) * timeStep;
         currentNoisyStateVector = currentActualStateVector + extendedFilter->produceSystemNoise( ) * timeStep;
         currentMeasurementVector = measurementFunction2( currentTime, currentActualStateVector ) +
                 extendedFilter->produceMeasurementNoise( );
-        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
-        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Update control class
         control->setCurrentControlVector( currentTime, extendedFilter->getCurrentStateEstimate( ) );
 
         // Update filter
         extendedFilter->updateFilter( currentMeasurementVector );
+        currentTime = extendedFilter->getCurrentTime( );
+
+        // Store values
+        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
+        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Print progress
         if ( showProgress )
