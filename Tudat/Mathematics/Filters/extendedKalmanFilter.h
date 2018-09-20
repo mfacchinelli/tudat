@@ -102,7 +102,7 @@ public:
      *  Function to update the filter with the new step data.
      *  \param currentMeasurementVector Vector representing current measurement.
      */
-    void updateFilter( const DependentVector& currentMeasurementVector )
+	void updateFilter( const DependentVector& currentMeasurementVector )
     {
         // Prediction step
         DependentVector aPrioriStateEstimate = this->predictState( );
