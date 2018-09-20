@@ -16,6 +16,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include "Tudat/Astrodynamics/Aerodynamics/tabulatedAtmosphere.h"
+#include "Tudat/Astrodynamics/ReferenceFrames/aerodynamicAngleCalculator.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModel.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/accelerationModelTypes.h"
 #include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
@@ -126,13 +127,15 @@ public:
     //! Function to add an altimeter to the spacecraft set of instruments.
     /*!
      *  Function to add an altimeter to the spacecraft set of instruments.
-     *  \param fixedBodyFramePointingDirection Direction in the body-fixed frame in which the altimeter is pointing.
+     *  \param altimeterPointingDirectionInAltimeterFrame Direction in which the altimeter is pointing.
+     *  \param altimeterFrame Reference frame in which the poining direction is defined.
      *  \param altitudeRange Range of altitudes between which the altimeter provides measurements. It is defined as a pair, such that
      *      the first entry gives the lower altitude bound and the second one the upper bound.
      *  \param altimeterAccuracyAsAFunctionOfAltitude Function returning the accuracy of the altimeter as a function of altitude.
      *      This can be a constant value if defined with boost::lambda::constant.
      */
-    void addAltimeter( const Eigen::Vector3d& fixedBodyFramePointingDirection,
+    void addAltimeter( const std::vector< Eigen::Vector3d >& altimeterPointingDirectionInAltimeterFrame,
+                       const reference_frames::AerodynamicsReferenceFrames altimeterFrame,
                        const std::pair< double, double >& altitudeRange,
                        const boost::function< double( const double ) >& altimeterAccuracyAsAFunctionOfAltitude );
 
@@ -355,7 +358,7 @@ public:
      *  \return Double denoting the current altimeter measurement, affected by noise. Note that if the current altitude is outside
      *      the range defined by altitudeRange, the result will be nonsensical.
      */
-    double getCurrentAltimeterMeasurement( )
+    std::vector< Eigen::Vector3d > getCurrentAltimeterMeasurement( )
     {
         // Check that an altimeter is present in the spacecraft
         if ( altimeterAdded_ )
@@ -437,7 +440,7 @@ public:
     }
 
     //! Get history of altimeter measurements for the current orbit.
-    std::map< double, double > getCurrentOrbitHistoryOfAltimeterMeasurements( )
+    std::map< double, std::vector< Eigen::Vector3d > > getCurrentOrbitHistoryOfAltimeterMeasurements( )
     {
         return currentOrbitHistoryOfAltimeterMeasurements_;
     }
@@ -539,7 +542,10 @@ public:
         // Erase measurement of altimeter
         if ( altimeterAdded_ )
         {
-            currentAltitude_ = TUDAT_NAN;
+            for ( unsigned int i = 0; i < currentAltitude_.size( ); i++ )
+            {
+                currentAltitude_.at( i ).setConstant( TUDAT_NAN );
+            }
             if ( currentOrbitHistoryOfAltimeterMeasurements_.count( currentTime ) != 0 )
             {
                 currentOrbitHistoryOfAltimeterMeasurements_.erase( currentTime );
@@ -554,11 +560,6 @@ public:
                 historyOfDeepSpaceNetworkMeasurements_.erase( currentTime );
             }
         }
-    }
-
-    Eigen::Vector6d getActualSpacecraftTranslationalState( )
-    {
-        return bodyMap_.at( spacecraftName_ )->getState( ) - bodyMap_.at( planetName_ )->getState( );
     }
 
 private:
@@ -615,50 +616,59 @@ private:
     }
 
     //! Function to retrieve current altitude of the spacecraft.
-    void getCurrentAltitude( const Eigen::Vector3d& fixedBodyFramePointingDirection,
+    void getCurrentAltitude( const std::vector< Eigen::Vector3d >& altimeterPointingDirectionInAltimeterFrame,
+                             const reference_frames::AerodynamicsReferenceFrames altimeterFrame,
                              const std::pair< double, double >& altitudeRange,
                              const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude )
     {
-        // Get current altitude of spacecraft
-        Eigen::Vector3d currentRadialVector = bodyMap_.at( spacecraftName_ )->getPosition( ) - bodyMap_.at( planetName_ )->getPosition( );
-        double currentRadialDistance = currentRadialVector.norm( );
+        // Get current state of the spacecraft
         double planetaryRadius = bodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( );
-        double currentPointingAngle = 0.0;
+        Eigen::Vector3d currentRadialVector = bodyMap_.at( spacecraftName_ )->getPosition( ) - bodyMap_.at( planetName_ )->getPosition( );
+        Eigen::Vector3d currentRadialUnitVector = currentRadialVector.normalized( );
+        double currentRadialDistance = currentRadialVector.norm( );
+        double currentAltitude = currentRadialDistance - planetaryRadius;
 
-        currentAltitude_ = currentRadialDistance - planetaryRadius;
+        // Check that altitude is within altimeter limits
+        if ( ( currentAltitude < altitudeRange.first ) || ( currentAltitude > altitudeRange.second ) )
+        {
+            // Altitude cannot be measured
+            for ( unsigned int i = 0; i < altimeterPointingDirectionInAltimeterFrame.size( ); i++ )
+            {
+                currentAltitude_.at( i ).setConstant( TUDAT_NAN );
+            }
+        }
+        else
+        {
+            // Get spacecraft aerodynamic angle calculator
+            Eigen::Quaterniond rotationFromAltimeterToInertialFrame =
+                    bodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->
+                    getRotationQuaternionBetweenFrames( altimeterFrame, reference_frames::inertial_frame );
 
-//        // Check that pointing angle is not too large, i.e., if Mars is still in sight
-//        double maximumPointingAngle = std::asin( planetaryRadius / currentRadialDistance );
-//        if ( currentPointingAngle < maximumPointingAngle )
-//        {
-//            // Get actual altitude measurement (i.e., accounting for the pointing angle)
-//            if ( std::fabs( currentPointingAngle ) < std::numeric_limits< double >::epsilon( ) )
-//            {
-//                currentAltitude_ = currentRadialDistance - planetaryRadius;
-//            }
-//            else
-//            {
-//                double sineOfCurrentPointingAngle = std::sin( currentPointingAngle );
-//                currentAltitude_ = planetaryRadius / sineOfCurrentPointingAngle *
-//                        std::sin( std::asin( currentRadialDistance / planetaryRadius * sineOfCurrentPointingAngle ) -
-//                                  currentPointingAngle );
-//            }
-//        }
-//        else
-//        {
-//            // Altimeter does not have Mars in sight
-//            currentAltitude_ = TUDAT_NAN;
-//        }
+            // Convert pointing direction to inertial frame and compute pointing angle for each altimeter
+            Eigen::Vector3d altimeterPointingDirectionInInertialFrame;
+            double currentDotProduct;
+            double currentPseudoAltitude;
+            for ( unsigned int i = 0; i < altimeterPointingDirectionInAltimeterFrame.size( ); i++ )
+            {
+                // Transform pointing direction to inertial frame
+                altimeterPointingDirectionInInertialFrame = rotationFromAltimeterToInertialFrame *
+                        altimeterPointingDirectionInAltimeterFrame.at( i );
 
-//        // Check that altitude is within altimeter limits
-//        if ( ( currentAltitude_ < altitudeRange.first ) || ( currentAltitude_ > altitudeRange.second ) )
-//        {
-//            // Altitude cannot be measured
-//            currentAltitude_ = TUDAT_NAN;
-//        }
+                // Compute dot product of radial distance and pointing direction (cosine of pointing angle)
+                currentDotProduct = currentRadialUnitVector.dot( altimeterPointingDirectionInInertialFrame );
 
-//        // Add errors to altitude value
-//        currentAltitude_ += produceAltimeterNoise( ) * altimeterAccuracyAsAFunctionOfAltitude( currentAltitude_ );
+                // Determine pseudo-altitude measurement
+                currentPseudoAltitude = currentRadialDistance * currentDotProduct - std::sqrt(
+                            planetaryRadius * planetaryRadius - currentRadialDistance * currentRadialDistance * (
+                                1.0 - ( currentDotProduct * currentDotProduct ) ) );
+
+                // Add errors to pseudo-altitude value
+                currentPseudoAltitude += produceAltimeterNoise( ) * altimeterAccuracyAsAFunctionOfAltitude( currentAltitude );
+
+                // Transform pseudo-altitude in vector format (in altimeter frame)
+                currentAltitude_.at( i ) = currentPseudoAltitude * altimeterPointingDirectionInAltimeterFrame.at( i );
+            }
+        }
     }
 
     //! Function to retrieve current position and velocity of the spacecraft.
@@ -909,7 +919,7 @@ private:
     Eigen::Vector4d currentQuaternionToBaseFrame_;
 
     //! Double denoting current altitude as measured by the altimeter.
-    double currentAltitude_;
+    std::vector< Eigen::Vector3d > currentAltitude_;
 
     //! Function to compute the translational acceleration measured by the inertial measurement unit.
     boost::function< void( ) > inertialMeasurementUnitTranslationalAccelerationFunction_;
@@ -933,8 +943,8 @@ private:
     //! Map of attitude measured by the star tracker during the current orbit.
     std::map< double, Eigen::Vector4d > currentOrbitHistoryOfStarTrackerMeasurements_;
 
-    //! Map of attitude measured by the star tracker during the current orbit.
-    std::map< double, double > currentOrbitHistoryOfAltimeterMeasurements_;
+    //! Map of attitude measured by the altimeter during the current orbit.
+    std::map< double, std::vector< Eigen::Vector3d > > currentOrbitHistoryOfAltimeterMeasurements_;
 
     //! Map of position and velocity measurements by the Deep Space Network during the current simulation.
     std::map< double, std::pair< double, Eigen::Vector6d > > historyOfDeepSpaceNetworkMeasurements_;

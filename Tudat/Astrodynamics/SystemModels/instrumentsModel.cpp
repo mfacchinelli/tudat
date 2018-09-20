@@ -107,7 +107,8 @@ void InstrumentsModel::addStarTracker( const unsigned int numberOfStarTrackers,
 }
 
 //! Function to add an altimeter to the spacecraft set of instruments.
-void InstrumentsModel::addAltimeter( const Eigen::Vector3d& fixedBodyFramePointingDirection,
+void InstrumentsModel::addAltimeter( const std::vector< Eigen::Vector3d >& altimeterPointingDirectionInAltimeterFrame,
+                                     const reference_frames::AerodynamicsReferenceFrames altimeterFrame,
                                      const std::pair< double, double >& altitudeRange,
                                      const boost::function< double( double ) >& altimeterAccuracyAsAFunctionOfAltitude )
 {
@@ -120,9 +121,12 @@ void InstrumentsModel::addAltimeter( const Eigen::Vector3d& fixedBodyFramePointi
         // Generate random noise distribution
         generateAltimeterRandomNoiseDistribution( 1.0 );
 
+        // Resize altimeter output
+        currentAltitude_.resize( altimeterPointingDirectionInAltimeterFrame.size( ) );
+
         // Create function for computing corrupted spacecraft orientation
-        altimeterFunction_ = boost::bind( &InstrumentsModel::getCurrentAltitude, this, fixedBodyFramePointingDirection,
-                                          altitudeRange, altimeterAccuracyAsAFunctionOfAltitude );
+        altimeterFunction_ = boost::bind( &InstrumentsModel::getCurrentAltitude, this, altimeterPointingDirectionInAltimeterFrame,
+                                          altimeterFrame, altitudeRange, altimeterAccuracyAsAFunctionOfAltitude );
     }
     else
     {

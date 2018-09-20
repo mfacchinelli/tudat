@@ -81,15 +81,14 @@ public:
         if ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) )
         {
             // Extract measurements
-            Eigen::Vector1d currentExternalMeasurementVector;
-            currentExternalMeasurementVector[ 0 ] = instrumentsModel_->getCurrentAltimeterMeasurement( );
+            std::vector< Eigen::Vector3d > currentAltimeterMeasurements = instrumentsModel_->getCurrentAltimeterMeasurement( );
 
             // Update filter to current time
             NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
             if ( performManeuverOnNextCall_ )
             {
                 // Feed maneuver to the navigation system and update filter
-                navigationSystem_->runStateEstimator( currentExternalMeasurementVector,
+                navigationSystem_->runStateEstimator( currentAltimeterMeasurements,
                                                       controlSystem_->getScheduledApoapsisManeuver( ) );
 
                 // Reset flag
@@ -98,7 +97,7 @@ public:
             else
             {
                 // Update filter only
-                navigationSystem_->runStateEstimator( currentExternalMeasurementVector );
+                navigationSystem_->runStateEstimator( currentAltimeterMeasurements );
             }
 
             // Check if it is time for a Deep Space Network update
