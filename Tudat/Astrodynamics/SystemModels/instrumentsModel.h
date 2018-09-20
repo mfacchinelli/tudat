@@ -556,11 +556,6 @@ public:
         }
     }
 
-    Eigen::Vector6d getActualSpacecraftTranslationalState( )
-    {
-        return bodyMap_.at( spacecraftName_ )->getState( ) - bodyMap_.at( planetName_ )->getState( );
-    }
-
 private:
 
     //! Function to retrieve current translational accelerations exerted on the spacecraft.
