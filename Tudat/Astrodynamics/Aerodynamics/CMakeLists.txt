@@ -88,7 +88,7 @@ target_link_libraries(test_CustomConstantTemperatureAtmosphere tudat_aerodynamic
 add_executable(test_TabulatedAtmosphere "${SRCROOT}${AERODYNAMICSDIR}/UnitTests/unitTestTabulatedAtmosphere.cpp")
 setup_custom_test_program(test_TabulatedAtmosphere "${SRCROOT}${AERODYNAMICSDIR}")
 target_link_libraries(test_TabulatedAtmosphere tudat_aerodynamics tudat_input_output tudat_interpolators
-    tudat_basic_mathematics tudat_basic_astrodynamics ${Boost_LIBRARIES})
+    tudat_basic_mathematics tudat_basic_astrodynamics tudat_statistics ${Boost_LIBRARIES})
 
 add_executable(test_TabulatedAerodynamicCoefficients "${SRCROOT}${AERODYNAMICSDIR}/UnitTests/unitTestTabulatedAerodynamicCoefficients.cpp")
 setup_custom_test_program(test_TabulatedAerodynamicCoefficients "${SRCROOT}${AERODYNAMICSDIR}")
@@ -114,5 +114,6 @@ target_link_libraries(test_WindModel ${TUDAT_PROPAGATION_LIBRARIES} ${Boost_LIBR
 if(USE_NRLMSISE00)
     add_executable(test_NRLMSISE00Atmosphere "${SRCROOT}${AERODYNAMICSDIR}/UnitTests/unitTestNRLMSISE00Atmosphere.cpp")
     setup_custom_test_program(test_NRLMSISE00Atmosphere "${SRCROOT}${AERODYNAMICSDIR}")
-    target_link_libraries(test_NRLMSISE00Atmosphere tudat_aerodynamics tudat_interpolators tudat_basic_mathematics nrlmsise00 tudat_input_output tudat_basic_astrodynamics ${Boost_LIBRARIES})
+    target_link_libraries(test_NRLMSISE00Atmosphere tudat_aerodynamics tudat_interpolators tudat_basic_mathematics nrlmsise00
+        tudat_input_output tudat_basic_astrodynamics tudat_statistics ${Boost_LIBRARIES})
 endif( )

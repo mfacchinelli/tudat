@@ -48,7 +48,8 @@ public:
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
 
         // Create navigation system objects
-        navigationSystem_->createNavigationSystemObjects( );
+        navigationSystem_->createNavigationSystemObjects(
+                    boost::bind( &InstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ) );
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
@@ -80,7 +81,7 @@ public:
         if ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) )
         {
             // Extract measurements
-            Eigen::Vector4d currentExternalMeasurementVector;
+            Eigen::Vector1d currentExternalMeasurementVector;
             currentExternalMeasurementVector.segment( 0, 3 ) = instrumentsModel_->getCurrentAccelerometerMeasurement( );
             currentExternalMeasurementVector[ 3 ] = instrumentsModel_->getCurrentAltimeterMeasurement( );
 

@@ -60,17 +60,19 @@ void removeErrorsFromAltimeterMeasurement( double& currentMeasuredAltitude, cons
 }
 
 //! Function to create navigation objects for onboard state estimation.
-void NavigationSystem::createNavigationSystemObjects( )
-{
+void NavigationSystem::createNavigationSystemObjects( const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
+{    
     // Create filter object
     switch ( navigationFilterSettings_->filteringTechnique_ )
     {
     case filters::extended_kalman_filter:
     {
         navigationFilter_ = filters::createFilter< double, double >( navigationFilterSettings_,
-                                                                     boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2 ),
+                                                                     boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2,
+                                                                                  accelerometerMeasurementFunction ),
                                                                      boost::bind( &NavigationSystem::onboardMeasurementModel, this, _1, _2 ),
-                                                                     boost::bind( &NavigationSystem::onboardSystemJacobian, this, _1, _2 ),
+                                                                     boost::bind( &NavigationSystem::onboardSystemJacobian, this, _1, _2,
+                                                                                  accelerometerMeasurementFunction ),
                                                                      boost::lambda::constant( Eigen::Matrix12d::Identity( ) ),
                                                                      boost::bind( &NavigationSystem::onboardMeasurementJacobian, this, _1, _2 ),
                                                                      boost::lambda::constant( Eigen::Matrix4d::Identity( ) ) );
@@ -79,7 +81,8 @@ void NavigationSystem::createNavigationSystemObjects( )
     case filters::unscented_kalman_filter:
     {
         navigationFilter_ = filters::createFilter< double, double >( navigationFilterSettings_,
-                                                                     boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2 ),
+                                                                     boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2,
+                                                                                  accelerometerMeasurementFunction ),
                                                                      boost::bind( &NavigationSystem::onboardMeasurementModel, this, _1, _2 ) );
         break;
     }
@@ -548,7 +551,8 @@ void NavigationSystem::runAtmosphereEstimator(
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector12d NavigationSystem::onboardSystemModel(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedState )
+        const double currentTime, const Eigen::Vector12d& currentEstimatedState,
+        const Eigen::Vector3d& currentAccelerometerMeasurement )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -559,67 +563,35 @@ Eigen::Vector12d NavigationSystem::onboardSystemModel(
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedState.segment( 3, 3 );
 
     // Translational dynamics
-    switch ( currentNavigationPhase_ )
-    {
-    case iman_navigation_phase:
-    {
-        // Use full dynamics
-        currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
-        break;
-    }
-    case imu_calibration_phase:
-    {
-        // Only use central gravity
-        currentStateDerivative.segment( 3, 3 ) = - planetaryGravitationalParameter_ * currentEstimatedState.segment( 0, 3 ) /
-                std::pow( currentEstimatedState.segment( 0, 3 ).norm( ), 3 );
-        break;
-    }
-    default:
-        throw std::runtime_error( "Error in navigation system. The current navigation phase is not supported by the filter." );
-    }
+    currentStateDerivative.segment( 3, 3 ) =
+            getCurrentEstimatedNonGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) ) +
+            removeErrorsFromInertialMeasurementUnitMeasurement( currentAccelerometerMeasurement,
+                                                                currentEstimatedState.segment( 6, 6 ) );
 
     // Give output
     return currentStateDerivative;
 }
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector4d NavigationSystem::onboardMeasurementModel(
+Eigen::Vector1d NavigationSystem::onboardMeasurementModel(
         const double currentTime, const Eigen::Vector12d& currentEstimatedState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare output vector
-    Eigen::Vector4d currentMeasurement;
-
-    // Add non-gravitational translational acceleration
-    switch ( currentNavigationPhase_ )
-    {
-    case iman_navigation_phase:
-    {
-        currentMeasurement.segment( 0, 3 ) = currentEstimatedState.segment( 6, 3 ) +
-                ( Eigen::Matrix3d::Identity( ) + Eigen::Matrix3d( currentEstimatedState.segment( 9, 3 ).asDiagonal( ) ) ) *
-                getCurrentEstimatedNonGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
-        break;
-    }
-    case imu_calibration_phase:
-    {
-        currentMeasurement.segment( 0, 3 ) = currentEstimatedState.segment( 6, 3 ); // density is zero
-        break;
-    }
-    default:
-        throw std::runtime_error( "Error in navigation system. The current navigation phase is not supported by the filter." );
-    }
+    Eigen::Vector1d currentMeasurement;
 
     // Add altitude
     double currentAltitude = currentEstimatedState.segment( 0, 3 ).norm( ) - planetaryRadius_;
-    if ( ( currentAltitude < altimeterAltitudeRange_.first ) || ( currentAltitude > altimeterAltitudeRange_.second ) )
-    {
-        currentMeasurement[ 3 ] = currentAltitude;
-    }
-    else
-    {
-        currentMeasurement[ 3 ] = 0.0;
-    }
+    currentMeasurement[ 0 ] = currentAltitude;
+//    if ( ( currentAltitude < altimeterAltitudeRange_.first ) || ( currentAltitude > altimeterAltitudeRange_.second ) )
+//    {
+//        currentMeasurement[ 0 ] = currentAltitude;
+//    }
+//    else
+//    {
+//        currentMeasurement[ 0 ] = 0.0;
+//    }
 
     // Return quaternion vector
     return currentMeasurement;
@@ -627,7 +599,8 @@ Eigen::Vector4d NavigationSystem::onboardMeasurementModel(
 
 //! Function to model the onboard system Jacobian based on the simplified onboard model.
 Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedState )
+        const double currentTime, const Eigen::Vector12d& currentEstimatedState,
+        const Eigen::Vector3d& currentAccelerometerMeasurement )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -651,57 +624,44 @@ Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
                     3.0 * inverseOfRadialDistanceSquared * inverseOfRadialDistanceCubed ) *
                 currentRadialVector * currentRadialVector.transpose( ) );
 
-    // Add extra terms depending on the current navigation phase
-    if ( currentNavigationPhase_ == iman_navigation_phase )
-    {
-        // Add terms due to spherical harmonics acceleration
-        currentSystemJacobian.block( 3, 0, 6, 6 ) +=
-                onboardGravitationalAccelerationPartials_->getCurrentSphericalHarmonicsAccelerationPartial( );
+    // Add terms due to spherical harmonics acceleration
+    currentSystemJacobian.block( 3, 0, 3, 6 ) +=
+            onboardGravitationalAccelerationPartials_->getCurrentSphericalHarmonicsAccelerationPartial( );
 
-        // Add terms due to aerodynamic acceleration
-        currentSystemJacobian.block( 3, 0, 6, 6 ) += onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
+    // Add terms due to aerodynamic acceleration
+    Eigen::Vector3d scalingVector = Eigen::Vector3d::Ones( ) + currentEstimatedState.segment( 9, 3 );
+    currentSystemJacobian.block( 3, 0, 3, 6 ) = onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
+    for ( unsigned int i = 0; i < 6; i++ )
+    {
+        // Multiply by scaling factor
+        currentSystemJacobian.block( 3, i, 3, 1 ) = currentSystemJacobian.block( 3, i, 3, 1 ).cwiseProduct( scalingVector );
     }
+
+    // Add terms due to accelerometer scaling error
+    currentSystemJacobian( 3, 9 ) = currentAccelerometerMeasurement[ 0 ];
+    currentSystemJacobian( 4, 10 ) = currentAccelerometerMeasurement[ 1 ];
+    currentSystemJacobian( 5, 11 ) = currentAccelerometerMeasurement[ 2 ];
+
+    // Add terms due to accelerometer bias error
+    currentSystemJacobian( 3, 6 ) = 1.0;
+    currentSystemJacobian( 4, 7 ) = 1.0;
+    currentSystemJacobian( 5, 8 ) = 1.0;
 
     // Give output
     return currentSystemJacobian;
 }
 
 //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-Eigen::Matrix< double, 4, 12 > NavigationSystem::onboardMeasurementJacobian(
+Eigen::Matrix< double, 1, 12 > NavigationSystem::onboardMeasurementJacobian(
         const double currentTime, const Eigen::Vector12d& currentEstimatedState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare Jacobian matrix and set to zero
-    Eigen::Matrix< double, 4, 12 > currentMeasurementJacobian = Eigen::Matrix< double, 4, 12 >::Zero( );
-
-    // Add extra terms depending on the current navigation phase
-    if ( currentNavigationPhase_ == iman_navigation_phase )
-    {
-        // Add terms due to aerodynamic acceleration
-        Eigen::Vector3d scalingVector = Eigen::Vector3d::Ones( ) + currentEstimatedState.segment( 9, 3 );
-        currentMeasurementJacobian.block( 0, 0, 3, 6 ) = onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
-        for ( unsigned int i = 0; i < 6; i++ )
-        {
-            // Multiply by scaling factor
-            currentMeasurementJacobian.block( 0, i, 3, 1 ) = currentMeasurementJacobian.block( 0, i, 3, 1 ).cwiseProduct( scalingVector );
-        }
-
-        // Add terms due to accelerometer scaling error
-        Eigen::Vector3d aerodynamicAcceleration =
-                getCurrentEstimatedNonGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
-        currentMeasurementJacobian( 0, 9 ) = aerodynamicAcceleration[ 0 ];
-        currentMeasurementJacobian( 1, 10 ) = aerodynamicAcceleration[ 1 ];
-        currentMeasurementJacobian( 2, 11 ) = aerodynamicAcceleration[ 2 ];
-    }
-
-    // Add terms due to accelerometer bias error
-    currentMeasurementJacobian( 0, 6 ) = 1.0;
-    currentMeasurementJacobian( 1, 7 ) = 1.0;
-    currentMeasurementJacobian( 2, 8 ) = 1.0;
+    Eigen::Matrix< double, 1, 12 > currentMeasurementJacobian = Eigen::Matrix< double, 1, 12 >::Zero( );
 
     // Add terms due to altitude
-    currentMeasurementJacobian.block( 3, 0, 1, 3 ) = currentEstimatedState.segment( 0, 3 ).normalized( ).transpose( );
+    currentMeasurementJacobian.block( 0, 0, 1, 3 ) = currentEstimatedState.segment( 0, 3 ).normalized( ).transpose( );
 
     // Give output
     return currentMeasurementJacobian;

@@ -141,8 +141,10 @@ public:
      *  Function to create navigation objects for onboard state estimation. This function should be called before any feature of
      *  the navigation system is used, as it creates most of the objects that are needed for state estimation (i.e., navigation
      *  filter, root-finder, onboard integrator and propagator settings).
+     *  \param accelerometerMeasurementFunction Function returning the current accelerometer measurement, taken directly from the
+     *      onboard IMU sensors.
      */
-    void createNavigationSystemObjects( );
+    void createNavigationSystemObjects( const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to determine the navigation phase.
     NavigationPhaseIndicator determineNavigationPhase( )
@@ -175,7 +177,7 @@ public:
     }
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const Eigen::Vector3d& currentExternalMeasurementVector,
+    void runStateEstimator( const Eigen::Vector1d& currentExternalMeasurementVector,
                             const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
     {
         // Add maneuver if requested
@@ -857,16 +859,18 @@ private:
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to model the onboard system dynamics based on the simplified onboard model.
-    Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
+    Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState,
+                                         const Eigen::Vector3d& currentAccelerometerMeasurement );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
-    Eigen::Vector4d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
+    Eigen::Vector1d onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
-    Eigen::Matrix12d onboardSystemJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
+    Eigen::Matrix12d onboardSystemJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState,
+                                            const Eigen::Vector3d& currentAccelerometerMeasurement );
 
     //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-    Eigen::Matrix< double, 4, 12 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
+    Eigen::Matrix< double, 1, 12 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
