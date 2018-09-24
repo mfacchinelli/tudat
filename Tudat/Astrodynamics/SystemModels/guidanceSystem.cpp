@@ -83,6 +83,7 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
 
     // Improve the estimate if magnitude is large enough
     double estimatedApoapsisManeuverMagnitude;
+    std::cerr << "Maneuver improvement is OFF." << std::endl;
 //    if ( improveEstimateWithBisection && ( std::fabs( nominalApoapsisManeuverMagnitude ) > 0.15 ) ) // 0.15 N is an empirical value
 //    {
 //        // Try using root-finder to improve estimate

@@ -254,9 +254,9 @@ void NavigationSystem::runPeriapseTimeEstimator(
     Eigen::Vector6d estimatedKeplerianStateAtNextApoapsis =
             orbital_element_conversions::convertCartesianToKeplerianElements(
                 estimatedCartesianStateAtNextApoapsis, planetaryGravitationalParameter_ );
-    std::cout << "Propagated: " << estimatedKeplerianStateAtNextApoapsis.transpose( ) << std::endl
-              << "Initial: " << currentEstimatedKeplerianState_.transpose( ) << std::endl
-              << "Previous: " << estimatedKeplerianStateAtPreviousApoapsis_.transpose( ) << std::endl;
+//    std::cout << "Propagated: " << estimatedKeplerianStateAtNextApoapsis.transpose( ) << std::endl
+//              << "Initial: " << currentEstimatedKeplerianState_.transpose( ) << std::endl
+//              << "Previous: " << estimatedKeplerianStateAtPreviousApoapsis_.transpose( ) << std::endl;
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double estimatedChangeInVelocity = - periapseEstimatorConstant_ * numerical_quadrature::performExtendedSimpsonsQuadrature(
@@ -286,7 +286,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // Compute estimated change in eccentricity due to change in velocity
     // The same assumption as for the case above holds
     double estimatedChangeInEccentricityDueToChangeInVelocity = 2.0 * std::sqrt( estimatedKeplerianStateAtPreviousApoapsis_[ 0 ] *
-            ( 1 - std::pow( estimatedKeplerianStateAtPreviousApoapsis_[ 1 ], 2 ) ) / planetaryGravitationalParameter_ ) *
+            ( 1.0 - std::pow( estimatedKeplerianStateAtPreviousApoapsis_[ 1 ], 2 ) ) / planetaryGravitationalParameter_ ) *
             estimatedChangeInVelocity;
     std::cout << "Estimated Change in Eccentricity: " <<
                  estimatedChangeInEccentricityDueToChangeInVelocity << std::endl;
@@ -301,7 +301,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // Combine errors to produce a vector of estimated error in Keplerian state
     Eigen::Vector6d estimatedErrorInKeplerianState = Eigen::Vector6d::Zero( );
     estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
-//    estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
+    estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
 //    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
