@@ -585,6 +585,12 @@ public:
     //! Function to retireve the frequency (in days) with which Deep Space Network tracking has to be performed.
     unsigned int getFrequencyOfDeepSpaceNetworkTracking( ) { return frequencyOfDeepSpaceNetworkTracking_; }
 
+    void setCurrentTime( const double newCurrentTime )
+    {
+        currentTime_ = newCurrentTime;
+        navigationFilter_->modifyCurrentTime( newCurrentTime );
+    }
+
     //! Function to set current Cartesian state to new value.
     /*!
      *  Function to set current Cartesian state to new value. The value of the Keplerian state is set
@@ -656,7 +662,7 @@ public:
     {
         atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
         navigationRefreshStepSize_ = newNavigationRefreshStepSize;
-        navigationFilter_->resetFilteringStepSize( newNavigationRefreshStepSize );
+        navigationFilter_->modifyFilteringStepSize( newNavigationRefreshStepSize );
     }
 
     //! Function to clear history of estimated states and accelerations for the current orbit.

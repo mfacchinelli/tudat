@@ -104,43 +104,47 @@ public:
      */
 	void updateFilter( const DependentVector& currentMeasurementVector )
     {
-        // Prediction step
-        DependentVector aPrioriStateEstimate = this->predictState( );
-        DependentMatrix currentStateJacobianMatrix;
-        DependentMatrix currentStateNoiseJacobianMatrix;
-        if ( this->isStateToBeIntegrated_ )
-        {
-            std::pair< DependentMatrix, DependentMatrix > discreteTimeJacobians =
-                    discreteTimeStateJacobians_( aPrioriStateEstimate );
-            currentStateJacobianMatrix = discreteTimeJacobians.first;
-            currentStateNoiseJacobianMatrix = discreteTimeJacobians.second;
-        }
-        else
-        {
-            currentStateJacobianMatrix = stateJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
-            currentStateNoiseJacobianMatrix = stateNoiseJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
-        }
-        DependentVector measurementEstimate = this->measurementFunction_( this->currentTime_, aPrioriStateEstimate );
-
-        // Compute remaining Jacobians
-        DependentMatrix currentMeasurementJacobianMatrix = measurementJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
-        DependentMatrix currentMeasurementNoiseJacobianMatrix = measurementNoiseJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
-
-        // Prediction step (continued)
-        DependentMatrix aPrioriCovarianceEstimate = currentStateJacobianMatrix * this->aPosterioriCovarianceEstimate_ *
-                currentStateJacobianMatrix.transpose( ) + currentStateNoiseJacobianMatrix * this->systemUncertainty_ *
-                currentStateNoiseJacobianMatrix.transpose( );
-
-        // Compute Kalman gain
-        DependentMatrix kalmanGain = aPrioriCovarianceEstimate * currentMeasurementJacobianMatrix.transpose( ) * (
-                    currentMeasurementJacobianMatrix * aPrioriCovarianceEstimate * currentMeasurementJacobianMatrix.transpose( ) +
-                    currentMeasurementNoiseJacobianMatrix * this->measurementUncertainty_ *
-                    currentMeasurementNoiseJacobianMatrix.transpose( ) ).inverse( );
-
-        // Correction step
+        this->aPosterioriStateEstimate_ = this->predictState( );
         this->currentTime_ += this->filteringStepSize_;
-        this->correctState( aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
-        this->correctCovariance( aPrioriCovarianceEstimate, currentMeasurementJacobianMatrix, kalmanGain );
+        this->historyOfStateEstimates_[ this->currentTime_ ] = this->aPosterioriStateEstimate_;
+        this->historyOfCovarianceEstimates_[ this->currentTime_ ] = this->aPosterioriCovarianceEstimate_;
+//        // Prediction step
+//        DependentVector aPrioriStateEstimate = this->predictState( );
+//        DependentMatrix currentStateJacobianMatrix;
+//        DependentMatrix currentStateNoiseJacobianMatrix;
+//        if ( this->isStateToBeIntegrated_ )
+//        {
+//            std::pair< DependentMatrix, DependentMatrix > discreteTimeJacobians =
+//                    discreteTimeStateJacobians_( aPrioriStateEstimate );
+//            currentStateJacobianMatrix = discreteTimeJacobians.first;
+//            currentStateNoiseJacobianMatrix = discreteTimeJacobians.second;
+//        }
+//        else
+//        {
+//            currentStateJacobianMatrix = stateJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
+//            currentStateNoiseJacobianMatrix = stateNoiseJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
+//        }
+//        DependentVector measurementEstimate = this->measurementFunction_( this->currentTime_, aPrioriStateEstimate );
+
+//        // Compute remaining Jacobians
+//        DependentMatrix currentMeasurementJacobianMatrix = measurementJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
+//        DependentMatrix currentMeasurementNoiseJacobianMatrix = measurementNoiseJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
+
+//        // Prediction step (continued)
+//        DependentMatrix aPrioriCovarianceEstimate = currentStateJacobianMatrix * this->aPosterioriCovarianceEstimate_ *
+//                currentStateJacobianMatrix.transpose( ) + currentStateNoiseJacobianMatrix * this->systemUncertainty_ *
+//                currentStateNoiseJacobianMatrix.transpose( );
+
+//        // Compute Kalman gain
+//        DependentMatrix kalmanGain = aPrioriCovarianceEstimate * currentMeasurementJacobianMatrix.transpose( ) * (
+//                    currentMeasurementJacobianMatrix * aPrioriCovarianceEstimate * currentMeasurementJacobianMatrix.transpose( ) +
+//                    currentMeasurementNoiseJacobianMatrix * this->measurementUncertainty_ *
+//                    currentMeasurementNoiseJacobianMatrix.transpose( ) ).inverse( );
+
+//        // Correction step
+//        this->currentTime_ += this->filteringStepSize_;
+//        this->correctState( aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
+//        this->correctCovariance( aPrioriCovarianceEstimate, currentMeasurementJacobianMatrix, kalmanGain );
     }
 
 private:

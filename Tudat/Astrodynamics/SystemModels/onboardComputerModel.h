@@ -41,10 +41,9 @@ public:
         instrumentsModel_( instrumentsModel )
     {
         // Define internal variables
-        maneuveringPhaseComplete_ = false; // simulation starts at apoapsis with possible need to perform a maneuver
-        atmosphericPhaseComplete_ = true;
+        maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with possible need to perform a maneuver
+        atmosphericPhaseComplete_ = false;
         performManeuverOnNextCall_ = false;
-
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
 
         // Create navigation system objects
@@ -77,7 +76,8 @@ public:
         bool isPropagationToBeStopped = false;
 
         // Check whether current step has already been performed
-        if ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) )
+        if ( std::fabs( currentTime - ( navigationSystem_->getCurrentTime( ) +
+                                        navigationSystem_->getNavigationRefreshStepSize( ) ) ) <= 1.0e-6 )
         {
             // Extract measurements
             Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
@@ -222,6 +222,8 @@ public:
 
             // Save current value of propagation termination index
             previousIsPropagationToBeStopped_ = isPropagationToBeStopped;
+
+            navigationSystem_->setCurrentTime( currentTime );
         }
         else
         {
