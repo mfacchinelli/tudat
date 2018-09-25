@@ -77,7 +77,7 @@ public:
 
         // Check whether current step has already been performed
         if ( std::fabs( currentTime - ( navigationSystem_->getCurrentTime( ) +
-                                        navigationSystem_->getNavigationRefreshStepSize( ) ) ) <= 1.0e-6 )
+                                        navigationSystem_->getNavigationRefreshStepSize( ) ) ) <= 1.0e-5 )
         {
             // Extract measurements
             Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
