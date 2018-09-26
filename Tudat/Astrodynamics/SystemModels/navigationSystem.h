@@ -682,7 +682,7 @@ public:
     {
         atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
         navigationRefreshStepSize_ = newNavigationRefreshStepSize;
-        navigationFilter_->resetFilteringStepSize( newNavigationRefreshStepSize );
+        navigationFilter_->modifyFilteringStepSize( newNavigationRefreshStepSize );
     }
 
     //! Function to clear history of estimated states and accelerations for the current orbit.

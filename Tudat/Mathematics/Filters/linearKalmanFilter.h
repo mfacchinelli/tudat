@@ -142,9 +142,9 @@ public:
                     this->measurementUncertainty_ ).inverse( );
 
         // Correction step
+        this->currentTime_ += this->filteringStepSize_;
         this->correctState( aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
         this->correctCovariance( aPrioriCovarianceEstimate, currentMeasurementMatrix, kalmanGain );
-        this->currentTime_ += this->filteringStepSize_;
     }
 
 private:
