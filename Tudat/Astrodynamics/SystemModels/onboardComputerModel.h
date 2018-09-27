@@ -80,6 +80,9 @@ public:
         // Check whether current step has already been performed
         if ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) )
         {
+            // Update instrument models
+            instrumentsModel_->updateInstruments( currentTime );
+
             // Extract measurements
             std::vector< Eigen::Vector3d > currentAltimeterMeasurements = instrumentsModel_->getCurrentAltimeterMeasurement( );
 
@@ -187,9 +190,8 @@ public:
                 std::string orbitNumber = std::to_string( navigationSystem_->currentOrbitCounter_ - 1 );
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
-            else if ( ( ( ( currentNavigationPhase != NavigationSystem::iman_navigation_phase ) &&
-                          ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::iman_navigation_phase ) ) &&
-                        ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
+            else if ( navigationSystem_->getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( ) &&
+                      ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) &&
                       !atmosphericPhaseComplete_ ) // check altitude
             {
                 // Inform user
@@ -217,9 +219,6 @@ public:
                 maneuveringPhaseComplete_ = false;
                 atmosphericPhaseComplete_ = true;
             }
-
-            // Update instrument models
-            instrumentsModel_->updateInstruments( currentTime );
 
             // Save current value of propagation termination index
             previousIsPropagationToBeStopped_ = isPropagationToBeStopped;

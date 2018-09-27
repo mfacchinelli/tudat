@@ -624,7 +624,6 @@ private:
         // Get current state of the spacecraft
         double planetaryRadius = bodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( );
         Eigen::Vector3d currentRadialVector = bodyMap_.at( spacecraftName_ )->getPosition( ) - bodyMap_.at( planetName_ )->getPosition( );
-        Eigen::Vector3d currentRadialUnitVector = currentRadialVector.normalized( );
         double currentRadialDistance = currentRadialVector.norm( );
         double currentAltitude = currentRadialDistance - planetaryRadius;
 
@@ -655,12 +654,12 @@ private:
                         altimeterPointingDirectionInAltimeterFrame.at( i );
 
                 // Compute dot product of radial distance and pointing direction (cosine of pointing angle)
-                currentDotProduct = currentRadialUnitVector.dot( altimeterPointingDirectionInInertialFrame );
+                currentDotProduct = currentRadialVector.dot( altimeterPointingDirectionInInertialFrame );
 
                 // Determine pseudo-altitude measurement
-                currentPseudoAltitude = currentRadialDistance * currentDotProduct - std::sqrt(
-                            planetaryRadius * planetaryRadius - currentRadialDistance * currentRadialDistance * (
-                                1.0 - ( currentDotProduct * currentDotProduct ) ) );
+                currentPseudoAltitude = currentDotProduct - std::sqrt(
+                            planetaryRadius * planetaryRadius - currentRadialDistance * currentRadialDistance +
+                            currentDotProduct * currentDotProduct );
 
                 // Add errors to pseudo-altitude value
                 currentPseudoAltitude += produceAltimeterNoise( ) * altimeterAccuracyAsAFunctionOfAltitude( currentAltitude );

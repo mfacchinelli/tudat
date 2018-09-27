@@ -102,7 +102,7 @@ public:
      *  Function to update the filter with the new step data.
      *  \param currentMeasurementVector Vector representing current measurement.
      */
-	void updateFilter( const DependentVector& currentMeasurementVector )
+    void updateFilter( const DependentVector& currentMeasurementVector )
     {
         // Prediction step
         DependentVector aPrioriStateEstimate = this->predictState( );
@@ -121,26 +121,37 @@ public:
             currentStateNoiseJacobianMatrix = stateNoiseJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
         }
         DependentVector measurementEstimate = this->measurementFunction_( this->currentTime_, aPrioriStateEstimate );
+//        std::cout << "x_k_k1: " << aPrioriStateEstimate.transpose( ) << std::endl
+//                  << "A_k: " << std::endl << currentStateJacobianMatrix << std::endl
+//                  << "W_k: " << std::endl << currentStateNoiseJacobianMatrix << std::endl
+//                  << "z_k: " << measurementEstimate.transpose( ) << std::endl
+//                  << "z: " << currentMeasurementVector.transpose( ) << std::endl;
 
         // Compute remaining Jacobians
         DependentMatrix currentMeasurementJacobianMatrix = measurementJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
         DependentMatrix currentMeasurementNoiseJacobianMatrix = measurementNoiseJacobianFunction_( this->currentTime_, aPrioriStateEstimate );
+//        std::cout << "H_k: " << std::endl << currentMeasurementJacobianMatrix << std::endl
+//                  << "V_k: " << std::endl << currentMeasurementNoiseJacobianMatrix << std::endl;
 
         // Prediction step (continued)
         DependentMatrix aPrioriCovarianceEstimate = currentStateJacobianMatrix * this->aPosterioriCovarianceEstimate_ *
                 currentStateJacobianMatrix.transpose( ) + currentStateNoiseJacobianMatrix * this->systemUncertainty_ *
                 currentStateNoiseJacobianMatrix.transpose( );
+//        std::cout << "P_k_k1: " << std::endl << aPrioriCovarianceEstimate << std::endl;
 
         // Compute Kalman gain
         DependentMatrix kalmanGain = aPrioriCovarianceEstimate * currentMeasurementJacobianMatrix.transpose( ) * (
                     currentMeasurementJacobianMatrix * aPrioriCovarianceEstimate * currentMeasurementJacobianMatrix.transpose( ) +
                     currentMeasurementNoiseJacobianMatrix * this->measurementUncertainty_ *
                     currentMeasurementNoiseJacobianMatrix.transpose( ) ).inverse( );
+//        std::cout << "K_k: " << std::endl << kalmanGain << std::endl;
 
         // Correction step
         this->currentTime_ += this->filteringStepSize_;
         this->correctState( aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
         this->correctCovariance( aPrioriCovarianceEstimate, currentMeasurementJacobianMatrix, kalmanGain );
+//        std::cout << "x_k_k: " << this->aPosterioriStateEstimate_.transpose( ) << std::endl
+//                  << "P_k_k: " << std::endl << this->aPosterioriCovarianceEstimate_ << std::endl << std::endl << std::endl;
     }
 
 private:

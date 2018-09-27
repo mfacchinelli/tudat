@@ -30,8 +30,7 @@
 #include "Tudat/SimulationSetup/PropagationSetup/dynamicsSimulator.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; typedef Eigen::Matrix< double, 5, 5 > Matrix5d;
-                  typedef Eigen::Matrix< double, 12, 12 > Matrix12d; }
+namespace Eigen { typedef Eigen::Matrix< double, 9, 1 > Vector9d; typedef Eigen::Matrix< double, 9, 9 > Matrix9d; }
 
 namespace tudat
 {
@@ -41,7 +40,7 @@ namespace system_models
 
 //! Function to remove errors in inertial measurement unit measurements based on the estimated bias and scale factors.
 Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
-                                                                    const Eigen::Vector6d& inertialMeasurementUnitErrors );
+                                                                    const Eigen::Vector3d& inertialMeasurementUnitErrors );
 
 //! Class for the navigation system of an aerobraking maneuver.
 class NavigationSystem
@@ -54,19 +53,16 @@ public:
         cartesian_position_index = 0,
         cartesian_velocity_index = 3,
         accelerometer_bias_index = 6,
-        accelerometer_scale_factor_index = 9,
-        quaternion_real_index = 12,
-        quaternion_imaginary_index = 13,
-        gyroscope_bias_index = 16,
-        gyroscope_scale_factor_index = 19
+        quaternion_real_index = 9,
+        quaternion_imaginary_index = 10,
+        gyroscope_bias_index = 13,
     };
 
     //! Enumeration for navigation phases.
     enum NavigationPhaseIndicator
     {
-        iman_navigation_phase = 0, // only below DAIA, so spacecraft processing power can be spared for something else above altitude
-        imu_calibration_phase = 1, // not regarded as navigation phase, since only used for calibration and during first orbit
-        kepler_navigation_phase = 2
+        unaided_navigation_phase = 0,
+        altimeter_navigation_phase = 1
     };
 
     //! Constructor.
@@ -151,27 +147,20 @@ public:
         previousNavigationPhase_ = currentNavigationPhase_;
 
         // Declare navigation phase indicator and set value to unaided phase
-        NavigationPhaseIndicator detectedNavigationPhase;
-        if ( currentOrbitCounter_ < 2 )
-        {
-            detectedNavigationPhase = imu_calibration_phase;
-        }
-        else
-        {
-            detectedNavigationPhase = kepler_navigation_phase;
-        }
+        NavigationPhaseIndicator detectedNavigationPhase = unaided_navigation_phase;
 
-        // Set current navigation phase to IMAN based on current altitude
-        double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
-                ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) ) + planetaryRadius_;
-        if ( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) < currentDynamicAtmosphericInterfaceRadius )
+        // Set current navigation phase to altimeter-assisted, based on current altitude
+        // Note that here a 5 % contingency is used, to account for a possible error between actual and estimated altitudes
+        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
+        if ( ( currentAltitude > ( 1.05 * altimeterAltitudeRange_.first ) ) &&
+             ( currentAltitude < ( 0.95 * altimeterAltitudeRange_.second ) ) )
         {
-            detectedNavigationPhase = iman_navigation_phase;
+            detectedNavigationPhase = altimeter_navigation_phase;
         }
 
         // Set and give current navigation phase
-        currentNavigationPhase_ = iman_navigation_phase;//detectedNavigationPhase;
-        return currentNavigationPhase_;
+        currentNavigationPhase_ = detectedNavigationPhase;
+        return detectedNavigationPhase;
     }
 
     //! Function to run the State Estimator (SE).
@@ -181,71 +170,56 @@ public:
         if ( int( ( currentTime_ - initialTime_ ) * 10.0 ) % int( 1e3 * 10.0 ) == 0.0 )
             std::cout << currentTime_ - initialTime_ << std::endl;
 
-        // Get current estimated rotation from altimeter frame to inertial frame
-        Eigen::Quaterniond currentEstimatedRotationFromAltimeterToInertialFrame =
-                onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->
-                getRotationQuaternionBetweenFrames( altimeterFrame_, reference_frames::inertial_frame );
-        std::cout << "Q_I^V: " << std::setprecision( 16 ) << linear_algebra::convertQuaternionToVectorFormat(
-                         currentEstimatedRotationFromAltimeterToInertialFrame ).transpose( ) << std::endl;
-
-        // Process altimeter measurements
-        Eigen::VectorXd currentExternalMeasurement;
-        currentExternalMeasurement.resize( 3 * currentAltimeterMeasurements.size( ) );
-        std::cout << "Instrument altitude: " << std::endl;
-        for ( unsigned int i = 0; i < currentAltimeterMeasurements.size( ); i++ )
-        {
-            currentExternalMeasurement.segment( 3 * i, 3 ) =
-                    currentEstimatedRotationFromAltimeterToInertialFrame * currentAltimeterMeasurements.at( i );
-            std::cout << i << ": " << currentExternalMeasurement.segment( 3 * i, 3 ).norm( ) << ", " <<
-                         currentExternalMeasurement.segment( 3 * i, 3 ).transpose( ) << std::endl;
-        }
-
         // Add maneuver if requested
         if ( !scheduledApoapsisManeuver.isZero( ) )
         {
             Eigen::Vector6d currentEstimatedCartesianState = currentEstimatedCartesianState_;
             currentEstimatedCartesianState.segment( 3, 3 ) += scheduledApoapsisManeuver;
             setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
+            updateOnboardModel( );
         }
 
         // Update current state based on the detected navigation phase
         switch ( currentNavigationPhase_ )
         {
-        case kepler_navigation_phase:
+        case unaided_navigation_phase:
         {
-            // Assume Kepler orbit and update true anomaly only
-            Eigen::Vector6d currentEstimatedKeplerianState = currentEstimatedKeplerianState_;
-            currentEstimatedKeplerianState[ 5 ] +=
-                    std::sqrt( planetaryGravitationalParameter_ * currentEstimatedKeplerianState[ 0 ] *
-                    ( 1.0 - currentEstimatedKeplerianState[ 1 ] * currentEstimatedKeplerianState[ 1 ] ) ) /
-                    std::pow( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ), 2 ) * navigationRefreshStepSize_;
+            // Update Cartesian state
+            Eigen::Vector6d currentEstimatedCartesianState = currentEstimatedCartesianState_;
+            Eigen::Vector6d currentEstimatedCartesianStateDerivative;
+            currentEstimatedCartesianStateDerivative.segment( 0, 3 ) = currentEstimatedCartesianState.segment( 3, 3 );
+            currentEstimatedCartesianStateDerivative.segment( 3, 3 ) = currentEstimatedTranslationalAcceleration_;
+            currentEstimatedCartesianState += navigationRefreshStepSize_ * currentEstimatedCartesianStateDerivative;
 
             // Update time
             currentTime_ += navigationRefreshStepSize_;
 
-            // Wrap true anomaly between 0 and 2 PI
-            if ( currentEstimatedKeplerianState[ 5 ] < 0.0 )
-            {
-                currentEstimatedKeplerianState[ 5 ] += 2.0 * mathematical_constants::PI;
-            }
-            else if ( currentEstimatedKeplerianState[ 5 ] > 2.0 * mathematical_constants::PI )
-            {
-                currentEstimatedKeplerianState[ 5 ] -= 2.0 * mathematical_constants::PI;
-            }
-
             // Update navigation system
-            setCurrentEstimatedKeplerianState( currentEstimatedKeplerianState );
+            setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
             break;
         }
-        case iman_navigation_phase:
-        case imu_calibration_phase:
+        case altimeter_navigation_phase:
         {
+            // Get current estimated rotation from altimeter frame to inertial frame
+            Eigen::Quaterniond currentEstimatedRotationFromAltimeterToInertialFrame =
+                    onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->
+                    getRotationQuaternionBetweenFrames( altimeterFrame_, reference_frames::inertial_frame );
+
+            // Process altimeter measurements
+            Eigen::VectorXd currentExternalMeasurement;
+            currentExternalMeasurement.resize( 3 * currentAltimeterMeasurements.size( ) );
+            for ( unsigned int i = 0; i < currentAltimeterMeasurements.size( ); i++ )
+            {
+                currentExternalMeasurement.segment( 3 * i, 3 ) =
+                        currentEstimatedRotationFromAltimeterToInertialFrame * currentAltimeterMeasurements.at( i );
+            }
+
             // Update filter
             navigationFilter_->updateFilter( currentExternalMeasurement );
 
             // Extract tiem and estimated state and update navigation system
             currentTime_ = navigationFilter_->getCurrentTime( );
-            Eigen::Vector12d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+            Eigen::Vector9d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
             setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
             break;
         }
@@ -362,7 +336,7 @@ public:
         std::cout << "Propagated state for " << currentLightTimeDelay / 60.0 << " minutes." << std::endl;
 
         // Reset navigation filter (including covariance)
-        Eigen::Matrix12d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+        Eigen::Matrix9d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
         currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
         setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, currentEstimatedCovarianceMatrix );
     }
@@ -432,7 +406,7 @@ public:
     double getCurrentTime( ) { return currentTime_; }
 
     //! Function to retireve current state.
-    Eigen::Vector12d getCurrentEstimatedState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
+    Eigen::Vector9d getCurrentEstimatedState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
 
     //! Function to retrieve the history of estimated states directly from the navigation filter.
     std::map< double, Eigen::VectorXd > getHistoryOfEstimatedStatesFromNavigationFilter( )
@@ -473,6 +447,20 @@ public:
             return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
                         estimatedState.segment( 0, 3 ).norm( ) - planetaryRadius_, 0.0, 0.0, 0.0 );
         }
+    }
+
+    //! Function to retrieve whether the spacecraft altitude is above the dynamic atmospheric interface line.
+    bool getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( )
+    {
+        // Compute current DAIA
+        double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
+                ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) ) + planetaryRadius_;
+
+        // Compute current radial distance
+        double currentRadialDistance = currentEstimatedCartesianState_.segment( 0, 3 ).norm( );
+
+        // Output whether the altitude is below DAIA
+        return ( currentRadialDistance > currentDynamicAtmosphericInterfaceRadius );
     }
 
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
@@ -541,7 +529,7 @@ public:
     }
 
     //! Function to retrieve the estimated accelerometer errors.
-    Eigen::Vector6d getEstimatedAccelerometerErrors( )
+    Eigen::Vector3d getEstimatedAccelerometerErrors( )
     {
         return estimatedAccelerometerErrors_;
     }
@@ -620,7 +608,7 @@ public:
      *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
      */
     void setCurrentEstimatedCartesianState( const Eigen::Vector6d& newCurrentCartesianState,
-                                            const Eigen::Matrix12d& newCurrentCovarianceMatrix = Eigen::Matrix12d::Zero( ) )
+                                            const Eigen::Matrix9d& newCurrentCovarianceMatrix = Eigen::Matrix9d::Zero( ) )
     {
         // Update navigation system current value
         currentEstimatedCartesianState_ = newCurrentCartesianState;
@@ -629,13 +617,13 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector12d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        Eigen::Vector9d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
         navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                      newCurrentCovarianceMatrix );
 
         // Update time in filter if Kepler phase
-        if ( currentNavigationPhase_ == kepler_navigation_phase )
+        if ( currentNavigationPhase_ == unaided_navigation_phase )
         {
             navigationFilter_->modifyCurrentTime( currentTime_ );
         }
@@ -650,7 +638,7 @@ public:
      *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
      */
     void setCurrentEstimatedKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState,
-                                            const Eigen::Matrix12d& newCurrentCovarianceMatrix = Eigen::Matrix12d::Zero( ) )
+                                            const Eigen::Matrix9d& newCurrentCovarianceMatrix = Eigen::Matrix9d::Zero( ) )
     {
         // Update navigation system current value
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
@@ -659,13 +647,13 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector12d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        Eigen::Vector9d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
         navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                      newCurrentCovarianceMatrix );
 
         // Update time in filter if Kepler phase
-        if ( currentNavigationPhase_ == kepler_navigation_phase )
+        if ( currentNavigationPhase_ == unaided_navigation_phase )
         {
             navigationFilter_->modifyCurrentTime( currentTime_ );
         }
@@ -879,19 +867,20 @@ private:
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to model the onboard system dynamics based on the simplified onboard model.
-    Eigen::Vector12d onboardSystemModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState,
-                                         const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
+    Eigen::Vector9d onboardSystemModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+                                        const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
-    Eigen::VectorXd onboardMeasurementModel( const double currentTime, const Eigen::Vector12d& currentEstimatedState,
+    Eigen::VectorXd onboardMeasurementModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
                                              const boost::function< Eigen::Quaterniond( ) > rotationFromAltimeterToInertialFrameFunction );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
-    Eigen::Matrix12d onboardSystemJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState,
-                                            const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
+    Eigen::Matrix9d onboardSystemJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+                                           const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-    Eigen::MatrixXd onboardMeasurementJacobian( const double currentTime, const Eigen::Vector12d& currentEstimatedState );
+    Eigen::MatrixXd onboardMeasurementJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+                                                const boost::function< Eigen::Quaterniond( ) > rotationFromAltimeterToInertialFrameFunction );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
@@ -1069,7 +1058,7 @@ private:
     Eigen::Vector3d currentEstimatedNonGravitationalTranslationalAcceleration_;
 
     //! Vector denoting the bias and scale errors of the accelerometer after calibration.
-    Eigen::Vector6d estimatedAccelerometerErrors_;
+    Eigen::Vector3d estimatedAccelerometerErrors_;
 
     //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
     std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;

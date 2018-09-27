@@ -26,11 +26,9 @@ namespace system_models
 
 //! Function to remove errors in inertial measurement unit measurements based on the estimated bias and scale factors.
 Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen::Vector3d& currentInertialMeasurementUnitMeasurement,
-                                                                    const Eigen::Vector6d& inertialMeasurementUnitErrors )
+                                                                    const Eigen::Vector3d& inertialMeasurementUnitErrors )
 {
-    return ( Eigen::Matrix3d::Identity( ) -
-             Eigen::Matrix3d( inertialMeasurementUnitErrors.segment( 3, 3 ).asDiagonal( ) ) ) * // binomial approximation
-            ( currentInertialMeasurementUnitMeasurement - inertialMeasurementUnitErrors.segment( 0, 3 ) );
+    return currentInertialMeasurementUnitMeasurement - inertialMeasurementUnitErrors;
 }
 
 //! Function to create navigation objects for onboard state estimation.
@@ -53,10 +51,10 @@ void NavigationSystem::createNavigationSystemObjects( const boost::function< Eig
                     boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2, accelerometerMeasurementFunction ),
                     boost::bind( &NavigationSystem::onboardMeasurementModel, this, _1, _2, rotationFromAltimeterToInertialFrameFunction ),
                     boost::bind( &NavigationSystem::onboardSystemJacobian, this, _1, _2, accelerometerMeasurementFunction ),
-                    boost::lambda::constant( Eigen::Matrix12d::Identity( ) ),
-                    boost::bind( &NavigationSystem::onboardMeasurementJacobian, this, _1, _2 ),
-                    boost::lambda::constant( Eigen::MatrixXd::Identity( altimeterPointingDirectionInAltimeterFrame_.size( ),
-                                                                        altimeterPointingDirectionInAltimeterFrame_.size( ) ) ) );
+                    boost::lambda::constant( Eigen::Matrix9d::Identity( ) ),
+                    boost::bind( &NavigationSystem::onboardMeasurementJacobian, this, _1, _2, rotationFromAltimeterToInertialFrameFunction ),
+                    boost::lambda::constant( Eigen::MatrixXd::Identity( 3 * altimeterPointingDirectionInAltimeterFrame_.size( ),
+                                                                        3 * altimeterPointingDirectionInAltimeterFrame_.size( ) ) ) );
         break;
     }
     case filters::unscented_kalman_filter:
@@ -79,7 +77,7 @@ void NavigationSystem::createNavigationSystemObjects( const boost::function< Eig
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );
     atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 20.0;
-    Eigen::Vector12d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+    Eigen::Vector9d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial translational state
     setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
@@ -153,12 +151,12 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
 
     // Extract current variable history
     std::vector< std::vector< double > > currentVariableHistory;
-    currentVariableHistory.resize( 6 );
+    currentVariableHistory.resize( estimatedAccelerometerErrors_.size( ) );
     std::map< double, Eigen::VectorXd > currentOrbitNavigationFilterEstimatedState = navigationFilter_->getEstimatedStateHistory( );
     for ( std::map< double, Eigen::VectorXd >::const_iterator stateHistoryIterator = currentOrbitNavigationFilterEstimatedState.begin( );
           stateHistoryIterator != currentOrbitNavigationFilterEstimatedState.end( ); stateHistoryIterator++ )
     {
-        for ( unsigned int i = 0; i < 6; i++ )
+        for ( unsigned int i = 0; i < currentVariableHistory.size( ); i++ )
         {
             currentVariableHistory.at( i ).push_back( stateHistoryIterator->second[ i + 6 ] );
         }
@@ -257,7 +255,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
                 boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
                     propagators::keplerian_state_dependent_variable, spacecraftName_, planetName_, 5 ),
                 mathematical_constants::PI, false, true,
-                    boost::make_shared< root_finders::RootFinderSettings >( root_finders::bisection_root_finder, 0.001, 25 ) );
+                boost::make_shared< root_finders::RootFinderSettings >( root_finders::bisection_root_finder, 0.001, 25 ) );
 
     Eigen::Vector6d estimatedCartesianStateAtNextApoapsis =
             propagateTranslationalStateWithCustomTerminationSettings( terminationSettings ).second.first.rbegin( )->second;
@@ -323,7 +321,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
 
     // Update navigation system state estimates
-    Eigen::Matrix12d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+    Eigen::Matrix9d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
     currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
     setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState );//, currentEstimatedCovarianceMatrix );
     // the covariance matrix is reset to the identity, since the new state is improved in accuracy
@@ -522,14 +520,14 @@ void NavigationSystem::runAtmosphereEstimator(
 }
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector12d NavigationSystem::onboardSystemModel(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedState,
+Eigen::Vector9d NavigationSystem::onboardSystemModel(
+        const double currentTime, const Eigen::Vector9d& currentEstimatedState,
         const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare state derivative vector
-    Eigen::Vector12d currentStateDerivative = Eigen::Vector12d::Zero( );
+    Eigen::Vector9d currentStateDerivative = Eigen::Vector9d::Zero( );
 
     // Translational kinematics
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedState.segment( 3, 3 );
@@ -538,7 +536,7 @@ Eigen::Vector12d NavigationSystem::onboardSystemModel(
     currentStateDerivative.segment( 3, 3 ) =
             getCurrentEstimatedGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) ) +
             removeErrorsFromInertialMeasurementUnitMeasurement( accelerometerMeasurementFunction( ),
-                                                                currentEstimatedState.segment( 6, 6 ) );
+                                                                currentEstimatedState.segment( 6, 3 ) );
 
     // Give output
     return currentStateDerivative;
@@ -546,7 +544,7 @@ Eigen::Vector12d NavigationSystem::onboardSystemModel(
 
 //! Function to model the onboard measurements based on the simplified onboard model.
 Eigen::VectorXd NavigationSystem::onboardMeasurementModel(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedState,
+        const double currentTime, const Eigen::Vector9d& currentEstimatedState,
         const boost::function< Eigen::Quaterniond( ) > rotationFromAltimeterToInertialFrameFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
@@ -558,14 +556,16 @@ Eigen::VectorXd NavigationSystem::onboardMeasurementModel(
     // Get current estimated state
     Eigen::Vector3d currentRadialVector = currentEstimatedState.segment( 0, 3 );
     double currentRadialDistance = currentRadialVector.norm( );
-    Eigen::Vector3d currentRadialUnitVector = currentRadialVector / currentRadialDistance;
 
-    // Loop over each altimeter
+    // Pre-allocate variables
     Eigen::Quaterniond currentEstimatedRotationFromAltimeterToInertialFrame = rotationFromAltimeterToInertialFrameFunction( );
     Eigen::Vector3d altimeterPointingDirectionInInertialFrame;
     double currentDotProduct;
     double currentPseudoAltitude;
-    std::cout << "Model altitude: " << std::endl;
+
+    // Loop over each altimeter
+    //    std::cout << "Model altitude: " << std::endl;
+    //    std::cout << currentEstimatedState.segment( 0, 6 ).transpose( ) << std::endl;
     for ( unsigned int i = 0; i < altimeterPointingDirectionInAltimeterFrame_.size( ); i++ )
     {
         // Transform pointing direction to inertial frame
@@ -573,16 +573,18 @@ Eigen::VectorXd NavigationSystem::onboardMeasurementModel(
                 altimeterPointingDirectionInAltimeterFrame_.at( i );
 
         // Compute dot product of radial distance and pointing direction (cosine of pointing angle)
-        currentDotProduct = currentRadialUnitVector.dot( altimeterPointingDirectionInInertialFrame );
+        currentDotProduct = currentRadialVector.dot( altimeterPointingDirectionInInertialFrame );
 
         // Determine pseudo-altitude measurement
-        currentPseudoAltitude = currentRadialDistance * currentDotProduct - std::sqrt(
-                    planetaryRadius_ * planetaryRadius_ - currentRadialDistance * currentRadialDistance * ( 1.0 - currentDotProduct ) );
+        currentPseudoAltitude = currentDotProduct - std::sqrt(
+                    planetaryRadius_ * planetaryRadius_ - currentRadialDistance * currentRadialDistance +
+                    currentDotProduct * currentDotProduct );
 
         // Transform pseudo-altitude in vector format (in inertial frame)
         currentMeasurement.segment( 3 * i, 3 ) = currentPseudoAltitude * altimeterPointingDirectionInInertialFrame;
-        std::cout << i << ": " << currentMeasurement.segment( 3 * i, 3 ).norm( ) << ", " <<
-                     currentMeasurement.segment( 3 * i, 3 ).transpose( ) << std::endl;
+        //        std::cout << i << ": " << currentMeasurement.segment( 3 * i, 3 ).norm( ) << ", " <<
+        //                     currentMeasurement.segment( 3 * i, 3 ).transpose( ) << std::endl
+        //                  << altimeterPointingDirectionInInertialFrame.transpose( ) << std::endl;
     }
 
     // Return quaternion vector
@@ -590,14 +592,14 @@ Eigen::VectorXd NavigationSystem::onboardMeasurementModel(
 }
 
 //! Function to model the onboard system Jacobian based on the simplified onboard model.
-Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedState,
+Eigen::Matrix9d NavigationSystem::onboardSystemJacobian(
+        const double currentTime, const Eigen::Vector9d& currentEstimatedState,
         const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare Jacobian matrix and set to zero
-    Eigen::Matrix12d currentSystemJacobian = Eigen::Matrix12d::Zero( );
+    Eigen::Matrix9d currentSystemJacobian = Eigen::Matrix9d::Zero( );
 
     // Add terms due to velocity
     currentSystemJacobian( 0, 3 ) = 1.0;
@@ -605,25 +607,10 @@ Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
     currentSystemJacobian( 2, 5 ) = 1.0;
 
     // Add terms due to spherical harmonics acceleration
-    currentSystemJacobian.block( 3, 0, 3, 3 ) =
-            onboardGravitationalAccelerationPartials_->getCurrentSphericalHarmonicsAccelerationPartial( );
+    currentSystemJacobian.block( 3, 0, 3, 3 ) = onboardGravitationalAccelerationPartials_->getCurrentSphericalHarmonicsAccelerationPartial( );
 
     // Add terms due to aerodynamic acceleration
-    Eigen::Matrix< double, 3, 6 > aerodynamicAccelerationPartial =
-            onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
-    Eigen::Vector3d scaleFactor = Eigen::Vector3d::Ones( ) + currentEstimatedState.segment( 9, 3 );
-    for ( unsigned int i = 0; i < 6; i++ )
-    {
-        // Multiply by scaling factor
-        aerodynamicAccelerationPartial.block( 0, i, 3, 1 ) = aerodynamicAccelerationPartial.block( 0, i, 3, 1 ).cwiseProduct( scaleFactor );
-    }
-    currentSystemJacobian.block( 3, 0, 3, 6 ) += aerodynamicAccelerationPartial;
-
-    // Add terms due to accelerometer scaling error
-    Eigen::Vector3d currentAccelerometerMeasurement = accelerometerMeasurementFunction( );
-    currentSystemJacobian( 3, 9 ) = currentAccelerometerMeasurement[ 0 ];
-    currentSystemJacobian( 4, 10 ) = currentAccelerometerMeasurement[ 1 ];
-    currentSystemJacobian( 5, 11 ) = currentAccelerometerMeasurement[ 2 ];
+    currentSystemJacobian.block( 3, 0, 3, 6 ) += onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
 
     // Add terms due to accelerometer bias error
     currentSystemJacobian( 3, 6 ) = 1.0;
@@ -636,7 +623,8 @@ Eigen::Matrix12d NavigationSystem::onboardSystemJacobian(
 
 //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
 Eigen::MatrixXd NavigationSystem::onboardMeasurementJacobian(
-        const double currentTime, const Eigen::Vector12d& currentEstimatedState )
+        const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+        const boost::function< Eigen::Quaterniond( ) > rotationFromAltimeterToInertialFrameFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -645,10 +633,44 @@ Eigen::MatrixXd NavigationSystem::onboardMeasurementJacobian(
     currentMeasurementJacobian.resize( 3 * altimeterPointingDirectionInAltimeterFrame_.size( ), 12 );
     currentMeasurementJacobian.setZero( );
 
-    // Add terms due to altitude
-//    currentMeasurementJacobian.block( 0, 0, 1, 3 ) = currentEstimatedState.segment( 0, 3 ).normalized( ).transpose( );
+    // Get current estimated state
+    Eigen::Vector3d currentRadialVector = currentEstimatedState.segment( 0, 3 );
+    double currentRadialDistance = currentRadialVector.norm( );
+
+    // Pre-allocate variables
+    Eigen::Quaterniond currentEstimatedRotationFromAltimeterToInertialFrame = rotationFromAltimeterToInertialFrameFunction( );
+    Eigen::Vector3d altimeterPointingDirectionInInertialFrame;
+    double denominator;
+    double currentDotProduct;
+
+    // Loop over each altimeter
+    for ( unsigned int i = 0; i < altimeterPointingDirectionInAltimeterFrame_.size( ); i++ )
+    {
+        // Transform pointing direction to inertial frame
+        altimeterPointingDirectionInInertialFrame = currentEstimatedRotationFromAltimeterToInertialFrame *
+                altimeterPointingDirectionInAltimeterFrame_.at( i );
+
+        // Compute dot product of radial distance and pointing direction (cosine of pointing angle)
+        currentDotProduct = currentRadialVector.dot( altimeterPointingDirectionInInertialFrame );
+        denominator = std::sqrt( planetaryRadius_ * planetaryRadius_ -
+                                 currentRadialDistance * currentRadialDistance + currentDotProduct * currentDotProduct );
+
+        // Compute Jacobian
+        double currentPseudoAltitudeDerivative;
+        for ( unsigned int n = 0; n < 3; n++ )
+        {
+            currentPseudoAltitudeDerivative = altimeterPointingDirectionInInertialFrame[ n ] - (
+                        currentDotProduct * altimeterPointingDirectionInInertialFrame[ n ] -
+                        currentEstimatedState[ n ] ) / denominator;
+            for ( unsigned int m = 0; m < 3; m++ )
+            {
+                currentMeasurementJacobian( 3 * i + m, n ) = altimeterPointingDirectionInInertialFrame[ m ] * currentPseudoAltitudeDerivative;
+            }
+        }
+    }
 
     // Give output
+    //    std::cout << currentMeasurementJacobian << std::endl;
     return currentMeasurementJacobian;
 }
 
