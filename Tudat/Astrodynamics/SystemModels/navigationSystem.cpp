@@ -630,7 +630,7 @@ Eigen::MatrixXd NavigationSystem::onboardMeasurementJacobian(
 
     // Declare Jacobian matrix and set to zero
     Eigen::MatrixXd currentMeasurementJacobian;
-    currentMeasurementJacobian.resize( 3 * altimeterPointingDirectionInAltimeterFrame_.size( ), 12 );
+    currentMeasurementJacobian.resize( 3 * altimeterPointingDirectionInAltimeterFrame_.size( ), 9 );
     currentMeasurementJacobian.setZero( );
 
     // Get current estimated state

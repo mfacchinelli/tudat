@@ -87,15 +87,13 @@ public:
             std::vector< Eigen::Vector3d > currentAltimeterMeasurements = instrumentsModel_->getCurrentAltimeterMeasurement( );
 
             // Update filter to current time
-            NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
+            navigationSystem_->determineNavigationPhase( );
             if ( performManeuverOnNextCall_ )
             {
                 // Feed maneuver to the navigation system and update filter
+                performManeuverOnNextCall_ = false; // reset flag
                 navigationSystem_->runStateEstimator( currentAltimeterMeasurements,
                                                       controlSystem_->getScheduledApoapsisManeuver( ) );
-
-                // Reset flag
-                performManeuverOnNextCall_ = false;
             }
             else
             {
@@ -116,7 +114,7 @@ public:
                 deepSpaceNetworkTrackingInformation_.second = currentDay;
             }
 
-            // Access current state and extract interesting variables
+            // Access current state and extract true anomaly
             std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
             double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
 
@@ -151,13 +149,13 @@ public:
                 // If propagation is to be stopped, to add Delta V to state, run remaining pre-maneuver processes
                 if ( isPropagationToBeStopped )
                 {
+                    // Set flag to add maneuver on next time step
+                    performManeuverOnNextCall_ = true;
+
                     // Run maneuver estimator
                     guidanceSystem_->runManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
                                                            navigationSystem_->getCurrentEstimatedMeanMotion( ),
                                                            navigationSystem_->getRadius( ) );
-
-                    // Set flag to add maneuver on next time step
-                    performManeuverOnNextCall_ = true;
 
                     // Feed maneuver to the control system
                     controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
@@ -191,8 +189,7 @@ public:
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
             else if ( navigationSystem_->getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( ) &&
-                      ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) &&
-                      !atmosphericPhaseComplete_ ) // check altitude
+                      ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) && !atmosphericPhaseComplete_ ) // check altitude
             {
                 // Inform user
                 std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;

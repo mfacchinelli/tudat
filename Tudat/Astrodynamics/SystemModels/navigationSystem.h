@@ -816,8 +816,7 @@ private:
         }
 
         // Store acceleration value
-        currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] =
-                currentEstimatedTranslationalAcceleration_;
+        currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] = currentEstimatedTranslationalAcceleration_;
         currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_[ currentTime_ ] =
                 currentEstimatedGravitationalTranslationalAcceleration_;
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
