@@ -41,8 +41,8 @@ public:
         instrumentsModel_( instrumentsModel )
     {
         // Define internal variables
-        maneuveringPhaseComplete_ = true; // simulation starts at apoapsis with possible need to perform a maneuver
-        atmosphericPhaseComplete_ = false;
+        maneuveringPhaseComplete_ = false; // simulation starts at apoapsis with possible need to perform a maneuver
+        atmosphericPhaseComplete_ = true;
         performManeuverOnNextCall_ = false;
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
 
@@ -79,6 +79,9 @@ public:
         if ( std::fabs( currentTime - ( navigationSystem_->getCurrentTime( ) +
                                         navigationSystem_->getNavigationRefreshStepSize( ) ) ) <= 1.0e-5 )
         {
+            // Update instrument models
+            instrumentsModel_->updateInstruments( currentTime );
+
             // Extract measurements
             Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
 
@@ -87,11 +90,9 @@ public:
             if ( performManeuverOnNextCall_ )
             {
                 // Feed maneuver to the navigation system and update filter
+                performManeuverOnNextCall_ = false; // reset flag
                 navigationSystem_->runStateEstimator( currentExternalMeasurementVector,
                                                       controlSystem_->getScheduledApoapsisManeuver( ) );
-
-                // Reset flag
-                performManeuverOnNextCall_ = false;
             }
             else
             {
@@ -147,13 +148,13 @@ public:
                 // If propagation is to be stopped, to add Delta V to state, run remaining pre-maneuver processes
                 if ( isPropagationToBeStopped )
                 {
+                    // Set flag to add maneuver on next function call
+                    performManeuverOnNextCall_ = true;
+
                     // Run maneuver estimator
                     guidanceSystem_->runManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
                                                            navigationSystem_->getCurrentEstimatedMeanMotion( ),
                                                            navigationSystem_->getRadius( ) );
-
-                    // Set flag to add maneuver on next time step
-                    performManeuverOnNextCall_ = true;
 
                     // Feed maneuver to the control system
                     controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
@@ -216,9 +217,6 @@ public:
                 maneuveringPhaseComplete_ = false;
                 atmosphericPhaseComplete_ = true;
             }
-
-            // Update instrument models
-            instrumentsModel_->updateInstruments( currentTime );
 
             // Save current value of propagation termination index
             previousIsPropagationToBeStopped_ = isPropagationToBeStopped;
