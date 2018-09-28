@@ -8,7 +8,6 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-
 #ifndef TUDAT_ENVIRONMENTUPDATETYPES_H
 #define TUDAT_ENVIRONMENTUPDATETYPES_H
 
@@ -49,4 +48,5 @@ void addEnvironmentUpdates(
 } // namespace propagators
 
 } // namespace tudat
+
 #endif // TUDAT_ENVIRONMENTUPDATETYPES_H

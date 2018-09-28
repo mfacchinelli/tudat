@@ -70,21 +70,21 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
     double differenceInPeriapsisAltitude = std::get< 2 >( periapsisTargetingInformation_ ) - predictedPeriapsisAltitude;
 
     // Compute estimated maneuver in y-direction of local orbit frame
-    double nominalApoapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInPeriapsisAltitude * std::sqrt(
+    double preliminaryApoapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInPeriapsisAltitude * std::sqrt(
                 ( 1.0 + currentEstimatedKeplerianState[ 1 ] ) / ( 1.0 - currentEstimatedKeplerianState[ 1 ] ) );
-    std::cout << "Nominal magnitude: " << nominalApoapsisManeuverMagnitude << " m/s" << std::endl;
+    std::cout << "Preliminary magnitude: " << preliminaryApoapsisManeuverMagnitude << " m/s" << std::endl;
 
     // Compute transformation from local to inertial frame
     Eigen::Matrix3d transformationFromLocalToInertialFrame =
             computeCurrentRotationFromLocalToInertialFrame( currentEstimatedCartesianState );
 
     // Set root-finder boundaries for the maneuver estimation
-    maneuverBisectionRootFinder_->resetBoundaries( 2.0 * nominalApoapsisManeuverMagnitude, 0.5 * nominalApoapsisManeuverMagnitude );
+    maneuverBisectionRootFinder_->resetBoundaries( 2.0 * preliminaryApoapsisManeuverMagnitude, 0.5 * preliminaryApoapsisManeuverMagnitude );
 
     // Improve the estimate if magnitude is large enough
     double estimatedApoapsisManeuverMagnitude;
     std::cerr << "Maneuver improvement is OFF." << std::endl;
-//    if ( improveEstimateWithBisection && ( std::fabs( nominalApoapsisManeuverMagnitude ) > 0.15 ) ) // 0.15 N is an empirical value
+//    if ( improveEstimateWithBisection && ( std::fabs( preliminaryApoapsisManeuverMagnitude ) > 0.15 ) ) // 0.15 N is an empirical value
 //    {
 //        // Try using root-finder to improve estimate
 //        try
@@ -96,22 +96,22 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
 //                                         std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius,
 //                                         transformationFromLocalToInertialFrame, periodReducedStatePropagationFunction_ ) ) );
 //            std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
-//                      << "Ratio: " << estimatedApoapsisManeuverMagnitude / nominalApoapsisManeuverMagnitude << std::endl;
+//                      << "Ratio: " << estimatedApoapsisManeuverMagnitude / preliminaryApoapsisManeuverMagnitude << std::endl;
 //        }
 //        catch ( std::runtime_error& caughtException )
 //        {
 //            // Inform user on error
 //            std::cerr << "Error while computing improved estimate for apoapsis maneuver. Caught this exception during root-finder "
 //                         "operation: " << caughtException.what( ) << std::endl
-//                      << "The nominal magnitude will be used to carry out the maneuver." << std::endl;
+//                      << "The preliminary magnitude will be used to carry out the maneuver." << std::endl;
 
-//            // Take nominal magnitude as maneuver magnitude
-//            estimatedApoapsisManeuverMagnitude = nominalApoapsisManeuverMagnitude;
+//            // Take preliminary magnitude as maneuver magnitude
+//            estimatedApoapsisManeuverMagnitude = preliminaryApoapsisManeuverMagnitude;
 //        }
 //    }
 //    else
     {
-        estimatedApoapsisManeuverMagnitude = nominalApoapsisManeuverMagnitude;
+        estimatedApoapsisManeuverMagnitude = preliminaryApoapsisManeuverMagnitude;
     }
 
     // Add magnitude to maneuver vector and save to hisotry

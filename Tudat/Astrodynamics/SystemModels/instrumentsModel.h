@@ -64,6 +64,7 @@ public:
         starTrackerAdded_ = false;
         altimeterAdded_ = false;
         deepSpaceNetworkAdded_ = false;
+        genericRangingSystemAdded_ = false;
 
         // Get index of central body acceleration (which is not measured by the IMUs)
         sphericalHarmonicsGravityIndex_ = static_cast< unsigned int >( TUDAT_NAN );
@@ -152,6 +153,19 @@ public:
                               const double velocityAccuracy,
                               const double lightTimeAccuracy );
 
+    //! Function to add a generic ranging system.
+    /*!
+     *  Function to add a generic ranging system.
+     *  \param positionBias Bias of the ranging system.
+     *  \param positionScaleFactor Scale factor of the ranging system.
+     *  \param positionMisalignment Misalignment of the ranging system.
+     *  \param positionAccuracy Accuracy of ranging system along each direction (3 sigma).
+     */
+    void addGenericRangingSystem( const Eigen::Vector3d& positionBias,
+                                  const Eigen::Vector3d& positionScaleFactor,
+                                  const Eigen::Vector6d& positionMisalignment,
+                                  const Eigen::Vector3d& positionAccuracy );
+
     //! Function to update the onboard instruments to the current time.
     /*!
      *  Function to update the onboard instruments to the current time. Note that this function needs to be called before retrieving
@@ -199,6 +213,13 @@ public:
             {
                 // Update and save Deep Space Network measurement
                 deepSpaceNetworkFunction_( );
+            }
+
+            // Update generic ranging system
+            if ( genericRangingSystemAdded_ )
+            {
+                // Update and save generic ranging system measurement
+                genericRangingSystemFunction_( );
             }
         }
     }
@@ -427,6 +448,25 @@ public:
         }
     }
 
+    //! Function to retrieve current generic ranging system measurement.
+    /*!
+     *  Function to retrieve current generic ranging system measurement.
+     *  \return Vector denoting the current position, affected by noise.
+     */
+    Eigen::Vector3d getCurrentGenericRangingSystemMeasurement( )
+    {
+        // Check that an altimeter is present in the spacecraft
+        if ( genericRangingSystemAdded_ )
+        {
+            return currentPosition_;
+        }
+        else
+        {
+            throw std::runtime_error( "Error while retrieving position from onboard instrument system. No "
+                                      "generic ranging system is present." );
+        }
+    }
+
     //! Get history of inertial measurement unit measurements for the current orbit.
     std::map< double, Eigen::Vector6d > getCurrentOrbitHistoryOfInertialMeasurmentUnitMeasurements( )
     {
@@ -596,7 +636,7 @@ private:
     //! Function to retrieve current rotational velocity of the spacecraft.
     void getCurrentRotationalVelocity( const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
     {
-        // Iterate over all accelerations acting on body
+        // Retireve current rotational velocity
         currentRotationalVelocity_ = bodyMap_.at( spacecraftName_ )->getCurrentAngularVelocityVectorInLocalFrame( );
 
         // Add errors to acceleration value
@@ -670,7 +710,7 @@ private:
         }
     }
 
-    //! Function to retrieve current position and velocity of the spacecraft.
+    //! Function to retrieve current Deep Space Network tracking of the spacecraft.
     void getCurrentDeepSpaceNetworkTracking( )
     {
         // Retrieve noise for the current time
@@ -694,6 +734,17 @@ private:
         // is going to produce a slight error. Since Mars is never further than approximately 20 minutes, the error is negligible.
         historyOfDeepSpaceNetworkMeasurements_[ currentTime_ + 2.0 * currentLightTimeDistance ] =
                 std::make_pair( currentLightTimeDistance, currentState );
+    }
+
+    //! Function to retrieve current position of the spacecraft.
+    void getCurrentGenericPosition( const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
+    {
+        // Iterate over all accelerations acting on body
+        currentPosition_ = bodyMap_.at( spacecraftName_ )->getPosition( );
+
+        // Add errors to acceleration value
+        currentPosition_ = scaleMisalignmentMatrix * currentPosition_;
+        currentPosition_.noalias( ) += biasVector + producePositionNoise( );
     }
 
     //! Function to generate the noise distributions for the inertial measurement unit.
@@ -735,6 +786,14 @@ private:
     void generateDeepSpaceNetworkRandomNoiseDistribution( const double positionAccuracy,
                                                           const double velocityAccuracy,
                                                           const double lightTimeAccuracy );
+
+    //! Function to generate the noise distributions for the generic ranging system.
+    /*!
+     *  Function to generate the noise distributions for the generic ranging system, which uses a Gaussian distribution,
+     *  with zero mean and standard deviation given by the accuracy of the position measurement.
+     *  \param positionAccuracy Accuracy of generic ranging system along each axis (3 sigma).
+     */
+    void generateGenericRangingSystemRandomNoiseDistribution( const Eigen::Vector3d& positionAccuracy );
 
     //! Function to produce accelerometer noise.
     /*!
@@ -833,8 +892,8 @@ private:
 
     //! Function to produce Deep Space Network noise.
     /*!
-     *  Function to produce Deep Space Network noise, where the position and velocity accuracies are used three times each, to
-     *  produce a vector of dimension 6, to match the Cartesian coordinate vector.
+     *  Function to produce Deep Space Network noise, where the position and velocity accuracies are used three times each, and
+     *  the light-time accuracy is used once, to produce a vector of size 7.
      *  \return Vector where the noise for the Deep Space Network is stored.
      */
     Eigen::Vector7d produceDeepSpaceNetworkNoise( )
@@ -858,6 +917,30 @@ private:
         // Give back noise
         //        deepSpaceNetworkNoiseHistory_.push_back( deepSpaceNetworkNoise );
         return deepSpaceNetworkNoise;
+    }
+
+    //! Function to produce position noise.
+    /*!
+     *  Function to produce position noise.
+     *  \return Vector where the noise for the generic ranging system is stored.
+     */
+    Eigen::Vector3d producePositionNoise( )
+    {
+        // Declare noise value
+        Eigen::Vector3d positionNoise = Eigen::Vector3d::Zero( );
+
+        // Loop over dimensions and add noise
+        for ( unsigned int i = 0; i < 3; i++ )
+        {
+            if ( positionNoiseDistribution_.at( i ) != nullptr )
+            {
+                positionNoise[ i ] = positionNoiseDistribution_.at( i )->getRandomVariableValue( );
+            }
+        }
+
+        // Give back noise
+        //        positionNoiseHistory_.push_back( positionNoise );
+        return positionNoise;
     }
 
     //! Body map of the simulation.
@@ -887,6 +970,9 @@ private:
     //! Boolean denoting whether Deep Space Network tracking is active.
     bool deepSpaceNetworkAdded_;
 
+    //! Boolean denoting whether a generic ranging system is active.
+    bool genericRangingSystemAdded_;
+
     //! Integer denoting the index of the spherical harmonics gravity exerted by the planet being orbited.
     unsigned int sphericalHarmonicsGravityIndex_;
 
@@ -908,6 +994,9 @@ private:
     //! Vector where the noise generators for the Deep Space Network are stored.
     std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > deepSpaceNetworkNoiseDistribution_;
 
+    //! Vector where the noise generators for the spacecraft position measurement are stored.
+    std::vector< boost::shared_ptr< statistics::RandomVariableGenerator< double > > > positionNoiseDistribution_;
+
     //! Vector denoting current translational accelerations as measured by the accelerometer.
     Eigen::Vector3d currentTranslationalAcceleration_;
 
@@ -917,8 +1006,11 @@ private:
     //! Vector denoting current quaternion to base frame as measured by the star tracker.
     Eigen::Vector4d currentQuaternionToBaseFrame_;
 
-    //! Double denoting current altitude as measured by the altimeter.
+    //! Vector denoting current altitudes as measured by the altimeter.
     std::vector< Eigen::Vector3d > currentAltitude_;
+
+    //! Vector denoting current position as measured by a generic ranging system.
+    Eigen::Vector3d currentPosition_;
 
     //! Function to compute the translational acceleration measured by the inertial measurement unit.
     boost::function< void( ) > inertialMeasurementUnitTranslationalAccelerationFunction_;
@@ -934,6 +1026,9 @@ private:
 
     //! Function to compute the position and velocity measured by the Deep Space Network.
     boost::function< void( ) > deepSpaceNetworkFunction_;
+
+    //! Function to compute the position measured by a generic ranging system.
+    boost::function< void( ) > genericRangingSystemFunction_;
 
     //! Map of translational accelerations and rotational velocities measured by the inertial measurment unit
     //! during the current orbit.

@@ -113,7 +113,7 @@ public:
                 deepSpaceNetworkTrackingInformation_.second = currentDay;
             }
 
-            // Access current state and extract interesting variables
+            // Access current state and extract true anomaly
             std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
             double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
 
@@ -189,8 +189,7 @@ public:
             }
             else if ( ( ( ( currentNavigationPhase != NavigationSystem::iman_navigation_phase ) &&
                           ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::iman_navigation_phase ) ) &&
-                        ( ( currentEstimatedTrueAnomaly >= 0.0 ) && ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) ) &&
-                      !atmosphericPhaseComplete_ ) // check altitude
+                        ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) && !atmosphericPhaseComplete_ ) // check altitude
             {
                 // Inform user
                 std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;

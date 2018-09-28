@@ -163,7 +163,7 @@ public:
         }
 
         // Set and give current navigation phase
-        currentNavigationPhase_ = iman_navigation_phase;//detectedNavigationPhase;
+        currentNavigationPhase_ = detectedNavigationPhase;
         return currentNavigationPhase_;
     }
 

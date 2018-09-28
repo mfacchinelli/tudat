@@ -67,7 +67,7 @@ public:
         // 100 km altitude) and the maximum number of iterations (i.e., 10 iterations)
         altitudeBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( 0.5 / 100.0, 10 );
 
-        // Create root-finder object for bisection of periapsis altitude
+        // Create root-finder object for bisection of maneuver magnitude estimate
         // The values inserted are the tolerance in independent value (i.e., the percentage corresponding to 0.5 km difference at
         // 100 km altitude) and the maximum number of iterations (i.e., 10 iterations)
         maneuverBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( 0.5 / 100.0, 10 );

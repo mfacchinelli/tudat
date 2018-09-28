@@ -166,6 +166,33 @@ void InstrumentsModel::addDeepSpaceNetwork( const double positionAccuracy,
     }
 }
 
+//! Function to add a generic ranging system.
+void InstrumentsModel::addGenericRangingSystem( const Eigen::Vector3d& positionBias,
+                                                const Eigen::Vector3d& positionScaleFactor,
+                                                const Eigen::Vector6d& positionMisalignment,
+                                                const Eigen::Vector3d& positionAccuracy )
+{
+    // Check whether a generic ranging system is already present
+    if ( !genericRangingSystemAdded_ )
+    {
+        // Inertial measurement unit has been created
+        genericRangingSystemAdded_ = true;
+
+        // Generate random noise distribution
+        generateGenericRangingSystemRandomNoiseDistribution( positionAccuracy );
+
+        // Create function for computing corrupted translational accelerations
+        genericRangingSystemFunction_ = boost::bind(
+                    &InstrumentsModel::getCurrentGenericPosition, this, positionBias,
+                    computeScaleMisalignmentMatrix( positionScaleFactor, positionMisalignment ) );
+    }
+    else
+    {
+        throw std::runtime_error( "Error in creation of inertial measurement unit for body " + spacecraftName_ +
+                                  ". An IMU is already present." );
+    }
+}
+
 //! Function to generate the noise distributions for the inertial measurement unit.
 void InstrumentsModel::generateInertialMeasurementUnitRandomNoiseDistribution( const Eigen::Vector3d& accelerometerAccuracy,
                                                                                const Eigen::Vector3d& gyroscopeAccuracy )
@@ -266,6 +293,27 @@ void InstrumentsModel::generateDeepSpaceNetworkRandomNoiseDistribution( const do
         else
         {
             deepSpaceNetworkNoiseDistribution_.push_back( nullptr );
+        }
+    }
+}
+
+//! Function to generate the noise distributions for the generic ranging system.
+void InstrumentsModel::generateGenericRangingSystemRandomNoiseDistribution( const Eigen::Vector3d& positionAccuracy )
+{
+    using namespace tudat::statistics;
+
+    // Create star tracker noise distribution
+    for ( unsigned int i = 0; i < 3; i++ )
+    {
+        if ( positionAccuracy[ i ] != 0.0 )
+        {
+            positionNoiseDistribution_.push_back(
+                        createBoostContinuousRandomVariableGenerator(
+                            normal_boost_distribution, { 0.0, positionAccuracy[ i ] }, 13 + i ) );
+        }
+        else
+        {
+            positionNoiseDistribution_.push_back( nullptr );
         }
     }
 }
