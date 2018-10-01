@@ -75,8 +75,6 @@ enum AerodynamicsReferenceFrameAngles
  */
 std::string getAerodynamicAngleName( const AerodynamicsReferenceFrameAngles angle );
 
-
-
 //! Object to calculate aerodynamic orientation angles from current vehicle state.
 /*!
  *  Object to calculate aerodynamic orientation angles from current vehicle state.
@@ -448,6 +446,7 @@ private:
 
     //! Current rotation matrix from body-fixed to trajectory, as computed by last call to updateAngles function.
      Eigen::Matrix3d currentRotationFromBodyToTrajectoryFrame_;
+
 };
 
 //! Function to make aerodynamic angle computation consistent with imposed body-fixed to inertial rotation.
@@ -486,4 +485,5 @@ void setAerodynamicDependentOrientationCalculatorClosure(
 } // namespace reference_frames
 
 } // namespace tudat
+
 #endif // TUDAT_AERODYNAMICANGLECALCULATOR_H

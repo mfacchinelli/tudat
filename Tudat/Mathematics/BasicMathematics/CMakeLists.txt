@@ -20,7 +20,6 @@ set(BASICMATHEMATICS_SOURCES
   "${SRCROOT}${BASICMATHEMATICSDIR}/coordinateConversions.cpp"
   "${SRCROOT}${BASICMATHEMATICSDIR}/linearAlgebra.cpp"
   "${SRCROOT}${BASICMATHEMATICSDIR}/leastSquaresEstimation.cpp"
-  "${SRCROOT}${BASICMATHEMATICSDIR}/nonLinearLeastSquaresEstimation.cpp"
 )
 
 # Add header files.
@@ -41,7 +40,6 @@ set(BASICMATHEMATICS_HEADERS
   "${SRCROOT}${BASICMATHEMATICSDIR}/linearAlgebra.h"
   "${SRCROOT}${BASICMATHEMATICSDIR}/mathematicalConstants.h"
   "${SRCROOT}${BASICMATHEMATICSDIR}/leastSquaresEstimation.h"
-  "${SRCROOT}${BASICMATHEMATICSDIR}/nonLinearLeastSquaresEstimation.h"
 )
 
 # Add static libraries.
@@ -55,7 +53,8 @@ target_link_libraries(test_MathematicalConstants tudat_basic_mathematics ${Boost
 
 add_executable(test_LinearAlgebra "${SRCROOT}${BASICMATHEMATICSDIR}/UnitTests/unitTestLinearAlgebra.cpp")
 setup_custom_test_program(test_LinearAlgebra "${SRCROOT}${MATHEMATICSDIR}/BasicMathematics")
-target_link_libraries(test_LinearAlgebra tudat_basic_mathematics ${Boost_LIBRARIES})
+target_link_libraries(test_LinearAlgebra tudat_basic_mathematics tudat_input_output tudat_basic_astrodynamics
+    tudat_aerodynamics ${Boost_LIBRARIES})
 
 add_executable(test_CoordinateConversions "${SRCROOT}${BASICMATHEMATICSDIR}/UnitTests/unitTestCoordinateConversions.cpp")
 setup_custom_test_program(test_CoordinateConversions "${SRCROOT}${MATHEMATICSDIR}/BasicMathematics")

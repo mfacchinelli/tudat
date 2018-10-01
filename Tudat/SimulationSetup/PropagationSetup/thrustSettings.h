@@ -50,7 +50,7 @@ enum ThrustDirectionGuidanceTypes
 //! Function to create a list of functions that (compute and) return independent variables for thrust
 /*!
  * Function to create a list of functions that (compute and) return independent variables for thrust and/or specific impulse.
- * This parameterization is used in the thrust mangitude type is thrust_magnitude_from_dependent_variables. This function
+ * This parameterization is used in the thrust magnitude type is thrust_magnitude_from_dependent_variables. This function
  * retrieves all input functions from the environment and a list of user-defined functions.
  * \param bodyWithGuidance Name of body for which the propulsion settings are to be retrieved.
  * \param independentVariables List of variables for which function returning them are to be created. Note that the number

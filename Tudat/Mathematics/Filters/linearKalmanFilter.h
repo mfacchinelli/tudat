@@ -46,12 +46,12 @@ public:
      *  Default constructor. This constructor takes state, control and measurement matrix functions as inputs.
      *  These functions can be a function of time, state and (for state and control matrices) control vector.
      *  \param stateTransitionMatrixFunction Function returning the state transition matrix, as a function
-     *      of time, state and control input.
-     *  \param controlMatrixFunction Function returning the control matrix as a function of time, state and control input.
-     *  \param measurementMatrixFunction Function returning the measurement matrix as a function of time, state and
-     *      control input.
+     *      of time and state vector.
+     *  \param controlMatrixFunction Function returning the control matrix, as a function of time and state vector.
+     *  \param measurementMatrixFunction Function returning the measurement matrix, as a function of time and state vector.
      *  \param systemUncertainty Matrix defining the uncertainty in modeling of the system.
      *  \param measurementUncertainty Matrix defining the uncertainty in modeling of the measurements.
+     *  \param filteringStepSize Scalar representing the value of the constant filtering time step.
      *  \param initialTime Scalar representing the value of the initial time.
      *  \param initialStateVector Vector representing the initial (estimated) state of the system. It is used as first
      *      a-priori estimate of the state vector.
@@ -64,12 +64,13 @@ public:
                         const MatrixFunction& measurementMatrixFunction,
                         const DependentMatrix& systemUncertainty,
                         const DependentMatrix& measurementUncertainty,
+                        const IndependentVariableType filteringStepSize,
                         const IndependentVariableType initialTime,
                         const DependentVector& initialStateVector,
                         const DependentMatrix& initialCovarianceMatrix,
                         const boost::shared_ptr< IntegratorSettings > integratorSettings = nullptr ) :
         KalmanFilterBase< IndependentVariableType, DependentVariableType >( systemUncertainty, measurementUncertainty,
-                                                                            initialTime, initialStateVector,
+                                                                            filteringStepSize, initialTime, initialStateVector,
                                                                             initialCovarianceMatrix, integratorSettings ),
         stateTransitionMatrixFunction_( stateTransitionMatrixFunction ), controlMatrixFunction_( controlMatrixFunction ),
         measurementMatrixFunction_( measurementMatrixFunction )
@@ -90,6 +91,7 @@ public:
      *  \param measurementMatrix Constant matrix representing the measurement matrix.
      *  \param systemUncertainty Matrix defining the uncertainty in modeling of the system.
      *  \param measurementUncertainty Matrix defining the uncertainty in modeling of the measurements.
+     *  \param filteringStepSize Scalar representing the value of the constant filtering time step.
      *  \param initialTime Scalar representing the value of the initial time.
      *  \param initialStateVector Vector representing the initial (estimated) state of the system. It is used as first
      *      a-priori estimate of the state vector.
@@ -102,6 +104,7 @@ public:
                         const DependentMatrix& measurementMatrix,
                         const DependentMatrix& systemUncertainty,
                         const DependentMatrix& measurementUncertainty,
+                        const IndependentVariableType filteringStepSize,
                         const IndependentVariableType initialTime,
                         const DependentVector& initialStateVector,
                         const DependentMatrix& initialCovarianceMatrix,
@@ -109,7 +112,7 @@ public:
         LinearKalmanFilter( boost::lambda::constant( stateTransitionMatrix ),
                             boost::lambda::constant( controlMatrix ),
                             boost::lambda::constant( measurementMatrix ),
-                            systemUncertainty, measurementUncertainty, initialTime, initialStateVector,
+                            systemUncertainty, measurementUncertainty, filteringStepSize, initialTime, initialStateVector,
                             initialCovarianceMatrix, integratorSettings )
     { }
 
@@ -119,18 +122,17 @@ public:
     //! Function to update the filter with the new step data.
     /*!
      *  Function to update the filter with the new step data.
-     *  \param currentTime Scalar representing current time.
      *  \param currentMeasurementVector Vector representing current measurement.
      */
-    void updateFilter( const IndependentVariableType currentTime, const DependentVector& currentMeasurementVector )
+    void updateFilter( const DependentVector& currentMeasurementVector )
     {
         // Compute variables for current step
-        DependentMatrix currentSystemMatrix = stateTransitionMatrixFunction_( currentTime, this->aPosterioriStateEstimate_ );
-        DependentMatrix currentMeasurementMatrix = measurementMatrixFunction_( currentTime, this->aPosterioriStateEstimate_ );
+        DependentMatrix currentSystemMatrix = stateTransitionMatrixFunction_( this->currentTime_, this->aPosterioriStateEstimate_ );
+        DependentMatrix currentMeasurementMatrix = measurementMatrixFunction_( this->currentTime_, this->aPosterioriStateEstimate_ );
 
         // Prediction step
-        DependentVector aPrioriStateEstimate = this->predictState( currentTime );
-        DependentVector measurementEstimate = this->measurementFunction_( currentTime, aPrioriStateEstimate );
+        DependentVector aPrioriStateEstimate = this->predictState( );
+        DependentVector measurementEstimate = this->measurementFunction_( this->currentTime_, aPrioriStateEstimate );
         DependentMatrix aPrioriCovarianceEstimate = currentSystemMatrix * this->aPosterioriCovarianceEstimate_ *
                 currentSystemMatrix.transpose( ) + this->systemUncertainty_;
 
@@ -140,8 +142,9 @@ public:
                     this->measurementUncertainty_ ).inverse( );
 
         // Correction step
-        this->correctState( currentTime, aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
-        this->correctCovariance( currentTime, aPrioriCovarianceEstimate, currentMeasurementMatrix, kalmanGain );
+        this->currentTime_ += this->filteringStepSize_;
+        this->correctState( aPrioriStateEstimate, currentMeasurementVector, measurementEstimate, kalmanGain );
+        this->correctCovariance( aPrioriCovarianceEstimate, currentMeasurementMatrix, kalmanGain );
     }
 
 private:

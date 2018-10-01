@@ -15,6 +15,8 @@
 #include <Eigen/Core>
 
 #include "Tudat/Basics/basicTypedefs.h"
+#include "Tudat/Basics/utilityMacros.h"
+
 #include "Tudat/Mathematics/BasicMathematics/linearAlgebra.h"
 #include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 
@@ -24,7 +26,7 @@ namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; }
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Class for control system of an aerobraking maneuver.
@@ -63,6 +65,17 @@ public:
     //! Clear history of control vectors for the current orbit.
     void clearCurrentOrbitControlHistory( ) { }
 
+    //! Function to revert to the previous time step.
+    /*!
+     *  Function to revert to the previous time step. This function is run if the current propagation needs to be stopped, since
+     *  the current time will be run the next time the GNC system is called.
+     *  \param currentTime Double denoting the current time, i.e., the instant that has to be discarded.
+     */
+    void revertToPreviousTimeStep( const double currentTime )
+    {
+        TUDAT_UNUSED_PARAMETER( currentTime );
+    }
+
 private:
 
     //! Double denoting the proportional gain for the PID attitude controller.
@@ -79,7 +92,7 @@ private:
 
 };
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat
 

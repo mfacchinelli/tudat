@@ -228,6 +228,12 @@ public:
      */
     void update( const double currentTime = TUDAT_NAN );
 
+    //! Function to retrieve the current aerodynamic acceleration partial.
+    Eigen::Matrix< double, 3, 6 > getCurrentAerodynamicAccelerationPartial( )
+    {
+        return currentAccelerationStatePartials_;
+    }
+
 protected:
 
     //! Function to compute the partial derivative of the acceleration w.r.t. the drag coefficient

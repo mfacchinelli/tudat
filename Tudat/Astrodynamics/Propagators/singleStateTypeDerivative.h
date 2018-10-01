@@ -15,6 +15,8 @@
 
 #include <Eigen/Core>
 
+#include <Tudat/Basics/utilityMacros.h>
+
 namespace tudat
 {
 
@@ -198,7 +200,7 @@ public:
      */
     virtual void postProcessState( Eigen::Block< Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > > unprocessedState )
     {
-
+        TUDAT_UNUSED_PARAMETER( unprocessedState );
     }
 
     virtual void postProcessState( Eigen::Matrix< StateScalarType, Eigen::Dynamic, Eigen::Dynamic >& unprocessedState )

@@ -120,6 +120,7 @@ public:
 
     //! Maximum cpu time for the propagation, upon which the propagation is to be stopped
     double cpuTerminationTime_;
+
 };
 
 //! Class for propagation stopping conditions settings: stopping the propagation after a given dependent variable reaches a
@@ -134,6 +135,7 @@ public:
 class PropagationDependentVariableTerminationSettings: public PropagationTerminationSettings
 {
 public:
+
     //! Constructor
     /*!
      * Constructor
@@ -159,7 +161,7 @@ public:
     {
         if( terminateExactlyOnFinalCondition_ && ( terminationRootFinderSettings_ == NULL ) )
         {
-            throw std::runtime_error( "Error when defining exact dependent variable propagation termination settings. Root finder not defined" );
+            throw std::runtime_error( "Error when defining exact dependent variable propagation termination settings. Root finder not defined." );
         }
     }
 
@@ -178,6 +180,7 @@ public:
 
     //! Settings to create root finder used to converge on exact final condition.
     boost::shared_ptr< root_finders::RootFinderSettings > terminationRootFinderSettings_;
+
 };
 
 //! Class for propagation stopping conditions settings: stopping the propagation based on custom requirements
@@ -185,7 +188,7 @@ public:
  *  Class for propagation stopping conditions settings: stopping the propagation after a fixed amount of time. Note that the
  *  propagator will finish a given time step, slightly surpassing the defined final time.
  */
-class CustomTerminationSettings: public PropagationTerminationSettings
+class PropagationCustomTerminationSettings: public PropagationTerminationSettings
 {
 public:
 
@@ -195,12 +198,12 @@ public:
      * \param checkStopCondition Function that takes the current time as input and outputs whether the propagation should be
      *      stopped.
      */
-    CustomTerminationSettings( const boost::function< bool( const double ) >& checkStopCondition ):
+    PropagationCustomTerminationSettings( const boost::function< bool( const double ) >& checkStopCondition ):
         PropagationTerminationSettings( custom_stopping_condition ),
         checkStopCondition_( checkStopCondition ){ }
 
     //! Destructor
-    ~CustomTerminationSettings( ){ }
+    ~PropagationCustomTerminationSettings( ){ }
 
     //! Custom temination function.
     boost::function< bool( const double ) > checkStopCondition_;
@@ -221,15 +224,15 @@ public:
     /*!
      * \brief PropagationHybridTerminationSettings
      * \param terminationSettings List of termination settings for which stopping conditions are created.
-     * \param fulFillSingleCondition Boolean denoting whether a single (if true) or all (if false) of the conditions
+     * \param fulfillSingleCondition Boolean denoting whether a single (if true) or all (if false) of the conditions
      * defined by the entries in the terminationSettings list should be met.
      */
     PropagationHybridTerminationSettings(
             const std::vector< boost::shared_ptr< PropagationTerminationSettings > > terminationSettings,
-            const bool fulFillSingleCondition = false ):
+            const bool fulfillSingleCondition = false ):
         PropagationTerminationSettings( hybrid_stopping_condition ),
         terminationSettings_( terminationSettings ),
-        fulFillSingleCondition_( fulFillSingleCondition )
+        fulfillSingleCondition_( fulfillSingleCondition )
     {
         for( unsigned int i = 0; i < terminationSettings_.size( ); i++ )
         {
@@ -252,7 +255,8 @@ public:
 
     //! Boolean denoting whether a single (if true) or all (if false) of the conditions
     //! defined by the entries in the terminationSettings list should be met.
-    bool fulFillSingleCondition_;
+    bool fulfillSingleCondition_;
+
 };
 
 } // namespace propagators

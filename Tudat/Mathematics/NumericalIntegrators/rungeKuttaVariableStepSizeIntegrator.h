@@ -292,26 +292,40 @@ public:
         return this->lastState_;
     }
 
-    //! Modify the state at the current interval.
+    //! Replace the state with a new value.
     /*!
-     * Modify the state at the current interval. This allows for discrete jumps in the state, often
-     * used in simulations of discrete events. In astrodynamics, this relates to simulations of
-     * rocket staging, impulsive shots, parachuting, attitude normalization, ideal control, etc.
-     * The modified state cannot be rolled back; to do this, just simply store the state before
-     * calling this function the first time, and call it again with the initial state as parameter
-     * to revert to the state before the discrete change.
-     * \param newState The state to set the current state to.
+     * Replace the state with a new value. This allows for discrete jumps in the state, often
+     * used in simulations of discrete events. In astrodynamics, this relates to simulations of rocket staging,
+     * impulsive shots, parachuting, ideal control, etc. The modified state, by default, cannot be rolled back; to do this, either
+     * set the flag to true, or store the state before calling this function the first time, and call it again with the initial state
+     * as parameter to revert to the state before the discrete change.
+     * \param newState The value of the new state.
+     * \param allowRollback Boolean denoting whether roll-back should be allowed.
      */
-    void modifyCurrentState( const StateType& newState, const IndependentVariableType newTime = 0 )
+    void modifyCurrentState( const StateType& newState, const bool allowRollback = false )
     {
-        this->currentState_ = newState;
-        if ( newTime == 0 )
+        currentState_ = newState;
+        if ( !allowRollback )
         {
             this->lastIndependentVariable_ = currentIndependentVariable_;
         }
-        else
+    }
+
+    //! Modify the state and time for the current step.
+    /*!
+     * Modify the state and time for the current step.
+     * \param newState The new state to set the current state to.
+     * \param newTime The time to set the current time to.
+     * \param allowRollback Boolean denoting whether roll-back should be allowed.
+     */
+    void modifyCurrentIntegrationVariables( const StateType& newState, const IndependentVariableType newTime,
+                                            const bool allowRollback = false )
+    {
+        currentState_ = newState;
+        currentIndependentVariable_ = newTime;
+        if ( !allowRollback )
         {
-            this->lastIndependentVariable_ = newTime;
+            this->lastIndependentVariable_ = currentIndependentVariable_;
         }
     }
 
@@ -466,6 +480,7 @@ protected:
 
     //! Boolean denoting whether step size control is to be used
     bool useStepSizeControl_;
+
 };
 
 //! Perform a single integration step.
@@ -479,8 +494,7 @@ RungeKuttaVariableStepSizeIntegrator< IndependentVariableType, StateType, StateD
     currentStateDerivatives_.reserve( this->coefficients_.cCoefficients.rows( ) );
 
     // Define lower and higher order estimates.
-    StateType lowerOrderEstimate( this->currentState_ ),
-            higherOrderEstimate( this->currentState_ );
+    StateType lowerOrderEstimate( this->currentState_ ), higherOrderEstimate( this->currentState_ );
 
     // Compute the k_i state derivatives per stage.
     for ( int stage = 0; stage < this->coefficients_.cCoefficients.rows( ); stage++ )
@@ -491,8 +505,8 @@ RungeKuttaVariableStepSizeIntegrator< IndependentVariableType, StateType, StateD
         // Compute the intermediate state.
         for ( int column = 0; column < stage; column++ )
         {
-            intermediateState += stepSize * this->coefficients_.aCoefficients( stage, column )
-                    * currentStateDerivatives_[ column ];
+            intermediateState += stepSize * this->coefficients_.aCoefficients( stage, column ) *
+                    currentStateDerivatives_[ column ];
         }
 
         // Compute the state derivative.
