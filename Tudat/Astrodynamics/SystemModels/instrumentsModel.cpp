@@ -183,7 +183,7 @@ void InstrumentsModel::addGenericRangingSystem( const Eigen::Vector3d& positionB
 
         // Create function for computing corrupted translational accelerations
         genericRangingSystemFunction_ = boost::bind(
-                    &InstrumentsModel::getCurrentGenericPosition, this, positionBias,
+                    &InstrumentsModel::getCurrentPosition, this, positionBias,
                     computeScaleMisalignmentMatrix( positionScaleFactor, positionMisalignment ) );
     }
     else

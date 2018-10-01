@@ -83,7 +83,7 @@ public:
             instrumentsModel_->updateInstruments( currentTime );
 
             // Extract measurements
-            std::vector< Eigen::Vector3d > currentAltimeterMeasurements = instrumentsModel_->getCurrentAltimeterMeasurement( );
+            Eigen::Vector3d currentExternalMeasurement = instrumentsModel_->getCurrentGenericRangingSystemMeasurement( );
 
             // Update filter to current time
             navigationSystem_->determineNavigationPhase( );
@@ -91,13 +91,13 @@ public:
             {
                 // Feed maneuver to the navigation system and update filter
                 performManeuverOnNextCall_ = false; // reset flag
-                navigationSystem_->runStateEstimator( currentAltimeterMeasurements,
+                navigationSystem_->runStateEstimator( currentExternalMeasurement,
                                                       controlSystem_->getScheduledApoapsisManeuver( ) );
             }
             else
             {
                 // Update filter only
-                navigationSystem_->runStateEstimator( currentAltimeterMeasurements );
+                navigationSystem_->runStateEstimator( currentExternalMeasurement );
             }
 
             // Check if it is time for a Deep Space Network update

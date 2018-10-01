@@ -737,10 +737,10 @@ private:
     }
 
     //! Function to retrieve current position of the spacecraft.
-    void getCurrentGenericPosition( const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
+    void getCurrentPosition( const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
     {
         // Iterate over all accelerations acting on body
-        currentPosition_ = bodyMap_.at( spacecraftName_ )->getPosition( );
+        currentPosition_ = bodyMap_.at( spacecraftName_ )->getPosition( ) - bodyMap_.at( planetName_ )->getPosition( );
 
         // Add errors to acceleration value
         currentPosition_ = scaleMisalignmentMatrix * currentPosition_;

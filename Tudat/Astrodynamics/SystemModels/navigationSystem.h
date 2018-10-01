@@ -61,8 +61,9 @@ public:
     //! Enumeration for navigation phases.
     enum NavigationPhaseIndicator
     {
+        undefined_navigation_phase = -1,
         unaided_navigation_phase = 0,
-        altimeter_navigation_phase = 1
+        aided_navigation_phase = 1
     };
 
     //! Constructor.
@@ -125,6 +126,8 @@ public:
         // Set values to their initial conditions
         atmosphereEstimatorInitialized_ = false;
         estimatedAccelerometerErrors_.setZero( );
+        previousNavigationPhase_ = undefined_navigation_phase;
+        timeAtNavigationPhaseInterface_ = TUDAT_NAN;
     }
 
     //! Destructor.
@@ -136,7 +139,7 @@ public:
      *  the navigation system is used, as it creates most of the objects that are needed for state estimation (i.e., navigation
      *  filter, root-finder, onboard integrator and propagator settings).
      *  \param accelerometerMeasurementFunction Function returning the current accelerometer measurement, taken directly from the
-     *      onboard IMU sensors.
+     *      onboard inertial measurement unit.
      */
     void createNavigationSystemObjects( const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
@@ -149,13 +152,29 @@ public:
         // Declare navigation phase indicator and set value to unaided phase
         NavigationPhaseIndicator detectedNavigationPhase = unaided_navigation_phase;
 
-        // Set current navigation phase to altimeter-assisted, based on current altitude
-        // Note that here a 5 % contingency is used, to account for a possible error between actual and estimated altitudes
-        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
-        if ( ( currentAltitude > ( 1.05 * altimeterAltitudeRange_.first ) ) &&
-             ( currentAltitude < ( 0.95 * altimeterAltitudeRange_.second ) ) )
+        // Based on current altitude, set value to aided phase
+        double currentEstimatedAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
+        if ( ( currentEstimatedAltitude < 7.5e6 ) || ( currentEstimatedAltitude > 25.0e6 ) )
         {
-            detectedNavigationPhase = altimeter_navigation_phase;
+            detectedNavigationPhase = aided_navigation_phase;
+        }
+
+        // Make sure that switch only happens when it really needs to
+        // Due to uncertainties in the navigation estimate, altitude may oscillate around the threshold above
+        if ( previousNavigationPhase_ != detectedNavigationPhase )
+        {
+            // Check if navigation phase needs to be reverted
+            // The reversion happens only if the phase change is detected within 5 minutes of the previous phase change
+            if ( currentTime_ < ( timeAtNavigationPhaseInterface_ + ( 5.0 * 60.0 ) ) )
+            {
+                detectedNavigationPhase = ( detectedNavigationPhase == unaided_navigation_phase ) ? aided_navigation_phase :
+                                                                                                    unaided_navigation_phase;
+            }
+            else
+            {
+                // Store time of navigation phase change
+                timeAtNavigationPhaseInterface_ = currentTime_;
+            }
         }
 
         // Set and give current navigation phase
@@ -164,10 +183,10 @@ public:
     }
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const std::vector< Eigen::Vector3d >& currentAltimeterMeasurements,
+    void runStateEstimator( const Eigen::Vector3d& currentExternalMeasurement,
                             const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
     {
-        if ( int( ( currentTime_ - initialTime_ ) * 10.0 ) % int( 1e4 * 10.0 ) == 0.0 )
+        if ( int( ( currentTime_ - initialTime_ ) * 10.0 ) % int( 1.0e4 * 10.0 ) == 0.0 )
             std::cout << currentTime_ - initialTime_ << std::endl;
 
         // Add maneuver if requested
@@ -177,6 +196,12 @@ public:
             currentEstimatedCartesianState.segment( 3, 3 ) += scheduledApoapsisManeuver;
             setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
             updateOnboardModel( );
+        }
+
+        // Improve state estimate if passing from aided to unaided
+        if ( ( previousNavigationPhase_ == aided_navigation_phase ) && ( currentNavigationPhase_ == unaided_navigation_phase ) )
+        {
+            improveStateEstimateOnNavigationPhaseTransition( );
         }
 
         // Update current state based on the detected navigation phase
@@ -198,22 +223,8 @@ public:
             setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
             break;
         }
-        case altimeter_navigation_phase:
+        case aided_navigation_phase:
         {
-            // Get current estimated rotation from altimeter frame to inertial frame
-            Eigen::Quaterniond currentEstimatedRotationFromAltimeterToInertialFrame =
-                    onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->
-                    getRotationQuaternionBetweenFrames( altimeterFrame_, reference_frames::inertial_frame );
-
-            // Process altimeter measurements
-            Eigen::VectorXd currentExternalMeasurement;
-            currentExternalMeasurement.resize( 3 * currentAltimeterMeasurements.size( ) );
-            for ( unsigned int i = 0; i < currentAltimeterMeasurements.size( ); i++ )
-            {
-                currentExternalMeasurement.segment( 3 * i, 3 ) =
-                        currentEstimatedRotationFromAltimeterToInertialFrame * currentAltimeterMeasurements.at( i );
-            }
-
             // Update filter
             navigationFilter_->updateFilter( currentExternalMeasurement );
 
@@ -223,6 +234,9 @@ public:
             setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
             break;
         }
+        default:
+            throw std::runtime_error( "Error in navigation system. Current navigation (" +
+                                      std::to_string( currentNavigationPhase_ ) + ") phase not supported." );
         }
 
         // Update body and acceleration maps
@@ -563,9 +577,6 @@ public:
         return historyOfEstimatedAtmosphereParameters_;
     }
 
-    //! Function to return the previous navigation phase indicator.
-    NavigationPhaseIndicator getPreviousNavigationPhaseIndicator( ) { return previousNavigationPhase_; }
-
     //! Function to retrieve history of estimated translational accelerations for the current orbit.
     std::map< double, Eigen::Vector3d > getCurrentOrbitHistoryOfEstimatedTranslationalAccelerations( )
     {
@@ -829,6 +840,15 @@ private:
                 currentEstimatedNonGravitationalTranslationalAcceleration_;
     }
 
+    //! Function to improve the estimate of the translational state when transitioning from aided to unaided navigation.
+    /*!
+     *  Function to improve the estimate of the translational state when transitioning from aided to unaided navigation.
+     *  The improvement algorithm uses the Keplerian elements, since they show the least variation with time. The first five
+     *  elements are improved by taking the median of the last 60 seconds of estimation, whereas the true anomaly is improved by
+     *  fitting a simple parabolic function through the true anomaly history, and computing the value for the current time.
+     */
+    void improveStateEstimateOnNavigationPhaseTransition( );
+
     //! Function to post-process the accelerometer measurements.
     /*!
      *  Function to post-process the accelerometer measurements. This function first applies a simple smoothing method
@@ -876,16 +896,13 @@ private:
                                         const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
-    Eigen::VectorXd onboardMeasurementModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
-                                             const boost::function< Eigen::Quaterniond( ) > rotationFromAltimeterToInertialFrameFunction );
+    Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
-    Eigen::Matrix9d onboardSystemJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
-                                           const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
+    Eigen::Matrix9d onboardSystemJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
 
     //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-    Eigen::MatrixXd onboardMeasurementJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
-                                                const boost::function< Eigen::Quaterniond( ) > rotationFromAltimeterToInertialFrameFunction );
+    Eigen::Matrix< double, 3, 9 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
@@ -1052,6 +1069,9 @@ private:
 
     //! Enumeration denoting the current navigation phase.
     NavigationPhaseIndicator currentNavigationPhase_;
+
+    //! Double denoting the time at which the navigation phase has changed.
+    double timeAtNavigationPhaseInterface_;
 
     //! Vector denoting the current estimated translational accelerations.
     Eigen::Vector3d currentEstimatedTranslationalAcceleration_;
