@@ -62,8 +62,7 @@ public:
     enum NavigationPhaseIndicator
     {
         unaided_navigation_phase = 0,
-        iman_navigation_phase = 1, // only below DAIA, so spacecraft processing power can be spared for something else above altitude
-        imu_calibration_phase = 2, // not regarded as navigation phase, since only used for calibration and during first orbit
+        altimeter_navigation_phase = 1
     };
 
     //! Constructor.
@@ -78,7 +77,8 @@ public:
                       const double atmosphericInterfaceAltitude, const double reducedAtmosphericInterfaceAltitude,
                       const double periapseEstimatorConstant, const unsigned int numberOfRequiredAtmosphereSamplesForInitiation,
                       const unsigned int frequencyOfDeepSpaceNetworkTracking,
-                      const Eigen::Vector3d& altimeterBodyFixedPointingDirection = Eigen::Vector3d::Constant( TUDAT_NAN ),
+                      const std::vector< Eigen::Vector3d >& altimeterPointingDirectionInAltimeterFrame = std::vector< Eigen::Vector3d >( ),
+                      const reference_frames::AerodynamicsReferenceFrames altimeterFrame = reference_frames::inertial_frame,
                       const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ) ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
@@ -90,7 +90,8 @@ public:
         periapseEstimatorConstant_( periapseEstimatorConstant ),
         numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation ),
         frequencyOfDeepSpaceNetworkTracking_( frequencyOfDeepSpaceNetworkTracking ),
-        altimeterBodyFixedPointingDirection_( altimeterBodyFixedPointingDirection ), altimeterAltitudeRange_( altimeterAltitudeRange )
+        altimeterPointingDirectionInAltimeterFrame_( altimeterPointingDirectionInAltimeterFrame ),
+        altimeterFrame_( altimeterFrame ), altimeterAltitudeRange_( altimeterAltitudeRange )
     {
         // Get indeces of accelerations of interest
         for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -134,8 +135,10 @@ public:
      *  Function to create navigation objects for onboard state estimation. This function should be called before any feature of
      *  the navigation system is used, as it creates most of the objects that are needed for state estimation (i.e., navigation
      *  filter, root-finder, onboard integrator and propagator settings).
+     *  \param accelerometerMeasurementFunction Function returning the current accelerometer measurement, taken directly from the
+     *      onboard IMU sensors.
      */
-    void createNavigationSystemObjects( );
+    void createNavigationSystemObjects( const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to determine the navigation phase.
     NavigationPhaseIndicator determineNavigationPhase( )
@@ -144,31 +147,24 @@ public:
         previousNavigationPhase_ = currentNavigationPhase_;
 
         // Declare navigation phase indicator and set value to unaided phase
-        NavigationPhaseIndicator detectedNavigationPhase;
-        if ( currentOrbitCounter_ < 2 )
-        {
-            detectedNavigationPhase = imu_calibration_phase;
-        }
-        else
-        {
-            detectedNavigationPhase = unaided_navigation_phase;
-        }
+        NavigationPhaseIndicator detectedNavigationPhase = unaided_navigation_phase;
 
-        // Set current navigation phase to IMAN based on current altitude
-        double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
-                ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) ) + planetaryRadius_;
-        if ( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) < currentDynamicAtmosphericInterfaceRadius )
+        // Set current navigation phase to altimeter-assisted, based on current altitude
+        // Note that here a 5 % contingency is used, to account for a possible error between actual and estimated altitudes
+        double currentAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
+        if ( ( currentAltitude > ( 1.05 * altimeterAltitudeRange_.first ) ) &&
+             ( currentAltitude < ( 0.95 * altimeterAltitudeRange_.second ) ) )
         {
-            detectedNavigationPhase = iman_navigation_phase;
+            detectedNavigationPhase = altimeter_navigation_phase;
         }
 
         // Set and give current navigation phase
         currentNavigationPhase_ = detectedNavigationPhase;
-        return currentNavigationPhase_;
+        return detectedNavigationPhase;
     }
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const Eigen::Vector3d& currentExternalMeasurementVector,
+    void runStateEstimator( const std::vector< Eigen::Vector3d >& currentAltimeterMeasurements,
                             const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
     {
         if ( int( ( currentTime_ - initialTime_ ) * 10.0 ) % int( 1e4 * 10.0 ) == 0.0 )
@@ -202,11 +198,24 @@ public:
             setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
             break;
         }
-        case iman_navigation_phase:
-        case imu_calibration_phase:
+        case altimeter_navigation_phase:
         {
+            // Get current estimated rotation from altimeter frame to inertial frame
+            Eigen::Quaterniond currentEstimatedRotationFromAltimeterToInertialFrame =
+                    onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->
+                    getRotationQuaternionBetweenFrames( altimeterFrame_, reference_frames::inertial_frame );
+
+            // Process altimeter measurements
+            Eigen::VectorXd currentExternalMeasurement;
+            currentExternalMeasurement.resize( 3 * currentAltimeterMeasurements.size( ) );
+            for ( unsigned int i = 0; i < currentAltimeterMeasurements.size( ); i++ )
+            {
+                currentExternalMeasurement.segment( 3 * i, 3 ) =
+                        currentEstimatedRotationFromAltimeterToInertialFrame * currentAltimeterMeasurements.at( i );
+            }
+
             // Update filter
-            navigationFilter_->updateFilter( currentExternalMeasurementVector );
+            navigationFilter_->updateFilter( currentExternalMeasurement );
 
             // Extract tiem and estimated state and update navigation system
             currentTime_ = navigationFilter_->getCurrentTime( );
@@ -438,6 +447,20 @@ public:
             return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
                         estimatedState.segment( 0, 3 ).norm( ) - planetaryRadius_, 0.0, 0.0, 0.0 );
         }
+    }
+
+    //! Function to retrieve whether the spacecraft altitude is above the dynamic atmospheric interface line.
+    bool getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( )
+    {
+        // Compute current DAIA
+        double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
+                ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) ) + planetaryRadius_;
+
+        // Compute current radial distance
+        double currentRadialDistance = currentEstimatedCartesianState_.segment( 0, 3 ).norm( );
+
+        // Output whether the altitude is below DAIA
+        return ( currentRadialDistance > currentDynamicAtmosphericInterfaceRadius );
     }
 
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.
@@ -799,8 +822,7 @@ private:
         }
 
         // Store acceleration value
-        currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] =
-                currentEstimatedTranslationalAcceleration_;
+        currentOrbitHistoryOfEstimatedTranslationalAccelerations_[ currentTime_ ] = currentEstimatedTranslationalAcceleration_;
         currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_[ currentTime_ ] =
                 currentEstimatedGravitationalTranslationalAcceleration_;
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentTime_ ] =
@@ -850,16 +872,20 @@ private:
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to model the onboard system dynamics based on the simplified onboard model.
-    Eigen::Vector9d onboardSystemModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Vector9d onboardSystemModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+                                        const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
-    Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::VectorXd onboardMeasurementModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+                                             const boost::function< Eigen::Quaterniond( ) > rotationFromAltimeterToInertialFrameFunction );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
-    Eigen::Matrix9d onboardSystemJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Matrix9d onboardSystemJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+                                           const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-    Eigen::Matrix< double, 3, 9 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::MatrixXd onboardMeasurementJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+                                                const boost::function< Eigen::Quaterniond( ) > rotationFromAltimeterToInertialFrameFunction );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
@@ -934,11 +960,14 @@ private:
      */
     const unsigned int frequencyOfDeepSpaceNetworkTracking_;
 
-    //! Vector denoting the direction in the body frame along which the altimeter instrument is pointing.
-    const Eigen::Vector3d altimeterBodyFixedPointingDirection_;
+    //! Vector denoting the directions in the altimeter frame along which the altimeter instruments are pointing.
+    const std::vector< Eigen::Vector3d > altimeterPointingDirectionInAltimeterFrame_;
+
+    //! Enumeration denoting the frame in which the altimeter pointing directions are defined;
+    const reference_frames::AerodynamicsReferenceFrames altimeterFrame_;
 
     //! Pair denoting the lowest and highest operation altitudes of the altimeter.
-    std::pair< double, double > altimeterAltitudeRange_;
+    const std::pair< double, double > altimeterAltitudeRange_;
 
     //! Unordered map of states to be updated by the environment updater.
     std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate_;

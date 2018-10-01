@@ -47,7 +47,8 @@ public:
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
 
         // Create navigation system objects
-        navigationSystem_->createNavigationSystemObjects( );
+        navigationSystem_->createNavigationSystemObjects(
+                    boost::bind( &InstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ) );
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
@@ -76,28 +77,27 @@ public:
         bool isPropagationToBeStopped = false;
 
         // Check whether current step has already been performed
-        if ( std::fabs( currentTime - ( navigationSystem_->getCurrentTime( ) +
-                                        navigationSystem_->getNavigationRefreshStepSize( ) ) ) <= 1.0e-5 )
+        if ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) )
         {
             // Update instrument models
             instrumentsModel_->updateInstruments( currentTime );
 
             // Extract measurements
-            Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
+            std::vector< Eigen::Vector3d > currentAltimeterMeasurements = instrumentsModel_->getCurrentAltimeterMeasurement( );
 
             // Update filter to current time
-            NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
+            navigationSystem_->determineNavigationPhase( );
             if ( performManeuverOnNextCall_ )
             {
                 // Feed maneuver to the navigation system and update filter
                 performManeuverOnNextCall_ = false; // reset flag
-                navigationSystem_->runStateEstimator( currentExternalMeasurementVector,
+                navigationSystem_->runStateEstimator( currentAltimeterMeasurements,
                                                       controlSystem_->getScheduledApoapsisManeuver( ) );
             }
             else
             {
                 // Update filter only
-                navigationSystem_->runStateEstimator( currentExternalMeasurementVector );
+                navigationSystem_->runStateEstimator( currentAltimeterMeasurements );
             }
 
             // Check if it is time for a Deep Space Network update
@@ -187,9 +187,8 @@ public:
                 std::string orbitNumber = std::to_string( navigationSystem_->currentOrbitCounter_ - 1 );
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
-            else if ( ( ( ( currentNavigationPhase != NavigationSystem::iman_navigation_phase ) &&
-                          ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::iman_navigation_phase ) ) &&
-                        ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) && !atmosphericPhaseComplete_ ) // check altitude
+            else if ( navigationSystem_->getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( ) &&
+                      ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) && !atmosphericPhaseComplete_ ) // check altitude
             {
                 // Inform user
                 std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;
