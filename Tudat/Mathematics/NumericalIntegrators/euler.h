@@ -22,6 +22,7 @@
 
 namespace tudat
 {
+
 namespace numerical_integrators
 {
 
@@ -261,6 +262,7 @@ typedef boost::shared_ptr< EulerIntegratorXd > EulerIntegratorXdPointer;
 typedef boost::shared_ptr< EulerIntegratord > EulerIntegratordPointer;
 
 } // namespace numerical_integrators
+
 } // namespace tudat
 
 #endif // TUDAT_EULER_INTEGRATOR_H
