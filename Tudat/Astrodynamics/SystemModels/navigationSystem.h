@@ -61,9 +61,9 @@ public:
     //! Enumeration for navigation phases.
     enum NavigationPhaseIndicator
     {
+        undefined_navigation_phase = -1,
         unaided_navigation_phase = 0,
-        iman_navigation_phase = 1, // only below DAIA, so spacecraft processing power can be spared for something else above altitude
-        imu_calibration_phase = 2, // not regarded as navigation phase, since only used for calibration and during first orbit
+        aided_navigation_phase = 1
     };
 
     //! Constructor.
@@ -124,6 +124,8 @@ public:
         // Set values to their initial conditions
         atmosphereEstimatorInitialized_ = false;
         estimatedAccelerometerErrors_.setZero( );
+        previousNavigationPhase_ = undefined_navigation_phase;
+        timeAtNavigationPhaseInterface_ = TUDAT_NAN;
     }
 
     //! Destructor.
@@ -144,22 +146,32 @@ public:
         previousNavigationPhase_ = currentNavigationPhase_;
 
         // Declare navigation phase indicator and set value to unaided phase
-        NavigationPhaseIndicator detectedNavigationPhase;
-        if ( currentOrbitCounter_ < 2 )
-        {
-            detectedNavigationPhase = imu_calibration_phase;
-        }
-        else
-        {
-            detectedNavigationPhase = unaided_navigation_phase;
-        }
+        NavigationPhaseIndicator detectedNavigationPhase = unaided_navigation_phase;
 
         // Set current navigation phase to IMAN based on current altitude
         double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
                 ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) ) + planetaryRadius_;
         if ( currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) < currentDynamicAtmosphericInterfaceRadius )
         {
-            detectedNavigationPhase = iman_navigation_phase;
+            detectedNavigationPhase = aided_navigation_phase;
+        }
+
+        // Make sure that switch only happens when it really needs to
+        // Due to uncertainties in the navigation estimate, altitude may oscillate around the threshold above
+        if ( previousNavigationPhase_ != detectedNavigationPhase )
+        {
+            // Check if navigation phase needs to be reverted
+            // The reversion happens only if the phase change is detected within 5 minutes of the previous phase change
+            if ( currentTime_ < ( timeAtNavigationPhaseInterface_ + ( 5.0 * 60.0 ) ) )
+            {
+                detectedNavigationPhase = ( detectedNavigationPhase == unaided_navigation_phase ) ? aided_navigation_phase :
+                                                                                                    unaided_navigation_phase;
+            }
+            else
+            {
+                // Store time of navigation phase change
+                timeAtNavigationPhaseInterface_ = currentTime_;
+            }
         }
 
         // Set and give current navigation phase
@@ -202,8 +214,7 @@ public:
             setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
             break;
         }
-        case iman_navigation_phase:
-        case imu_calibration_phase:
+        case aided_navigation_phase:
         {
             // Update filter
             navigationFilter_->updateFilter( currentExternalMeasurementVector );
@@ -1023,6 +1034,9 @@ private:
 
     //! Enumeration denoting the current navigation phase.
     NavigationPhaseIndicator currentNavigationPhase_;
+
+    //! Double denoting the time at which the navigation phase has changed.
+    double timeAtNavigationPhaseInterface_;
 
     //! Vector denoting the current estimated translational accelerations.
     Eigen::Vector3d currentEstimatedTranslationalAcceleration_;

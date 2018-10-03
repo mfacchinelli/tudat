@@ -187,8 +187,8 @@ public:
                 std::string orbitNumber = std::to_string( navigationSystem_->currentOrbitCounter_ - 1 );
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
-            else if ( ( ( ( currentNavigationPhase != NavigationSystem::iman_navigation_phase ) &&
-                          ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::iman_navigation_phase ) ) &&
+            else if ( ( ( ( currentNavigationPhase != NavigationSystem::aided_navigation_phase ) &&
+                          ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::aided_navigation_phase ) ) &&
                         ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) && !atmosphericPhaseComplete_ ) // check altitude
             {
                 // Inform user

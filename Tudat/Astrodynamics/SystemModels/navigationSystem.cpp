@@ -167,7 +167,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     }
 
     // Apply smoothing method to noisy accelerometer data
-    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 50.0 / atmosphericNavigationRefreshStepSize_ );
+    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 60.0 / atmosphericNavigationRefreshStepSize_ );
     numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
             statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
@@ -530,24 +530,7 @@ Eigen::Vector9d NavigationSystem::onboardSystemModel(
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedState.segment( 3, 3 );
 
     // Translational dynamics
-    switch ( currentNavigationPhase_ )
-    {
-    case iman_navigation_phase:
-    {
-        // Add full dynamics
-        currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
-        break;
-    }
-    case imu_calibration_phase:
-    {
-        // Add only gravitational acceleration
-        currentStateDerivative.segment( 3, 3 ) =
-                getCurrentEstimatedGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
-        break;
-    }
-    default:
-        throw std::runtime_error( "Error in navigation system. The current navigation phase is not supported by the filter." );
-    }
+    currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
 
     // Give output
     return currentStateDerivative;
@@ -566,10 +549,7 @@ Eigen::Vector3d NavigationSystem::onboardMeasurementModel(
     currentMeasurementVector = currentEstimatedState.segment( 6, 3 );
 
     // Add terms due to aerodynamic acceleration
-    if ( currentNavigationPhase_ == iman_navigation_phase )
-    {
-        currentMeasurementVector += getCurrentEstimatedNonGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
-    }
+    currentMeasurementVector += getCurrentEstimatedNonGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
 
     // Give output
     return currentMeasurementVector;
@@ -594,10 +574,7 @@ Eigen::Matrix9d NavigationSystem::onboardSystemJacobian(
             onboardGravitationalAccelerationPartials_->getCurrentSphericalHarmonicsAccelerationPartial( );
 
     // Add terms due to aerodynamic acceleration
-    if ( currentNavigationPhase_ == iman_navigation_phase )
-    {
-        currentSystemJacobian.block( 3, 0, 3, 6 ) += onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
-    }
+    currentSystemJacobian.block( 3, 0, 3, 6 ) += onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
 
     // Give output
     return currentSystemJacobian;
@@ -614,10 +591,7 @@ Eigen::Matrix< double, 3, 9 > NavigationSystem::onboardMeasurementJacobian(
     Eigen::Matrix< double, 3, 9 > currentMeasurementJacobian = Eigen::Matrix< double, 3, 9 >::Zero( );
 
     // Add terms due to aerodynamic acceleration
-    if ( currentNavigationPhase_ == iman_navigation_phase )
-    {
-        currentMeasurementJacobian.block( 0, 0, 3, 6 ) = onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
-    }
+    currentMeasurementJacobian.block( 0, 0, 3, 6 ) = onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
 
     // Add terms due to accelerometer bias error
     currentMeasurementJacobian( 0, 6 ) = 1.0;
