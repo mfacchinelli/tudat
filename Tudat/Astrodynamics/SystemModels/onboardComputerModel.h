@@ -177,8 +177,8 @@ public:
                 guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
 
                 // Renew random coefficients for perturbed atmosphere
-                std::cerr << "Atmosphere randomization is OFF." << std::endl;
-//                instrumentsModel_->randomizeAtmospherePerturbations( );
+//                std::cerr << "Atmosphere randomization is OFF." << std::endl;
+                instrumentsModel_->randomizeAtmospherePerturbations( );
 
                 // Invert completion flags
                 maneuveringPhaseComplete_ = true;
@@ -218,7 +218,6 @@ public:
 
             // Save current value of propagation termination index
             previousIsPropagationToBeStopped_ = isPropagationToBeStopped;
-
             navigationSystem_->setCurrentTime( currentTime );
         }
         else
@@ -251,7 +250,7 @@ public:
 
         // Check if aerobraking is complete
         std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 4 * 3 - 1 ) );
+        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 3 - 1 ) );
         dummyCallCounter_++;
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 
