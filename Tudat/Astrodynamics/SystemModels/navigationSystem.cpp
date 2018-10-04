@@ -32,7 +32,9 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
 }
 
 //! Function to create navigation objects for onboard state estimation.
-void NavigationSystem::createNavigationSystemObjects( const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
+void NavigationSystem::createNavigationSystemObjects(
+        const unsigned int saveFrequency,
+        const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
 {
     // Create filter object
     switch ( navigationFilterSettings_->filteringTechnique_ )
@@ -61,10 +63,12 @@ void NavigationSystem::createNavigationSystemObjects( const boost::function< Eig
         throw std::runtime_error( "Error in setting up navigation system. The requested filtering technique is not supported." );
     }
 
-    // Set initial time
+    // Set time-related parameters
     initialTime_ = navigationFilter_->getInitialTime( );
     currentTime_ = initialTime_;
     currentOrbitCounter_ = 0;
+    saveFrequency_ = saveFrequency;
+    saveIndex_ = 0;
 
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );
@@ -193,22 +197,20 @@ void NavigationSystem::improveStateEstimateOnNavigationPhaseTransition( )
         improvedEstimatedKeplerianState[ i ] = statistics::computeSampleMedian( estimatedKeplerianStates.at( i ) );
     }
 
-    // Improve true anomaly by using least squares
-    {
-        std::vector< double > vectorOfPolynomialPowers = { 0, 1, 2 };
-        Eigen::VectorXd estimatedTrueAnomalyFunctionParameters = linear_algebra::getLeastSquaresPolynomialFit(
-                    historyOfRelativeTimes, historyOfTrueAnomalies, vectorOfPolynomialPowers );
-        std::cout << estimatedTrueAnomalyFunctionParameters.transpose( ) << std::endl;
+    // Use least squares to estimate the coefficient of the true anomaly approximation function
+    std::vector< double > vectorOfPolynomialPowers = { 0, 1, 2 };
+    Eigen::VectorXd estimatedTrueAnomalyFunctionParameters = linear_algebra::getLeastSquaresPolynomialFit(
+                historyOfRelativeTimes, historyOfTrueAnomalies, vectorOfPolynomialPowers );
 
-        double improvedTrueAnomaly = 0.0;
-        currentRelativeTime = currentTime_ - timeAtBeginningOfSampling;
-        for ( unsigned int i = 0; i < vectorOfPolynomialPowers.size( ); i++ )
-        {
-            improvedTrueAnomaly += std::pow( currentRelativeTime, vectorOfPolynomialPowers.at( i ) ) *
-                    estimatedTrueAnomalyFunctionParameters[ i ];
-        }
-        improvedEstimatedKeplerianState[ 5 ] = improvedTrueAnomaly;
+    // Improve true anomaly by using the least squares estimate
+    double improvedTrueAnomaly = 0.0;
+    currentRelativeTime = currentTime_ - timeAtBeginningOfSampling;
+    for ( unsigned int i = 0; i < vectorOfPolynomialPowers.size( ); i++ )
+    {
+        improvedTrueAnomaly += std::pow( currentRelativeTime, vectorOfPolynomialPowers.at( i ) ) *
+                estimatedTrueAnomalyFunctionParameters[ i ];
     }
+    improvedEstimatedKeplerianState[ 5 ] = improvedTrueAnomaly;
 
     // Set new value of state
     setCurrentEstimatedKeplerianState( improvedEstimatedKeplerianState );
@@ -335,9 +337,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
     Eigen::Vector6d estimatedKeplerianStateAtNextApoapsis =
             orbital_element_conversions::convertCartesianToKeplerianElements(
                 estimatedCartesianStateAtNextApoapsis, planetaryGravitationalParameter_ );
-    //    std::cout << "Propagated: " << estimatedKeplerianStateAtNextApoapsis.transpose( ) << std::endl
-    //              << "Initial: " << currentEstimatedKeplerianState_.transpose( ) << std::endl
-    //              << "Previous: " << estimatedKeplerianStateAtPreviousApoapsis_.transpose( ) << std::endl;
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double estimatedChangeInVelocity = - periapseEstimatorConstant_ * numerical_quadrature::performExtendedSimpsonsQuadrature(
@@ -394,9 +393,10 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
 
     // Update navigation system state estimates
-    Eigen::Matrix9d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-    currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
-    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentEstimatedCovarianceMatrix );
+    std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;
+//    Eigen::Matrix9d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+//    currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
+//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentEstimatedCovarianceMatrix );
     // the covariance matrix is reset to the identity, since the new state is improved in accuracy
 
     // Correct history of Keplerian elements by removing error in true anomaly

@@ -36,7 +36,8 @@ public:
     OnboardComputerModel( const boost::shared_ptr< ControlSystem > controlSystem,
                           const boost::shared_ptr< GuidanceSystem > guidanceSystem,
                           const boost::shared_ptr< NavigationSystem > navigationSystem,
-                          const boost::shared_ptr< InstrumentsModel > instrumentsModel ) :
+                          const boost::shared_ptr< InstrumentsModel > instrumentsModel,
+                          const unsigned int saveFrequency = 1 ) :
         controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem ),
         instrumentsModel_( instrumentsModel )
     {
@@ -48,7 +49,7 @@ public:
 
         // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects(
-                    boost::bind( &InstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ) );
+                    saveFrequency, boost::bind( &InstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ) );
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
@@ -208,7 +209,6 @@ public:
                 }
 
                 // Perform periapse time and atmosphere estimations
-//                std::cerr << "Post-atmosphere processes are OFF." << std::endl;
                 navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
 
                 // Invert completion flags
@@ -251,7 +251,7 @@ public:
 
         // Check if aerobraking is complete
         std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 3 - 1 ) );
+        aerobrakingComplete = ( dummyCallCounter_ > ( 4 * 3 - 1 ) );
         dummyCallCounter_++;
 //        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
 

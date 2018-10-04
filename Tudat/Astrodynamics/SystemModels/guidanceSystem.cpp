@@ -83,33 +83,32 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
 
     // Improve the estimate if magnitude is large enough
     double estimatedApoapsisManeuverMagnitude;
-    std::cerr << "Maneuver estimate improvement is OFF." << std::endl;
-//    if ( improveEstimateWithBisection && ( std::fabs( preliminaryApoapsisManeuverMagnitude ) > 0.15 ) ) // 0.15 N is an empirical value
-//    {
-//        // Try using root-finder to improve estimate
-//        try
-//        {
-//            // Set root-finder function as the heat rate and heat load calculator
-//            estimatedApoapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
-//                        boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-//                            boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState,
-//                                         std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius,
-//                                         transformationFromLocalToInertialFrame, periodReducedStatePropagationFunction_ ) ) );
-//            std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
-//                      << "Ratio: " << estimatedApoapsisManeuverMagnitude / preliminaryApoapsisManeuverMagnitude << std::endl;
-//        }
-//        catch ( std::runtime_error& caughtException )
-//        {
-//            // Inform user on error
-//            std::cerr << "Error while computing improved estimate for apoapsis maneuver. Caught this exception during root-finder "
-//                         "operation: " << caughtException.what( ) << std::endl
-//                      << "The preliminary magnitude will be used to carry out the maneuver." << std::endl;
+    if ( improveEstimateWithBisection && ( std::fabs( preliminaryApoapsisManeuverMagnitude ) > 0.15 ) ) // 0.15 N is an empirical value
+    {
+        // Try using root-finder to improve estimate
+        try
+        {
+            // Set root-finder function as the heat rate and heat load calculator
+            estimatedApoapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
+                        boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                            boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState,
+                                         std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius,
+                                         transformationFromLocalToInertialFrame, periodReducedStatePropagationFunction_ ) ) );
+            std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
+                      << "Ratio: " << estimatedApoapsisManeuverMagnitude / preliminaryApoapsisManeuverMagnitude << std::endl;
+        }
+        catch ( std::runtime_error& caughtException )
+        {
+            // Inform user on error
+            std::cerr << "Error while computing improved estimate for apoapsis maneuver. Caught this exception during root-finder "
+                         "operation: " << caughtException.what( ) << std::endl
+                      << "The preliminary magnitude will be used to carry out the maneuver." << std::endl;
 
-//            // Take preliminary magnitude as maneuver magnitude
-//            estimatedApoapsisManeuverMagnitude = preliminaryApoapsisManeuverMagnitude;
-//        }
-//    }
-//    else
+            // Take preliminary magnitude as maneuver magnitude
+            estimatedApoapsisManeuverMagnitude = preliminaryApoapsisManeuverMagnitude;
+        }
+    }
+    else
     {
         estimatedApoapsisManeuverMagnitude = preliminaryApoapsisManeuverMagnitude;
     }
