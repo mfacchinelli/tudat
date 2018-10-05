@@ -124,6 +124,8 @@ public:
         {
             detectedAerobrakingPhase = walk_out_phase;
         }
+        std::cerr << "Periapsis altitude scaling OFF." << std::endl;
+        periapsisAltitudeScaling_ = 1.0;
 
         // Check whether aerobraking is complete
         double predictedPeriapsisRadius = computeCurrentFirstOrderEstimatedPeriapsisRadius( currentEstimatedKeplerianState );

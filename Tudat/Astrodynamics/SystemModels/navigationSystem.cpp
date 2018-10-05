@@ -32,7 +32,7 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
 }
 
 //! Function to create navigation objects for onboard state estimation.
-void NavigationSystem::createNavigationSystemObjects( )
+void NavigationSystem::createNavigationSystemObjects( const unsigned int saveFrequency )
 {
     // Create filter object
     switch ( navigationFilterSettings_->filteringTechnique_ )
@@ -63,6 +63,8 @@ void NavigationSystem::createNavigationSystemObjects( )
     initialTime_ = navigationFilter_->getInitialTime( );
     currentTime_ = initialTime_;
     currentOrbitCounter_ = 0;
+    saveFrequency_ = saveFrequency;
+    saveIndex_ = 0;
 
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );

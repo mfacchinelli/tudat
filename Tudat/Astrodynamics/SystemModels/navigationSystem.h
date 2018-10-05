@@ -136,8 +136,9 @@ public:
      *  Function to create navigation objects for onboard state estimation. This function should be called before any feature of
      *  the navigation system is used, as it creates most of the objects that are needed for state estimation (i.e., navigation
      *  filter, root-finder, onboard integrator and propagator settings).
+     *  \param saveFrequency Integer denoting the frequency with which state estimates need to be stored in history.
      */
-    void createNavigationSystemObjects( );
+    void createNavigationSystemObjects( const unsigned int saveFrequency );
 
     //! Function to determine the navigation phase.
     NavigationPhaseIndicator determineNavigationPhase( )
@@ -225,6 +226,9 @@ public:
             setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
             break;
         }
+        default:
+            throw std::runtime_error( "Error in navigation system. Current navigation (" +
+                                      std::to_string( currentNavigationPhase_ ) + ") phase not supported." );
         }
 
         // Update body and acceleration maps
@@ -878,7 +882,14 @@ private:
         // Store translational values for current orbit
         currentOrbitHistoryOfEstimatedTranslationalStates_[ currentTime_ ] = std::make_pair( currentEstimatedCartesianState_,
                                                                                              currentEstimatedKeplerianState_ );
-        historyOfEstimatedStates_[ currentTime_ ] = currentOrbitHistoryOfEstimatedTranslationalStates_[ currentTime_ ];
+
+        // Save estimated state to full history (depending on save index)
+        saveIndex_ = saveIndex_ % saveFrequency_;
+        if ( saveIndex_ == 0 )
+        {
+            historyOfEstimatedStates_[ currentTime_ ] = currentOrbitHistoryOfEstimatedTranslationalStates_[ currentTime_ ];
+        }
+        saveIndex_++;
     }
 
     //! Body map of the onboard simulation.
@@ -950,6 +961,12 @@ private:
 
     //! Pair denoting the lowest and highest operation altitudes of the altimeter.
     std::pair< double, double > altimeterAltitudeRange_;
+
+    //! Integer denoting the frequency with which state estimates need to be stored in history.
+    unsigned int saveFrequency_;
+
+    //! Integer denoting the current save index.
+    unsigned int saveIndex_;
 
     //! Unordered map of states to be updated by the environment updater.
     std::unordered_map< propagators::IntegratedStateType, Eigen::VectorXd > mapOfStatesToUpdate_;

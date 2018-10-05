@@ -36,7 +36,8 @@ public:
     OnboardComputerModel( const boost::shared_ptr< ControlSystem > controlSystem,
                           const boost::shared_ptr< GuidanceSystem > guidanceSystem,
                           const boost::shared_ptr< NavigationSystem > navigationSystem,
-                          const boost::shared_ptr< InstrumentsModel > instrumentsModel ) :
+                          const boost::shared_ptr< InstrumentsModel > instrumentsModel,
+                          const unsigned int saveFrequency = 1 ) :
         controlSystem_( controlSystem ), guidanceSystem_( guidanceSystem ), navigationSystem_( navigationSystem ),
         instrumentsModel_( instrumentsModel )
     {
@@ -47,7 +48,7 @@ public:
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
 
         // Create navigation system objects
-        navigationSystem_->createNavigationSystemObjects( );
+        navigationSystem_->createNavigationSystemObjects( saveFrequency );
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
