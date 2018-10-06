@@ -176,7 +176,7 @@ public:
         }
 
         // Set and give current navigation phase
-        currentNavigationPhase_ = detectedNavigationPhase;
+        currentNavigationPhase_ = aided_navigation_phase;//detectedNavigationPhase;
         return currentNavigationPhase_;
     }
 
