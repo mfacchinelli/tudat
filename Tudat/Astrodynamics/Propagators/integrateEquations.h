@@ -494,7 +494,7 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
     {
         try
         {
-            if( ( newState.allFinite( ) == true ) && ( !newState.hasNaN( ) ) )
+            if( ( newState.allFinite( ) ) && ( !newState.hasNaN( ) ) )
             {
                 previousTime = currentTime;
 
@@ -608,7 +608,7 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
     }
     while( !breakPropagation );
 
-    if ( solutionHistory.count( currentTime ) == 0 )
+    if( solutionHistory.count( currentTime ) == 0 )
     {
         solutionHistory[ currentTime ] = newState;
 
