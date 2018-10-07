@@ -189,8 +189,8 @@ public:
     void runStateEstimator( const Eigen::Vector3d& currentExternalMeasurement,
                             const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
     {
-//        if ( int( ( currentTime_ - initialTime_ ) * 10.0 ) % int( 1.0e4 * 10.0 ) == 0.0 )
-//            std::cout << int( currentTime_ - initialTime_ ) << std::endl;
+        if ( int( ( currentTime_ - initialTime_ ) * 10.0 ) % int( 1.0e4 * 10.0 ) == 0.0 )
+            std::cout << int( currentTime_ - initialTime_ ) << std::endl;
 
         // Add maneuver if requested
         if ( !scheduledApoapsisManeuver.isZero( ) )
@@ -201,10 +201,20 @@ public:
             updateOnboardModel( );
         }
 
-        // Improve state estimate if passing from aided to unaided
+        // Perform extra functions when switching phase
         if ( ( previousNavigationPhase_ == aided_navigation_phase ) && ( currentNavigationPhase_ == unaided_navigation_phase ) )
         {
+            // Improve state estimate if passing from aided to unaided
             improveStateEstimateOnNavigationPhaseTransition( );
+        }
+        else if ( ( previousNavigationPhase_ == unaided_navigation_phase ) && ( currentNavigationPhase_ == aided_navigation_phase ) )
+        {
+            // Reset covariance matrix if passing from unaided to aided
+            Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+            Eigen::Matrix9d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            currentNavigationFilterCovarianceMatrix.setIdentity( );
+            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( currentNavigationFilterState,
+                                                                         currentNavigationFilterCovarianceMatrix );
         }
 
         // Update current state based on the detected navigation phase

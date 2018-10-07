@@ -518,7 +518,7 @@ public:
                     generateRandomAtmospherePerturbationCoefficients( );
 
             double randomWalkFraction = 0.05;
-            double randomSign = ( randomWalkAdditionToAtmospherePerturbations.second.segment( 0, 6 ).sum( ) > 0 ) ? -1.0 : 1.0;
+            double randomSign = ( randomWalkAdditionToAtmospherePerturbations.second.segment( 0, 6 ).sum( ) >= 0 ) ? 1.0 : -1.0;
 
             randomPerturbationsCoefficients_.first +=
                     randomSign * randomWalkFraction * randomWalkAdditionToAtmospherePerturbations.first;
@@ -536,7 +536,7 @@ public:
             randomPerturbationsCoefficients_.first = randomAtmospherePerturbations.first;
             randomPerturbationsCoefficients_.second = randomAtmospherePerturbations.second;
         }
-        std::cout << randomPerturbationsCoefficients_.first << " " << randomPerturbationsCoefficients_.second.transpose( ) << std::endl;
+//        std::cout << randomPerturbationsCoefficients_.first << " " << randomPerturbationsCoefficients_.second.transpose( ) << std::endl;
     }
 
 private:
