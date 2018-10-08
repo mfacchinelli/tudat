@@ -100,7 +100,7 @@ void NavigationSystem::createNavigationSystemObjects(
 
     // Create object for propagation of spacecraft state with user-provided initial conditions
     onboardIntegratorSettings_ = boost::make_shared< numerical_integrators::RungeKuttaVariableStepSizeSettingsScalarTolerances< double > >(
-                0.0, 10.0, numerical_integrators::RungeKuttaCoefficients::rungeKuttaFehlberg56, 1e-5, 1e5, 1.0e-12, 1.0e-12 );
+                0.0, 10.0, numerical_integrators::RungeKuttaCoefficients::rungeKuttaFehlberg56, 0.1, 100.0, 1.0e-12, 1.0e-12 );
     onboardPropagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< double > >(
                 std::vector< std::string >( 1, planetName_ ), onboardAccelerationModelMap_,
                 std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ),

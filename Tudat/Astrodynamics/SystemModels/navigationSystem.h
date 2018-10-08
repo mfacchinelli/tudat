@@ -479,15 +479,24 @@ public:
     //! Function to retrieve whether the spacecraft altitude is above the dynamic atmospheric interface line.
     bool getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( )
     {
+        // Compute current first order apoapsis altitudes
+        double currentEstimatedApoapsisAltitude = currentEstimatedKeplerianState_[ 0 ] *
+                ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) - planetaryRadius_;
+
+        // Compute initial first order apoapsis altitudes
+        Eigen::Vector6d initialEstimatedKeplerianState = historyOfEstimatedStates_.begin( )->second.second;
+        double initialEstimatedApoapsisAltitude = initialEstimatedKeplerianState[ 0 ] *
+                ( 1.0 + initialEstimatedKeplerianState[ 1 ] ) - planetaryRadius_;
+
         // Compute current DAIA
-        double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
-                ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) ) + planetaryRadius_;
+        double currentDynamicAtmosphericInterfaceAltitude = 0.275 * currentEstimatedApoapsisAltitude +
+                0.01 * ( initialEstimatedApoapsisAltitude - currentEstimatedApoapsisAltitude );
 
-        // Compute current radial distance
-        double currentRadialDistance = currentEstimatedCartesianState_.segment( 0, 3 ).norm( );
+        // Compute current altitude
+        double currentEstimatedAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( );
 
-        // Output whether the altitude is below DAIA
-        return ( currentRadialDistance > currentDynamicAtmosphericInterfaceRadius );
+        // Output whether the altitude is above DAIA
+        return ( currentEstimatedAltitude > currentDynamicAtmosphericInterfaceAltitude );
     }
 
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.

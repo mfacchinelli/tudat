@@ -94,11 +94,11 @@ double lowerAltitudeBisectionFunctionBasedOnLifetimeCondition(
     Eigen::Vector6d initialKeplerianState = initialEstimatedKeplerianState;
 
     // Modify initial state to match new estimated periapsis altitude
+    double estimatedPeriapsisRadius = currentAltitudeGuess + planetaryRadius;
     double estimatedApoapsisRadius = basic_astrodynamics::computeKeplerRadialDistance(
                 initialKeplerianState[ 0 ], initialKeplerianState[ 1 ], initialKeplerianState[ 5 ] );
-    double semiMajorAxis = 0.5 * ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
-    double eccentricity = ( estimatedApoapsisRadius - currentAltitudeGuess - planetaryRadius ) /
-            ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
+    double semiMajorAxis = 0.5 * ( estimatedApoapsisRadius + estimatedPeriapsisRadius );
+    double eccentricity = ( estimatedApoapsisRadius - estimatedPeriapsisRadius ) / ( estimatedApoapsisRadius + estimatedPeriapsisRadius );
     initialKeplerianState[ 0 ] = semiMajorAxis;
     initialKeplerianState[ 1 ] = eccentricity;
 
@@ -109,17 +109,10 @@ double lowerAltitudeBisectionFunctionBasedOnLifetimeCondition(
                     initialKeplerianState, planetaryGravitationalParameter ) );
 
     // Give propagation a score based on lifetime
-    double actualLifetime;
-    if ( propagationResult.first )
-    {
-        actualLifetime = 0;
-    }
-    else
-    {
-        actualLifetime = ( propagationResult.second.first.rbegin( )->first - propagationResult.second.first.begin( )->first ) /
-                physical_constants::JULIAN_DAY;
-    }
-    std::cout << "Lifetime: " << actualLifetime << std::endl
+    double actualLifetime =
+            ( propagationResult.second.first.rbegin( )->first - propagationResult.second.first.begin( )->first ) /
+            physical_constants::JULIAN_DAY;
+    std::cout << "Altitude: " << currentAltitudeGuess / 1.0e3 << "km. Lifetime: " << actualLifetime << " day" << std::endl
               << "Score: " << actualLifetime - minimumLifetime << std::endl << std::endl;
 
     // Return value to to indicate closeness to limiting value
