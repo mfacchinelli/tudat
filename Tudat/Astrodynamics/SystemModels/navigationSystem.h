@@ -186,71 +186,10 @@ public:
     }
 
     //! Function to run the State Estimator (SE).
-    void runStateEstimator( const Eigen::Vector3d& currentExternalMeasurement,
-                            const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
+    void runStateEstimator( const double currentTime, const Eigen::Vector6d& currentExternalMeasurement )
     {
-        if ( int( ( currentTime_ - initialTime_ ) * 10.0 ) % int( 1.0e4 * 10.0 ) == 0.0 )
-            std::cout << int( currentTime_ - initialTime_ ) << std::endl;
-
-        // Add maneuver if requested
-        if ( !scheduledApoapsisManeuver.isZero( ) )
-        {
-            Eigen::Vector6d currentEstimatedCartesianState = currentEstimatedCartesianState_;
-            currentEstimatedCartesianState.segment( 3, 3 ) += scheduledApoapsisManeuver;
-            setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
-            updateOnboardModel( );
-        }
-
-        // Perform extra functions when switching phase
-        if ( ( previousNavigationPhase_ == aided_navigation_phase ) && ( currentNavigationPhase_ == unaided_navigation_phase ) )
-        {
-            // Improve state estimate if passing from aided to unaided
-            improveStateEstimateOnNavigationPhaseTransition( );
-        }
-        else if ( ( previousNavigationPhase_ == unaided_navigation_phase ) && ( currentNavigationPhase_ == aided_navigation_phase ) )
-        {
-            // Reset covariance matrix if passing from unaided to aided
-            Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
-            Eigen::Matrix9d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-            currentNavigationFilterCovarianceMatrix.setIdentity( );
-            navigationFilter_->modifyCurrentStateAndCovarianceEstimates( currentNavigationFilterState,
-                                                                         currentNavigationFilterCovarianceMatrix );
-        }
-
-        // Update current state based on the detected navigation phase
-        switch ( currentNavigationPhase_ )
-        {
-        case unaided_navigation_phase:
-        {
-            // Update Cartesian state
-            Eigen::Vector6d currentEstimatedCartesianState = currentEstimatedCartesianState_;
-            Eigen::Vector6d currentEstimatedCartesianStateDerivative;
-            currentEstimatedCartesianStateDerivative.segment( 0, 3 ) = currentEstimatedCartesianState.segment( 3, 3 );
-            currentEstimatedCartesianStateDerivative.segment( 3, 3 ) = currentEstimatedTranslationalAcceleration_;
-            currentEstimatedCartesianState += navigationRefreshStepSize_ * currentEstimatedCartesianStateDerivative;
-
-            // Update time
-            currentTime_ += navigationRefreshStepSize_;
-
-            // Update navigation system
-            setCurrentEstimatedCartesianState( currentEstimatedCartesianState );
-            break;
-        }
-        case aided_navigation_phase:
-        {
-            // Update filter
-            navigationFilter_->updateFilter( currentExternalMeasurement );
-
-            // Extract tiem and estimated state and update navigation system
-            currentTime_ = navigationFilter_->getCurrentTime( );
-            Eigen::Vector9d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-            setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
-            break;
-        }
-        default:
-            throw std::runtime_error( "Error in navigation system. Current navigation (" +
-                                      std::to_string( currentNavigationPhase_ ) + ") phase not supported." );
-        }
+        currentTime_ = currentTime;
+        setCurrentEstimatedCartesianState( currentExternalMeasurement );
 
         // Update body and acceleration maps
         updateOnboardModel( );
@@ -270,64 +209,7 @@ public:
      */
     void runPostAtmosphereProcesses( const std::map< double, Eigen::Vector3d >& mapOfMeasuredAerodynamicAcceleration )
     {
-        using mathematical_constants::PI;
-
-        // Extract aerodynamic accelerations of when the spacecraft is below the atmospheric interface altitude
-        double currentIterationTime;
-        std::map< double, Eigen::Vector6d > mapOfEstimatedCartesianStatesBelowAtmosphericInterface;
-        std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
-        std::map< double, Eigen::Vector3d > mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface;
-        std::vector< Eigen::Vector3d > vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface;
-        for ( translationalStateConstantIterator_ = currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
-              translationalStateConstantIterator_ != currentOrbitHistoryOfEstimatedTranslationalStates_.end( );
-              translationalStateConstantIterator_++ )
-        {
-            if ( translationalStateConstantIterator_->second.first.segment( 0, 3 ).norm( ) <= atmosphericInterfaceRadius_ )
-            {
-                // Retireve time, state and acceleration of where the altitude is below the atmospheric interface
-                currentIterationTime = translationalStateConstantIterator_->first;
-                mapOfEstimatedCartesianStatesBelowAtmosphericInterface[ currentIterationTime ] =
-                        translationalStateConstantIterator_->second.first;
-                mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ] =
-                        translationalStateConstantIterator_->second.second;
-                mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface[ currentIterationTime ] =
-                        currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentIterationTime ];
-                vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.push_back(
-                            mapOfMeasuredAerodynamicAcceleration.at( currentIterationTime ) );
-
-                // Modify the true anomaly such that it is negative where it is above PI radians (before estimated periapsis)
-                if ( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] >= PI )
-                {
-                    mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] -= 2.0 * PI;
-                }
-            }
-        }
-
-        // Only proceed if satellite flew below atmospheric interface altitude
-        if ( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ) > 0 )
-        {
-            // Remove errors from measured accelerations
-            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
-
-            // Compute magnitude of aerodynamic acceleration
-            std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
-            for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
-            {
-                vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back(
-                            vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ).norm( ) );
-            }
-
-            // Run periapse time estimator if ... (TBD)
-            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
-            {
-                runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                          vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-            }
-
-            // Run atmosphere estimator with processed results
-            runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                    vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-        }
+        historyOfEstimatedAtmosphereParameters_[ currentOrbitCounter_ ] = Eigen::Vector6d::Constant( TUDAT_NAN );
     }
 
     //! Function to update current translational Cartesian state with Deep Space Network measurement.
@@ -479,15 +361,24 @@ public:
     //! Function to retrieve whether the spacecraft altitude is above the dynamic atmospheric interface line.
     bool getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( )
     {
+        // Compute current first order apoapsis altitudes
+        double currentEstimatedApoapsisAltitude = currentEstimatedKeplerianState_[ 0 ] *
+                ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) - planetaryRadius_;
+
+        // Compute initial first order apoapsis altitudes
+        Eigen::Vector6d initialEstimatedKeplerianState = historyOfEstimatedStates_.begin( )->second.second;
+        double initialEstimatedApoapsisAltitude = initialEstimatedKeplerianState[ 0 ] *
+                ( 1.0 + initialEstimatedKeplerianState[ 1 ] ) - planetaryRadius_;
+
         // Compute current DAIA
-        double currentDynamicAtmosphericInterfaceRadius = 0.25 * ( currentEstimatedKeplerianState_[ 0 ] *
-                ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) ) + planetaryRadius_;
+        double currentDynamicAtmosphericInterfaceAltitude = 0.275 * currentEstimatedApoapsisAltitude +
+                0.01 * ( initialEstimatedApoapsisAltitude - currentEstimatedApoapsisAltitude );
 
-        // Compute current radial distance
-        double currentRadialDistance = currentEstimatedCartesianState_.segment( 0, 3 ).norm( );
+        // Compute current altitude
+        double currentEstimatedAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( );
 
-        // Output whether the altitude is below DAIA
-        return ( currentRadialDistance > currentDynamicAtmosphericInterfaceRadius );
+        // Output whether the altitude is above DAIA
+        return ( currentEstimatedAltitude > currentDynamicAtmosphericInterfaceAltitude );
     }
 
     //! Function to retrieve current estimated translational accelerations exerted on the spacecraft.

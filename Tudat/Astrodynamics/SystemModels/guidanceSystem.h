@@ -14,6 +14,7 @@
 #include <map>
 #include <tuple>
 #include <vector>
+#include <iomanip>
 
 #include <Eigen/Geometry>
 
@@ -40,7 +41,8 @@ public:
         walk_in_phase = 0,
         main_phase = 1,
         walk_out_phase = 2,
-        aerobraking_complete = 3
+        periapsis_raise_phase = 3,
+        aerobraking_complete = 4
     };
 
     //! Constructor.
@@ -98,11 +100,16 @@ public:
      *  \param pairOfAtmosphereInitiationIndicators Pair of integers, where the first element denotes the number of atmosphere
      *      samples that have been taken so far, and the second element indicates the number of atmosphere samples required for
      *      the atmosphere estimator to be considered initialized.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
      */
     void determineAerobrakingPhase( const Eigen::Vector6d& currentEstimatedKeplerianState,
-                                    const std::pair< unsigned int, unsigned int >& pairOfAtmosphereInitiationIndicators )
+                                    const std::pair< unsigned int, unsigned int >& pairOfAtmosphereInitiationIndicators,
+                                    const double planetaryRadius )
     {
-        // Declare aerobraking phase indicator and set value to main phase
+        // Store previous aerobraking phase indicator
+        AerobrakingPhaseIndicator previousAerobrakingPhase = currentOrbitAerobrakingPhase_;
+
+        // Declare current orbit aerobraking phase indicator and set value to main phase
         AerobrakingPhaseIndicator detectedAerobrakingPhase = main_phase;
 
         // Set periapsis altitude scaling to default value
@@ -119,16 +126,19 @@ public:
 
         // Check whether apoapsis is approaching target value
         double predictedApoapsisRadius = computeCurrentFirstOrderEstimatedApoapsisRadius( currentEstimatedKeplerianState );
-        if ( ( std::fabs( predictedApoapsisRadius - targetApoapsisAltitude_ ) < 1500.0e3 ) ||
-             ( currentEstimatedKeplerianState[ 1 ] < 0.3 ) )
+        if ( currentEstimatedKeplerianState[ 1 ] < 0.3 )
         {
             detectedAerobrakingPhase = walk_out_phase;
         }
 
+        // Check whether it is time to perform periapsis raise maneuver is complete
+        if ( ( predictedApoapsisRadius - planetaryRadius ) < 1.25 * targetApoapsisAltitude_ )
+        {
+            detectedAerobrakingPhase = periapsis_raise_phase;
+        }
+
         // Check whether aerobraking is complete
-        double predictedPeriapsisRadius = computeCurrentFirstOrderEstimatedPeriapsisRadius( currentEstimatedKeplerianState );
-        if ( ( std::fabs( predictedApoapsisRadius - targetApoapsisAltitude_ ) < 5.0e3 ) &&
-             ( std::fabs( predictedPeriapsisRadius - targetPeriapsisAltitude_ ) < 5.0e3 ) )
+        if ( previousAerobrakingPhase == periapsis_raise_phase )
         {
             detectedAerobrakingPhase = aerobraking_complete;
         }
@@ -155,10 +165,10 @@ public:
                                const double planetaryRadius,
                                const double planetaryGravitationalParameter );
 
-    //! Function to run maneuver estimator (ME).
+    //! Function to run apoapsis maneuver estimator (ME).
     /*!
-     *  Function to run maneuver estimator (ME). Note that since the root-finder uses the propagator defined in the runCorridorEstimator
-     *  function (i.e., periodReducedStatePropagationFunction_), said function needs to be run before this one.
+     *  Function to run apoapsis maneuver estimator (ME). Note that since the root-finder uses the propagator defined in the
+     *  runCorridorEstimator function (i.e., periodReducedStatePropagationFunction_), said function needs to be run before this one.
      *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
      *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
      *  \param currentEstimatedMeanMotion Double denoting the current estimated mean motion.
@@ -166,11 +176,28 @@ public:
      *  \param improveEstimateWithBisection Boolean denoting whether the maneuver estimate should be improved by using a
      *      bisection root-finder algorithm.
      */
-    void runManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
-                               const Eigen::Vector6d& currentEstimatedKeplerianState,
-                               const double currentEstimatedMeanMotion,
-                               const double planetaryRadius,
-                               const bool improveEstimateWithBisection = true );
+    void runApoapsisManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
+                                       const Eigen::Vector6d& currentEstimatedKeplerianState,
+                                       const double currentEstimatedMeanMotion,
+                                       const double planetaryRadius,
+                                       const bool improveEstimateWithBisection = true );
+
+    //! Function to run periapsis maneuver estimator (ME).
+    /*!
+     *  Function to run periapsis maneuver estimator (ME).
+     *  \param currentTime Double denoting the current time.
+     *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
+     *  \param currentEstimatedMeanMotion Double denoting the current estimated mean motion.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
+     *  \param planetaryGravitationalParameter Double denoting the gravitational parameter of the planet being orbited.
+     */
+    void runPeriapsisManeuverEstimator( const double currentTime,
+                                        const Eigen::Vector6d& currentEstimatedCartesianState,
+                                        const Eigen::Vector6d& currentEstimatedKeplerianState,
+                                        const double currentEstimatedMeanMotion,
+                                        const double planetaryRadius,
+                                        const double planetaryGravitationalParameter );
 
     //! Function to set the value of the current orbit counter.
     void setCurrentOrbitCounter( const unsigned int currentOrbitCounter )
@@ -189,13 +216,22 @@ public:
     bool getIsApoapsisManeuverToBePerformed( ) { return !std::get< 0 >( periapsisTargetingInformation_ ); }
 
     //! Function to retirieve the value of the apoapsis maneuver vector.
-    Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApsoapsisManeuver_; }
+    Eigen::Vector3d getScheduledApsisManeuver( ) { return scheduledApsisManeuver_; }
+
+    //! Function to retrieve whether the periapsis raise phase is active.
+    /*!
+     *  Function to retrieve whether the periapsis raise phase is active. The value of currentOrbitAerobrakingPhase_ is
+     *  determined by the function determineAerobrakingPhase and returns that the periapsis raise phase is active, if the periapsis
+     *  altitude reaches within 25 % of its target value.
+     *  \return Boolean denoting whether the current orbit phase is periapsis_raise_phase.
+     */
+    bool getIsPeriapsisRaisePhase( ) { return ( currentOrbitAerobrakingPhase_ == periapsis_raise_phase ); }
 
     //! Function to retrieve whether the aerobraking maneuver has been completed.
     /*!
      *  Function to retrieve whether the aerobraking maneuver has been completed. The value of currentOrbitAerobrakingPhase_ is
      *  determined by the function determineAerobrakingPhase and returns that the aerobraking phase has been completed, if the
-     *  estimated periapsis and apoapsis altitudes are within 5 km of their respective target values.
+     *  previous orbit phase was the periapsis raise phase.
      *  \return Boolean denoting whether the aerobraking maneuver has been completed.
      */
     bool getIsAerobrakingComplete( ) { return ( currentOrbitAerobrakingPhase_ == aerobraking_complete ); }
@@ -206,19 +242,19 @@ public:
         return historyOfEstimatedPeriapsisCorridorBoundaries_;
     }
 
-    //! Function to retrieve the history of apoapsis maneuver magnitudes.
-    std::pair< double, std::map< unsigned int, double > > getHistoryOfApoapsisManeuverMagnitudes( )
+    //! Function to retrieve the history of apo- and periapsis maneuver magnitudes.
+    std::pair< double, std::map< unsigned int, double > > getHistoryOfApsisManeuverMagnitudes( )
     {
         // Sum all maneuver contributions
         double cumulativeManeuverMagnitude = 0;
-        for ( std::map< unsigned int, double >::const_iterator mapIterator = historyOfApoapsisManeuverMagnitudes_.begin( );
-              mapIterator != historyOfApoapsisManeuverMagnitudes_.end( ); mapIterator++ )
+        for ( std::map< unsigned int, double >::const_iterator mapIterator = historyOfApsisManeuverMagnitudes_.begin( );
+              mapIterator != historyOfApsisManeuverMagnitudes_.end( ); mapIterator++ )
         {
-            cumulativeManeuverMagnitude += mapIterator->second;
+            cumulativeManeuverMagnitude += std::fabs( mapIterator->second );
         }
 
         // Give output
-        return std::make_pair( cumulativeManeuverMagnitude, historyOfApoapsisManeuverMagnitudes_ );
+        return std::make_pair( cumulativeManeuverMagnitude, historyOfApsisManeuverMagnitudes_ );
     }
 
 private:
@@ -362,7 +398,7 @@ private:
     std::tuple< bool, double, double > periapsisTargetingInformation_;
 
     //! Vector denoting the velocity change scheduled to be applied at apoapsis.
-    Eigen::Vector3d scheduledApsoapsisManeuver_;
+    Eigen::Vector3d scheduledApsisManeuver_;
 
     //! History of estimated periapsis corridor boundaries.
     /*!
@@ -371,8 +407,8 @@ private:
      */
     std::map< unsigned int, std::pair< double, double > > historyOfEstimatedPeriapsisCorridorBoundaries_;
 
-    //! History of estimated apoapsis maneuver magnitudes.
-    std::map< unsigned int, double > historyOfApoapsisManeuverMagnitudes_;
+    //! History of estimated apo- and periapsis maneuver magnitudes.
+    std::map< unsigned int, double > historyOfApsisManeuverMagnitudes_;
 
 };
 

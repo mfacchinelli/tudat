@@ -18,56 +18,109 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
                                            const double planetaryRadius,
                                            const double planetaryGravitationalParameter )
 {
-    // Inform user
-    std::cout << std::endl << "Estimating Periapsis Corridor." << std::endl;
-
-    // Loop until convergence is reached
-    bool corridorEstimationComplete = true;
-    do
+    // Run corridor estimator if aerobraking is not complete
+    switch ( currentOrbitAerobrakingPhase_ )
     {
-        // Run corridor estimator with heating conditions as lower limit
-        estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
-                                    planetaryRadius, planetaryGravitationalParameter );
+    case aerobraking_complete:
+    {
+        // Inform user
+        std::cout << std::endl << "Aerobraking Complete." << std::endl;
 
-        // If in walk-out phase, check that lifetime is above minimum value
-        if ( currentOrbitAerobrakingPhase_ == walk_out_phase )
+        // Store corridor information to pair
+        periapsisTargetingInformation_ = std::make_tuple( true, targetPeriapsisAltitude_, targetPeriapsisAltitude_ );
+        break;
+    }
+    case periapsis_raise_phase:
+    {
+        // Inform user
+        std::cout << std::endl << "Raising Periapsis To Target Value." << std::endl;
+
+        // Create propagation termination settings based on period and lifetime to be used throughout the function
+        double periodTerminationTime = currentTime + 2.0 / 3.0 *
+                basic_astrodynamics::computeKeplerOrbitalPeriod( currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter );
+        boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
+                boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
+
+        // Create reduced state propagation function where termination settings are already set
+        periodReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, periodTerminationSettings, _1 );
+
+        // Propagate state for two thirds of the orbit
+        std::map< double, Eigen::VectorXd > nominalPropagatedState =
+                periodReducedStatePropagationFunction_( currentEstimatedCartesianState ).second.first;
+
+        // Retrieve periapsis altitude
+        unsigned int i = 0;
+        Eigen::VectorXd historyOfAltitudes;
+        historyOfAltitudes.resize( nominalPropagatedState.size( ) );
+        for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = nominalPropagatedState.begin( );
+              mapIterator != nominalPropagatedState.end( ); mapIterator++, i++ )
         {
-            // Inform user
-            std::cout << "Walk-out phase. Checking lifetime constraints." << std::endl;
+            historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
+        }
+        double predictedPeriapsisAltitude = historyOfAltitudes.minCoeff( );
+        std::cout << "Predicted periapsis altitude: " << predictedPeriapsisAltitude / 1.0e3 << " km" << std::endl;
 
-            // Check that lifetime threshold is met
-            corridorEstimationComplete = lifetimeReducedStatePropagationFunction_( currentEstimatedCartesianState ).first;
-            if ( !corridorEstimationComplete )
+        // Save periapsis corridor altitudes to history
+        historyOfEstimatedPeriapsisCorridorBoundaries_[ currentOrbitCounter_ ] = std::make_pair( TUDAT_NAN, TUDAT_NAN );
+
+        // Store corridor information to pair
+        periapsisTargetingInformation_ = std::make_tuple( false, predictedPeriapsisAltitude, targetPeriapsisAltitude_ );
+        break;
+    }
+    default:
+    {
+        // Inform user
+        std::cout << std::endl << "Estimating Periapsis Corridor." << std::endl;
+
+        // Loop until convergence is reached
+        bool corridorEstimationComplete = true;
+        do
+        {
+            // Run corridor estimator with heating conditions as lower limit
+            estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
+                                        planetaryRadius, planetaryGravitationalParameter );
+
+            // If in walk-out phase, check that lifetime is above minimum value
+            if ( currentOrbitAerobrakingPhase_ == walk_out_phase )
             {
                 // Inform user
-                std::cout << "Lifetime requirement not met. Re-estimating corridor boundaries." << std::endl;
+                std::cout << "Walk-out phase. Checking lifetime constraints." << std::endl;
 
-                // Run corridor estimator with lifetime as lower limit
-                estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
-                                            planetaryRadius, planetaryGravitationalParameter, false );
-                corridorEstimationComplete = true;
+                // Check that lifetime threshold is met
+                corridorEstimationComplete = lifetimeReducedStatePropagationFunction_( currentEstimatedCartesianState ).first;
+                if ( !corridorEstimationComplete )
+                {
+                    // Inform user
+                    std::cout << "Lifetime requirement not met. Re-estimating corridor boundaries." << std::endl;
+
+                    // Run corridor estimator with lifetime as lower limit
+                    estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
+                                                planetaryRadius, planetaryGravitationalParameter, false );
+                    corridorEstimationComplete = true;
+                }
             }
         }
+        while ( !corridorEstimationComplete );
+        break;
     }
-    while ( !corridorEstimationComplete );
+    }
 }
 
-//! Function to run maneuver estimator (ME).
-void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
-                                           const Eigen::Vector6d& currentEstimatedKeplerianState,
-                                           const double currentEstimatedMeanMotion,
-                                           const double planetaryRadius,
-                                           const bool improveEstimateWithBisection )
+//! Function to run apoapsis maneuver estimator (ME).
+void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
+                                                   const Eigen::Vector6d& currentEstimatedKeplerianState,
+                                                   const double currentEstimatedMeanMotion,
+                                                   const double planetaryRadius,
+                                                   const bool improveEstimateWithBisection )
 {
     // Inform user
     std::cout << std::endl << "Estimating Apoapsis Maneuver." << std::endl;
 
     // Set apoapsis maneuver vector to zero
-    scheduledApsoapsisManeuver_.setZero( );
+    scheduledApsisManeuver_.setZero( );
 
-    // Compute predicted periapsis radius
-    double predictedPeriapsisAltitude = computeCurrentFirstOrderEstimatedPeriapsisRadius( currentEstimatedKeplerianState ) - planetaryRadius;
-    double differenceInPeriapsisAltitude = std::get< 2 >( periapsisTargetingInformation_ ) - predictedPeriapsisAltitude;
+    // Compute difference in periapsis radius
+    double differenceInPeriapsisAltitude = std::get< 2 >( periapsisTargetingInformation_ ) - std::get< 1 >( periapsisTargetingInformation_ );
 
     // Compute estimated maneuver in y-direction of local orbit frame
     double preliminaryApoapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInPeriapsisAltitude * std::sqrt(
@@ -83,7 +136,9 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
 
     // Improve the estimate if magnitude is large enough
     double estimatedApoapsisManeuverMagnitude;
-    if ( improveEstimateWithBisection && ( std::fabs( preliminaryApoapsisManeuverMagnitude ) > 0.15 ) ) // 0.15 N is an empirical value
+    if ( improveEstimateWithBisection &&
+         ( std::fabs( preliminaryApoapsisManeuverMagnitude ) > 0.15 ) && // 0.15 N is an empirical value
+         ( currentOrbitAerobrakingPhase_ != periapsis_raise_phase ) )
     {
         // Try using root-finder to improve estimate
         try
@@ -114,12 +169,72 @@ void GuidanceSystem::runManeuverEstimator( const Eigen::Vector6d& currentEstimat
     }
 
     // Add magnitude to maneuver vector and save to hisotry
-    scheduledApsoapsisManeuver_[ 1 ] = estimatedApoapsisManeuverMagnitude;
-    historyOfApoapsisManeuverMagnitudes_[ currentOrbitCounter_ ] = estimatedApoapsisManeuverMagnitude;
+    scheduledApsisManeuver_[ 1 ] = estimatedApoapsisManeuverMagnitude;
+    historyOfApsisManeuverMagnitudes_[ currentOrbitCounter_ ] = estimatedApoapsisManeuverMagnitude;
 
     // Convert manveuver (i.e., Delta V vector) to inertial frame
-    scheduledApsoapsisManeuver_ = transformationFromLocalToInertialFrame * scheduledApsoapsisManeuver_;
-    std::cout << "Scheduled maneuver: " << scheduledApsoapsisManeuver_.transpose( ) << std::endl;
+    scheduledApsisManeuver_ = transformationFromLocalToInertialFrame * scheduledApsisManeuver_;
+    std::cout << "Scheduled maneuver: " << scheduledApsisManeuver_.transpose( ) << std::endl;
+}
+
+//! Function to run periapsis maneuver estimator (ME).
+void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
+                                                    const Eigen::Vector6d& currentEstimatedCartesianState,
+                                                    const Eigen::Vector6d& currentEstimatedKeplerianState,
+                                                    const double currentEstimatedMeanMotion,
+                                                    const double planetaryRadius,
+                                                    const double planetaryGravitationalParameter )
+{
+    // Inform user
+    std::cout << std::endl << "Estimating Periapsis Maneuver." << std::endl;
+
+    // Create propagation termination settings based on period and lifetime to be used throughout the function
+    double periodTerminationTime = currentTime + 2.0 / 3.0 *
+            basic_astrodynamics::computeKeplerOrbitalPeriod( currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter );
+    boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
+            boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
+
+    // Create reduced state propagation function where termination settings are already set
+    periodReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, periodTerminationSettings, _1 );
+
+    // Propagate state for two thirds of the orbit
+    std::map< double, Eigen::VectorXd > nominalPropagatedState =
+            periodReducedStatePropagationFunction_( currentEstimatedCartesianState ).second.first;
+
+    // Retrieve periapsis altitude
+    unsigned int i = 0;
+    Eigen::VectorXd historyOfAltitudes;
+    historyOfAltitudes.resize( nominalPropagatedState.size( ) );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = nominalPropagatedState.begin( );
+          mapIterator != nominalPropagatedState.end( ); mapIterator++, i++ )
+    {
+        historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
+    }
+    double predictedApoapsisAltitude = historyOfAltitudes.maxCoeff( );
+    std::cout << "Predicted apoapsis altitude: " << predictedApoapsisAltitude / 1.0e3 << " km" << std::endl;
+
+    // Set apoapsis maneuver vector to zero
+    scheduledApsisManeuver_.setZero( );
+
+    // Compute difference in periapsis radius
+    double differenceInApoapsisAltitude = targetApoapsisAltitude_ - predictedApoapsisAltitude;
+
+    // Compute estimated maneuver in y-direction of local orbit frame
+    double estimatedPeriapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInApoapsisAltitude * std::sqrt(
+                ( 1.0 - currentEstimatedKeplerianState[ 1 ] ) / ( 1.0 + currentEstimatedKeplerianState[ 1 ] ) );
+    std::cout << "Magnitude: " << estimatedPeriapsisManeuverMagnitude << " m/s" << std::endl;
+
+    // Compute transformation from local to inertial frame
+    Eigen::Matrix3d transformationFromLocalToInertialFrame =
+            computeCurrentRotationFromLocalToInertialFrame( currentEstimatedCartesianState );
+
+    // Add magnitude to maneuver vector and save to hisotry
+    scheduledApsisManeuver_[ 1 ] = estimatedPeriapsisManeuverMagnitude;
+    historyOfApsisManeuverMagnitudes_[ currentOrbitCounter_ ] = estimatedPeriapsisManeuverMagnitude;
+
+    // Convert manveuver (i.e., Delta V vector) to inertial frame
+    scheduledApsisManeuver_ = transformationFromLocalToInertialFrame * scheduledApsisManeuver_;
+    std::cout << "Scheduled maneuver: " << scheduledApsisManeuver_.transpose( ) << std::endl;
 }
 
 //! Function to run corridor estimator with nominal conditions.
@@ -144,15 +259,15 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     lifetimeReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, lifetimeTerminationSettings, _1 );
 
     // Propagate state for two thirds of the orbit
-    std::map< double, Eigen::VectorXd > unaffectedPropagatedState =
+    std::map< double, Eigen::VectorXd > nominalPropagatedState =
             periodReducedStatePropagationFunction_( currentEstimatedCartesianState ).second.first;
 
     // Retrieve periapsis altitude
     unsigned int i = 0;
     Eigen::VectorXd historyOfAltitudes;
-    historyOfAltitudes.resize( unaffectedPropagatedState.size( ) );
-    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = unaffectedPropagatedState.begin( );
-          mapIterator != unaffectedPropagatedState.end( ); mapIterator++, i++ )
+    historyOfAltitudes.resize( nominalPropagatedState.size( ) );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = nominalPropagatedState.begin( );
+          mapIterator != nominalPropagatedState.end( ); mapIterator++, i++ )
     {
         historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
     }
@@ -177,7 +292,7 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     else
     {
         // Set root-finder boundaries for the lower altitude limits
-        altitudeBisectionRootFinder_->resetBoundaries( 90.0e3, 150.0e3 );
+        altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 137.5e3 );
 
         // Set root-finder function as the lifetime calculator
         estimatedLowerAltitudeBound = altitudeBisectionRootFinder_->execute(
@@ -204,10 +319,10 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     {
         // Inform user of altitude conflict
         std::cerr << "Warning in periapsis corridor estimator. The lower altitude bound is larger than the higher altitude bound. "
-                     "The upper bound will be defined as the lower bound plus 15 km." << std::endl;
+                     "The upper bound will be defined as the lower bound plus 2.5 km." << std::endl;
 
         // Replace upper altitude with periapsis estimate
-        estimatedUpperAltitudeBound = estimatedLowerAltitudeBound + 15.0e3;
+        estimatedUpperAltitudeBound = estimatedLowerAltitudeBound + 2.5e3;
     }
 
     // Check whether predicted altitude is within bounds
