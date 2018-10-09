@@ -299,6 +299,7 @@ private:
         // Find trajectory z-axis unit vector
         Eigen::Vector3d zUnitVector = currentEstimatedCartesianState.segment( 0, 3 ).normalized( );
         zUnitVector -= zUnitVector.dot( xUnitVector ) * xUnitVector;
+        zUnitVector *= -1.0; // axis points toward planet
         transformationFromTrajectoryToInertialFrame.col( 2 ) = zUnitVector;
 
         // Find body-fixed y-axis unit vector
