@@ -47,11 +47,12 @@ public:
     //! Constructor.
     /*!
      *  Constructor.
-     *  \param targetPeriapsisAltitude
-     *  \param targetApoapsisAltitude
-     *  \param maximumAllowedHeatRate
-     *  \param maximumAllowedHeatLoad
-     *  \param minimumAllowedDynamicPressure
+     *  \param targetPeriapsisAltitude Double denoting the value of the target periapsis altitude.
+     *  \param targetApoapsisAltitude Double denoting the value of the target apoapsis altitude.
+     *  \param maximumAllowedHeatRate Double denoting the maximum allowed heat rate that the spacecraft can endure.
+     *  \param maximumAllowedHeatLoad Double denoting the maximum allowed heat load that the spacecraft can endure.
+     *  \param minimumAllowedDynamicPressure Double denoting the minimum allowed dynamic pressure that the spacecraft should encounter.
+     *  \param minimumAllowedLifetime Double denoting the minimum allowed predicted lifetime in days.
      */
     GuidanceSystem( const double targetPeriapsisAltitude,
                     const double targetApoapsisAltitude,
@@ -80,7 +81,10 @@ public:
     //! Function to create the guidance system objects.
     /*!
      *  Function to create the guidance system objects.
-     *  \param statePropagationFunction
+     *  \param statePropagationFunction Function used to propagate the spacecraft position, based on custom termination settings
+     *      and custom initial conditions. The output of the function is a pair, where the first element is a boolean denoting
+     *      whether the propagation was successful, and the second element is another pair, where the first entry is the state
+     *      history and the second entry the dependent variable history.
      */
     void createGuidanceSystemObjects(
             const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
@@ -217,23 +221,16 @@ public:
     //! Function to retirieve the value of the apoapsis maneuver vector.
     Eigen::Vector3d getScheduledApsisManeuver( ) { return scheduledApsisManeuver_; }
 
-    //! Function to retrieve whether the periapsis raise phase is active.
+    //! Function to retrieve whether the input aerobraking phase is active.
     /*!
-     *  Function to retrieve whether the periapsis raise phase is active. The value of currentOrbitAerobrakingPhase_ is
-     *  determined by the function determineAerobrakingPhase and returns that the periapsis raise phase is active, if the periapsis
-     *  altitude reaches within 25 % of its target value.
-     *  \return Boolean denoting whether the current orbit phase is periapsis_raise_phase.
+     *  Function to retrieve whether the the input aerobraking phase is active. The value of currentOrbitAerobrakingPhase_ is
+     *  determined by the function determineAerobrakingPhase.
+     *  \return Boolean denoting whether the input aerobraking phase is active.
      */
-    bool getIsPeriapsisRaisePhase( ) { return ( currentOrbitAerobrakingPhase_ == periapsis_raise_phase ); }
-
-    //! Function to retrieve whether the aerobraking maneuver has been completed.
-    /*!
-     *  Function to retrieve whether the aerobraking maneuver has been completed. The value of currentOrbitAerobrakingPhase_ is
-     *  determined by the function determineAerobrakingPhase and returns that the aerobraking phase has been completed, if the
-     *  previous orbit phase was the periapsis raise phase.
-     *  \return Boolean denoting whether the aerobraking maneuver has been completed.
-     */
-    bool getIsAerobrakingComplete( ) { return ( currentOrbitAerobrakingPhase_ == aerobraking_complete ); }
+    bool getIsAerobrakingPhaseActive( const AerobrakingPhaseIndicator inputAerobrakingPhase )
+    {
+        return ( currentOrbitAerobrakingPhase_ == inputAerobrakingPhase );
+    }
 
     //! Function to retrieve the history of estimated periapsis corridor boundaries.
     std::map< unsigned int, std::pair< double, double > > getHistoryOfEstimatedPeriapsisCorridorBoundaries( )
@@ -281,8 +278,8 @@ private:
      *  rotation from trajectory to inertial frame is found, then the rotation from local to trajectory is added. The first DCM is
      *  found by using the velocity and radial distance vector. The velocity (unit) vector corresponds directly to the x-axis of the
      *  trajectory frame, whereas the z-axis is computed by subtracting from the radial distance (unit) vector its projection on the
-     *  x-axis. Then, the y-axis is determined via the right-hand rule (i.e., with the cross product). Note that since the estimated
-     *  state is used, the actual transformation can differ.
+     *  x-axis, and then inverting to find the unit vector that points toward the planet. Then, the y-axis is determined via the
+     *  right-hand rule (i.e., with the cross product). Note that since the estimated state is used, the actual transformation can differ.
      *  \param currentEstimatedCartesianState Current estimated Cartesian state as provided by the navigation system.
      *  \return Direction cosine matrix representing the estimated rotation from local to inertial frame.
      */
@@ -298,6 +295,7 @@ private:
         // Find trajectory z-axis unit vector
         Eigen::Vector3d zUnitVector = currentEstimatedCartesianState.segment( 0, 3 ).normalized( );
         zUnitVector -= zUnitVector.dot( xUnitVector ) * xUnitVector;
+        zUnitVector *= -1.0; // axis points toward planet
         transformationFromTrajectoryToInertialFrame.col( 2 ) = zUnitVector;
 
         // Find body-fixed y-axis unit vector

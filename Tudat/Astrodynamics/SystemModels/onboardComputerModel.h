@@ -190,7 +190,7 @@ public:
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
             // Check aerobraking phase and true anomaly to see if periapsis maneuvering phase
-            else if ( guidanceSystem_->getIsPeriapsisRaisePhase( ) &&
+            else if ( guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::periapsis_raise_phase ) &&
                       ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) && !atmosphericPhaseComplete_ )
             {
                 // Inform user
@@ -277,7 +277,7 @@ public:
         //        std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
         //        aerobrakingComplete = ( dummyCallCounter_ > ( 5 * 3 - 1 ) );
         //        dummyCallCounter_++;
-        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
+        aerobrakingComplete = guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::aerobraking_complete );
 
         // Inform user
         if ( aerobrakingComplete && !isCallInternal )

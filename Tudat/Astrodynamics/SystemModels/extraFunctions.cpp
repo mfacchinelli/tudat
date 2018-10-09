@@ -62,18 +62,20 @@ double lowerAltitudeBisectionFunctionBasedOnHeatingConditions(
 
     // Separate time and heat rate and find maximum heat rate
     unsigned int i = 0;
+    std::vector< double > historyOfTimes;
     Eigen::VectorXd historyOfHeatRates;
     historyOfHeatRates.resize( heatingConditions.size( ) );
     for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = heatingConditions.begin( );
           mapIterator != heatingConditions.end( ); mapIterator++, i++ )
     {
+        historyOfTimes.push_back( mapIterator->first );
         historyOfHeatRates[ i ] = mapIterator->second[ 1 ];
     }
     double heatRate = historyOfHeatRates.maxCoeff( );
 
     // Compute heat load by integrating heat flux
-    double heatLoad = numerical_quadrature::performExtendedSimpsonsQuadrature(
-                10.0, utilities::convertEigenVectorToStlVector( historyOfHeatRates ) );
+    double heatLoad = numerical_quadrature::performTrapezoidalQuadrature(
+                historyOfTimes, utilities::convertEigenVectorToStlVector( historyOfHeatRates ) );
 
     // Compute offsets w.r.t. maximum allowed heat rate and heat load
     double offsetInHeatRate = heatRate - maximumHeatRate;
@@ -249,8 +251,8 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
         expectedDensity[ i ] = std::log( aerodynamics::threeTermAtmosphereModel(
                                              estimatedAltitudesBelowAtmosphericInterface[ i ], 0.0, 0.0, 0.0,
                                              referenceAltitude, std::exp( currentParameterEstimate[ 0 ] ),
-                                         1.0 / currentParameterEstimate[ 1 ], { currentParameterEstimate[ 2 ],
-                    currentParameterEstimate[ 3 ], currentParameterEstimate[ 4 ] } ) );
+                                         1.0 / currentParameterEstimate[ 1 ],
+                std::vector< double >{ currentParameterEstimate[ 2 ], currentParameterEstimate[ 3 ], currentParameterEstimate[ 4 ] } ) );
 
         // Find current Jacobian matrix
         relativeAltitude = estimatedAltitudesBelowAtmosphericInterface[ i ] - referenceAltitude;

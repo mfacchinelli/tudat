@@ -141,80 +141,92 @@ void NavigationSystem::createOnboardEnvironmentUpdater( )
 //! Function to improve the estimate of the translational state when transitioning from aided to unaided navigation.
 void NavigationSystem::improveStateEstimateOnNavigationPhaseTransition( )
 {
-    // Declare improved state vector
-    Eigen::Vector6d improvedEstimatedKeplerianState;
+    // Inform user
+    std::cout << std::endl << "Improving State Estimate for Better Phase Transition." << std::endl;
 
-    // Extract history of estimated states and erase extra elements
-    unsigned int i = 0;
+    // Declare improved state vector
+    Eigen::Vector6d improvedEstimatedState;
+
+    // Check to see if there are enough elements
     unsigned int numberOfSamplePoints = static_cast< unsigned int >( 60.0 / navigationRefreshStepSize_ );
     numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     std::map< double, Eigen::VectorXd > historyOfEstimatedStates = navigationFilter_->getEstimatedStateHistory( );
-    for ( std::map< double, Eigen::VectorXd >::reverse_iterator stateHistoryIterator = historyOfEstimatedStates.rbegin( );
-          stateHistoryIterator != historyOfEstimatedStates.rend( ); stateHistoryIterator++, i++ )
+    if ( historyOfEstimatedStates.size( ) > numberOfSamplePoints )
     {
-        if ( i > numberOfSamplePoints )
+        // Extract history of estimated states and erase extra elements
+        unsigned int i = 0;
+        for ( std::map< double, Eigen::VectorXd >::reverse_iterator stateHistoryIterator = historyOfEstimatedStates.rbegin( );
+              stateHistoryIterator != historyOfEstimatedStates.rend( ); stateHistoryIterator++, i++ )
         {
-            historyOfEstimatedStates.erase( historyOfEstimatedStates.begin( ), stateHistoryIterator.base( ) );
-            break;
+            if ( i > numberOfSamplePoints )
+            {
+                historyOfEstimatedStates.erase( historyOfEstimatedStates.begin( ), stateHistoryIterator.base( ) );
+                break;
+            }
         }
-    }
-    double timeAtBeginningOfSampling = historyOfEstimatedStates.begin( )->first;
+        double timeAtBeginningOfSampling = historyOfEstimatedStates.begin( )->first;
 
-    // Predefine variables
-    double currentRelativeTime;
-    Eigen::VectorXd historyOfTrueAnomalies;
-    historyOfTrueAnomalies.resize( historyOfEstimatedStates.size( ) );
-    Eigen::VectorXd historyOfRelativeTimes;
-    historyOfRelativeTimes.resize( historyOfEstimatedStates.size( ) );
+        // Predefine variables
+        double currentRelativeTime;
+        Eigen::VectorXd historyOfTrueAnomalies;
+        historyOfTrueAnomalies.resize( historyOfEstimatedStates.size( ) );
+        Eigen::VectorXd historyOfRelativeTimes;
+        historyOfRelativeTimes.resize( historyOfEstimatedStates.size( ) );
 
-    std::vector< std::vector< double > > estimatedKeplerianStates;
-    estimatedKeplerianStates.resize( 5 ); // ignore true anomaly
+        std::vector< std::vector< double > > estimatedKeplerianStates;
+        estimatedKeplerianStates.resize( 5 ); // ignore true anomaly
 
-    // Extract information from history of states
-    i = 0; // overwrite
-    Eigen::Vector6d currentState;
-    for ( std::map< double, Eigen::VectorXd >::const_iterator stateHistoryIterator = historyOfEstimatedStates.begin( );
-          stateHistoryIterator != historyOfEstimatedStates.end( ); stateHistoryIterator++, i++ )
-    {
-        // Get current Keplerian state
-        currentState = orbital_element_conversions::convertCartesianToKeplerianElements< double >(
-                    stateHistoryIterator->second.segment( cartesian_position_index, 6 ), planetaryGravitationalParameter_ );
-
-        // Store true anomaly and time for computation of least squares
-        historyOfTrueAnomalies[ i ] = currentState[ 5 ];
-        historyOfRelativeTimes[ i ] = stateHistoryIterator->first - timeAtBeginningOfSampling;
-
-        // Store first five elements in vector for computation of median
-        for ( unsigned int j = 0; j < 5; j++ )
+        // Extract information from history of states
+        i = 0; // overwrite
+        Eigen::Vector6d currentState;
+        for ( std::map< double, Eigen::VectorXd >::const_iterator stateHistoryIterator = historyOfEstimatedStates.begin( );
+              stateHistoryIterator != historyOfEstimatedStates.end( ); stateHistoryIterator++, i++ )
         {
-            estimatedKeplerianStates.at( j ).push_back( currentState[ j ] );
+            // Get current Keplerian state
+            currentState = orbital_element_conversions::convertCartesianToKeplerianElements< double >(
+                        stateHistoryIterator->second.segment( cartesian_position_index, 6 ), planetaryGravitationalParameter_ );
+
+            // Store true anomaly and time for computation of least squares
+            historyOfTrueAnomalies[ i ] = currentState[ 5 ];
+            historyOfRelativeTimes[ i ] = stateHistoryIterator->first - timeAtBeginningOfSampling;
+
+            // Store first five elements in vector for computation of median
+            for ( unsigned int j = 0; j < 5; j++ )
+            {
+                estimatedKeplerianStates.at( j ).push_back( currentState[ j ] );
+            }
         }
-    }
 
-    // Improve first five Keplerian elements by using their median
-    for ( unsigned int i = 0; i < 5; i++ )
+        // Improve first five Keplerian elements by using their median
+        for ( unsigned int i = 0; i < 5; i++ )
+        {
+            improvedEstimatedState[ i ] = statistics::computeSampleMedian( estimatedKeplerianStates.at( i ) );
+        }
+
+        // Use least squares to estimate the coefficient of the true anomaly approximation function
+        std::vector< double > vectorOfPolynomialPowers = { 0, 1, 2 };
+        Eigen::VectorXd estimatedTrueAnomalyFunctionParameters = linear_algebra::getLeastSquaresPolynomialFit(
+                    historyOfRelativeTimes, historyOfTrueAnomalies, vectorOfPolynomialPowers );
+
+        // Improve true anomaly by using the least squares estimate
+        double improvedTrueAnomaly = 0.0;
+        currentRelativeTime = currentTime_ - timeAtBeginningOfSampling;
+        for ( unsigned int i = 0; i < vectorOfPolynomialPowers.size( ); i++ )
+        {
+            improvedTrueAnomaly += std::pow( currentRelativeTime, vectorOfPolynomialPowers.at( i ) ) *
+                    estimatedTrueAnomalyFunctionParameters[ i ];
+        }
+        improvedEstimatedState[ 5 ] = improvedTrueAnomaly;
+
+        // Set new value of state
+        setCurrentEstimatedKeplerianState( improvedEstimatedState );
+        updateOnboardModel( );
+    }
+    else
     {
-        improvedEstimatedKeplerianState[ i ] = statistics::computeSampleMedian( estimatedKeplerianStates.at( i ) );
+        // Inform user
+        std::cerr << "Not enought data is available. Taking latest estimate, instead." << std::endl;
     }
-
-    // Use least squares to estimate the coefficient of the true anomaly approximation function
-    std::vector< double > vectorOfPolynomialPowers = { 0, 1, 2 };
-    Eigen::VectorXd estimatedTrueAnomalyFunctionParameters = linear_algebra::getLeastSquaresPolynomialFit(
-                historyOfRelativeTimes, historyOfTrueAnomalies, vectorOfPolynomialPowers );
-
-    // Improve true anomaly by using the least squares estimate
-    double improvedTrueAnomaly = 0.0;
-    currentRelativeTime = currentTime_ - timeAtBeginningOfSampling;
-    for ( unsigned int i = 0; i < vectorOfPolynomialPowers.size( ); i++ )
-    {
-        improvedTrueAnomaly += std::pow( currentRelativeTime, vectorOfPolynomialPowers.at( i ) ) *
-                estimatedTrueAnomalyFunctionParameters[ i ];
-    }
-    improvedEstimatedKeplerianState[ 5 ] = improvedTrueAnomaly;
-
-    // Set new value of state
-    setCurrentEstimatedKeplerianState( improvedEstimatedKeplerianState );
-    updateOnboardModel( );
 }
 
 //! Function to post-process the accelerometer measurements.

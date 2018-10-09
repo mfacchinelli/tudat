@@ -243,13 +243,21 @@ public:
 
             // Extract tiem and estimated state and update navigation system
             currentTime_ = navigationFilter_->getCurrentTime( );
-            Eigen::Vector9d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-            setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
+            Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+            setCurrentEstimatedCartesianState( currentNavigationFilterState.segment( 0, 6 ) );
             break;
         }
         default:
             throw std::runtime_error( "Error in navigation system. Current navigation (" +
                                       std::to_string( currentNavigationPhase_ ) + ") phase not supported." );
+        }
+
+        // Check for NaNs
+        Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+        if ( !currentNavigationFilterState.allFinite( ) && currentNavigationFilterState.hasNaN( ) )
+        {
+            throw std::runtime_error( "Error in navigation system. Found Inf and/or NaN entries in state estimate. "
+                                      "Major navigation failure." );
         }
 
         // Update body and acceleration maps
@@ -363,9 +371,9 @@ public:
         std::cout << "Propagated state for " << currentLightTimeDelay / 60.0 << " minutes." << std::endl;
 
         // Reset navigation filter (including covariance)
-        Eigen::Matrix9d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-        currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
-        setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, currentEstimatedCovarianceMatrix );
+        Eigen::Matrix9d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+        currentNavigationFilterCovarianceMatrix = Eigen::Matrix9d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
+        setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, currentNavigationFilterCovarianceMatrix );
     }
 
     //! Function to propagate translational Cartesian state to specified termination settings.
@@ -432,8 +440,8 @@ public:
     //! Function to retireve current time.
     double getCurrentTime( ) { return currentTime_; }
 
-    //! Function to retireve current state.
-    Eigen::Vector9d getCurrentEstimatedState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
+    //! Function to retireve the current state estimated by the navigation filter.
+    Eigen::Vector9d getCurrentNavigationFilterState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
 
     //! Function to retrieve the history of estimated states directly from the navigation filter.
     std::map< double, Eigen::VectorXd > getHistoryOfEstimatedStatesFromNavigationFilter( )
@@ -447,7 +455,7 @@ public:
         return navigationFilter_->getEstimatedCovarianceHistory( );
     }
 
-    //! Function to retireve current state.
+    //! Function to retireve the current estimated translational states.
     std::pair< Eigen::Vector6d, Eigen::Vector6d > getCurrentEstimatedTranslationalState( )
     {
         return std::make_pair( currentEstimatedCartesianState_, currentEstimatedKeplerianState_ );
@@ -460,23 +468,14 @@ public:
                     currentEstimatedKeplerianState_[ 0 ], planetaryGravitationalParameter_ );
     }
 
-    //! Function to retrieve the density at the input conditions according to the onboard model.
-    double getDensityAtSpecifiedConditions( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
-    {
-        if ( estimatedState.isZero( ) )
-        {
-            return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
-                        onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentAltitude( ),
-                        onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getCurrentLongitude( ), 0.0, 0.0 );
-        }
-        else
-        {
-            return onboardBodyMap_.at( planetName_ )->getAtmosphereModel( )->getDensity(
-                        estimatedState.segment( 0, 3 ).norm( ) - planetaryRadius_, 0.0, 0.0, 0.0 );
-        }
-    }
-
     //! Function to retrieve whether the spacecraft altitude is above the dynamic atmospheric interface line.
+    /*!
+     *  Function to retrieve whether the spacecraft altitude is above the dynamic atmospheric interface line. The dynamic
+     *  atmospheric interface altitude is defined as 27.5 % of the osculating apoapsis altitude, plus a 1 % correction term
+     *  depending on the osculating apoapsis altitude and its initial value. This extra term is added to make sure that the
+     *  DAIA does not decrease too quickly in value.
+     *  \return Boolean denoting whether the spacecraft is above the dynamic atmospheric interface altitude.
+     */
     bool getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( )
     {
         // Compute current first order apoapsis altitudes
@@ -656,9 +655,9 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector9d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-        updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-        navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+        Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+        currentNavigationFilterState.segment( 0, 6 ) = currentEstimatedCartesianState_;
+        navigationFilter_->modifyCurrentStateAndCovarianceEstimates( currentNavigationFilterState,
                                                                      newCurrentCovarianceMatrix );
 
         // Update time in filter if Kepler phase
@@ -686,9 +685,9 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector9d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
-        updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
-        navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
+        Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+        currentNavigationFilterState.segment( 0, 6 ) = currentEstimatedCartesianState_;
+        navigationFilter_->modifyCurrentStateAndCovarianceEstimates( currentNavigationFilterState,
                                                                      newCurrentCovarianceMatrix );
 
         // Update time in filter if Kepler phase
@@ -914,17 +913,17 @@ private:
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to model the onboard system dynamics based on the simplified onboard model.
-    Eigen::Vector9d onboardSystemModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+    Eigen::Vector9d onboardSystemModel( const double currentTime, const Eigen::Vector9d& currentNavigationFilterState,
                                         const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
-    Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector9d& currentNavigationFilterState );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
-    Eigen::Matrix9d onboardSystemJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Matrix9d onboardSystemJacobian( const double currentTime, const Eigen::Vector9d& currentNavigationFilterState );
 
     //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-    Eigen::Matrix< double, 3, 9 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Matrix< double, 3, 9 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector9d& currentNavigationFilterState );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
