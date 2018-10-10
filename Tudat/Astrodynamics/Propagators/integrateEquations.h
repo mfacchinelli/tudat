@@ -562,7 +562,7 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
                 }
             }
 
-            if ( saveIndex == 0 )
+//            if ( saveIndex == 0 )
             {
                 if( propagationTerminationCondition->checkStopCondition( static_cast< double >( currentTime ), currentCPUTime ) )
                 {
