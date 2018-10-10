@@ -237,23 +237,7 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     std::cout << std::endl << "Removing Accelerometer Errors." << std::endl;
 
     // Extract current variable history
-    std::vector< std::vector< double > > currentVariableHistory;
-    currentVariableHistory.resize( estimatedAccelerometerErrors_.size( ) );
-    std::map< double, Eigen::VectorXd > currentOrbitNavigationFilterEstimatedState = navigationFilter_->getEstimatedStateHistory( );
-    for ( std::map< double, Eigen::VectorXd >::const_iterator stateHistoryIterator = currentOrbitNavigationFilterEstimatedState.begin( );
-          stateHistoryIterator != currentOrbitNavigationFilterEstimatedState.end( ); stateHistoryIterator++ )
-    {
-        for ( unsigned int i = 0; i < currentVariableHistory.size( ); i++ )
-        {
-            currentVariableHistory.at( i ).push_back( stateHistoryIterator->second[ i + 6 ] );
-        }
-    }
-
-    // Extract median of accelerometer errors
-    for ( unsigned int i = 0; i < estimatedAccelerometerErrors_.rows( ); i++ )
-    {
-        estimatedAccelerometerErrors_[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( i ) );
-    }
+    estimatedAccelerometerErrors_.setZero( );
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )

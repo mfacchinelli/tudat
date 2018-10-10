@@ -71,20 +71,17 @@ public:
      *  \return Boolean denoting whether the propagation has to be stopped.
      */
     bool checkStopCondition( const double currentTime )
-    {
-        using mathematical_constants::PI;
-
-        // Define output value
-        bool isPropagationToBeStopped = false;
-
-        // Check whether current step has already been performed
-        if ( currentTime == ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) )
         {
+            using mathematical_constants::PI;
+
+            // Define output value
+            bool isPropagationToBeStopped = false;
+
             // Update instrument models
             instrumentsModel_->updateInstruments( currentTime );
 
             // Extract measurements
-            Eigen::Vector3d currentExternalMeasurement = instrumentsModel_->getCurrentGenericRangingSystemMeasurement( );
+            Eigen::Vector6d currentExternalMeasurement = instrumentsModel_->getCurrentActualState( );
 
             // Update filter to current time
             navigationSystem_->determineNavigationPhase( );
@@ -92,14 +89,8 @@ public:
             {
                 // Feed maneuver to the navigation system and update filter
                 performManeuverOnNextCall_ = false; // reset flag
-                navigationSystem_->runStateEstimator( currentExternalMeasurement,
-                                                      controlSystem_->getScheduledApoapsisManeuver( ) );
             }
-            else
-            {
-                // Update filter only
-                navigationSystem_->runStateEstimator( currentExternalMeasurement );
-            }
+            navigationSystem_->runStateEstimator( currentTime, currentExternalMeasurement );
 
             // Check if it is time for a Deep Space Network update
             // The Deep Space Network tracking is scheduled every N days (where N comes from the function getFrequencyOfDeepSpaceNetworkTracking
@@ -244,22 +235,10 @@ public:
             // Save current value of propagation termination index
             previousIsPropagationToBeStopped_ = isPropagationToBeStopped;
             navigationSystem_->setCurrentTime( currentTime );
-        }
-        else
-        {
-            // Inform user
-            std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
-                         "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl
-                      << "Time difference: " << currentTime - navigationSystem_->getCurrentTime( ) << "." << std::endl;
 
-            // Return previous value of propagation termination index
-            isPropagationToBeStopped = previousIsPropagationToBeStopped_;
-            previousIsPropagationToBeStopped_ = false;
+            // Give output
+            return isPropagationToBeStopped;
         }
-
-        // Give output
-        return isPropagationToBeStopped;
-    }
 
     //! Function to check whether the aerobraking maneuver has been completed.
     /*!
@@ -270,14 +249,8 @@ public:
      */
     bool isAerobrakingComplete( const bool isCallInternal = false )
     {
-        // Define output variable
-        bool aerobrakingComplete;
-
         // Check if aerobraking is complete
-        //        std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        //        aerobrakingComplete = ( dummyCallCounter_ > ( 5 * 3 - 1 ) );
-        //        dummyCallCounter_++;
-        aerobrakingComplete = guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::aerobraking_complete );
+        bool aerobrakingComplete = guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::aerobraking_complete );
 
         // Inform user
         if ( aerobrakingComplete && !isCallInternal )
@@ -292,8 +265,6 @@ public:
     }
 
 private:
-
-    unsigned int dummyCallCounter_ = 0;
 
     //! Function to run house keeping routines when new orbit is initiated.
     /*!
