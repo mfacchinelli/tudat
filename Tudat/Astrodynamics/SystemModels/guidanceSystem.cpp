@@ -44,12 +44,9 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
         boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
                 boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
 
-        // Create reduced state propagation function where termination settings are already set
-        periodReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, periodTerminationSettings, _1 );
-
         // Propagate state for two thirds of the orbit
         std::map< double, Eigen::VectorXd > nominalPropagatedState =
-                periodReducedStatePropagationFunction_( currentEstimatedCartesianState ).second.first;
+                statePropagationFunction_( periodTerminationSettings, currentEstimatedCartesianState ).second.first;
 
         // Retrieve periapsis altitude
         unsigned int i = 0;
@@ -190,12 +187,9 @@ void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
     boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
             boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
 
-    // Create reduced state propagation function where termination settings are already set
-    periodReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, periodTerminationSettings, _1 );
-
     // Propagate state for two thirds of the orbit
     std::map< double, Eigen::VectorXd > nominalPropagatedState =
-            periodReducedStatePropagationFunction_( currentEstimatedCartesianState ).second.first;
+            statePropagationFunction_( periodTerminationSettings, currentEstimatedCartesianState ).second.first;
 
     // Retrieve periapsis altitude
     unsigned int i = 0;
