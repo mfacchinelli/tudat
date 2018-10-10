@@ -485,6 +485,21 @@ public:
         return currentOrbitHistoryOfAltimeterMeasurements_;
     }
 
+    //! Function to reset the noise distributions for the inertial measurement unit.
+    /*!
+     *  Function to reset the noise distributions for both instruments of the inertial measurement unit,
+     *  which uses a Gaussian distribution, with zero mean and standard deviation given by the accuracy of the
+     *  accelerometer and gyroscopes.
+     *  \param accelerometerAccuracy Accuracy of accelerometer along each axis (3 sigma).
+     *  \param gyroscopeAccuracy Accuracy of gyroscope along each axis (3 sigma).
+     */
+    void resetInertialMeasurementUnitRandomNoiseDistribution( const Eigen::Vector3d& accelerometerAccuracy,
+                                                              const Eigen::Vector3d& gyroscopeAccuracy )
+    {
+        // Call private function
+        generateInertialMeasurementUnitRandomNoiseDistribution( accelerometerAccuracy, gyroscopeAccuracy );
+    }
+
     //! Function to randomize the perturbation coefficients.
     /*!
      *  Function to randomize the perturbation coefficients, by accessing the atmosphere of the body, transforming it
@@ -600,11 +615,6 @@ public:
                 historyOfDeepSpaceNetworkMeasurements_.erase( currentTime );
             }
         }
-    }
-
-    Eigen::Vector6d getCurrentActualState( )
-    {
-        return ( bodyMap_.at( spacecraftName_ )->getState( ) - bodyMap_.at( planetName_ )->getState( ) );
     }
 
 private:

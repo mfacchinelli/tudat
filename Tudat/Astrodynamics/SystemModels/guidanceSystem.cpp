@@ -26,6 +26,9 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
         // Inform user
         std::cout << std::endl << "Aerobraking Complete." << std::endl;
 
+        // Save periapsis corridor altitudes to history
+        historyOfEstimatedPeriapsisCorridorBoundaries_[ currentOrbitCounter_ ] = std::make_pair( TUDAT_NAN, TUDAT_NAN );
+
         // Store corridor information to pair
         periapsisTargetingInformation_ = std::make_tuple( true, targetPeriapsisAltitude_, targetPeriapsisAltitude_ );
         break;
@@ -41,12 +44,9 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
         boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
                 boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
 
-        // Create reduced state propagation function where termination settings are already set
-        periodReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, periodTerminationSettings, _1 );
-
         // Propagate state for two thirds of the orbit
         std::map< double, Eigen::VectorXd > nominalPropagatedState =
-                periodReducedStatePropagationFunction_( currentEstimatedCartesianState ).second.first;
+                statePropagationFunction_( periodTerminationSettings, currentEstimatedCartesianState ).second.first;
 
         // Retrieve periapsis altitude
         unsigned int i = 0;
@@ -72,35 +72,27 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
         // Inform user
         std::cout << std::endl << "Estimating Periapsis Corridor." << std::endl;
 
-        // Loop until convergence is reached
-        bool corridorEstimationComplete = true;
-        do
-        {
-            // Run corridor estimator with heating conditions as lower limit
-            estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
-                                        planetaryRadius, planetaryGravitationalParameter );
+        // Run corridor estimator with heating conditions as lower limit
+        estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
+                                    planetaryRadius, planetaryGravitationalParameter );
 
-            // If in walk-out phase, check that lifetime is above minimum value
-            if ( currentOrbitAerobrakingPhase_ == walk_out_phase )
+        // If in walk-out phase, check that lifetime is above minimum value
+        if ( currentOrbitAerobrakingPhase_ == walk_out_phase )
+        {
+            // Inform user
+            std::cout << "Walk-out phase. Checking lifetime constraints." << std::endl;
+
+            // Check that lifetime threshold is met
+            if ( !lifetimeReducedStatePropagationFunction_( currentEstimatedCartesianState ).first )
             {
                 // Inform user
-                std::cout << "Walk-out phase. Checking lifetime constraints." << std::endl;
+                std::cout << "Lifetime requirement not met. Re-estimating corridor boundaries." << std::endl;
 
-                // Check that lifetime threshold is met
-                corridorEstimationComplete = lifetimeReducedStatePropagationFunction_( currentEstimatedCartesianState ).first;
-                if ( !corridorEstimationComplete )
-                {
-                    // Inform user
-                    std::cout << "Lifetime requirement not met. Re-estimating corridor boundaries." << std::endl;
-
-                    // Run corridor estimator with lifetime as lower limit
-                    estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
-                                                planetaryRadius, planetaryGravitationalParameter, false );
-                    corridorEstimationComplete = true;
-                }
+                // Run corridor estimator with lifetime as lower limit
+                estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
+                                            planetaryRadius, planetaryGravitationalParameter, false );
             }
         }
-        while ( !corridorEstimationComplete );
         break;
     }
     }
@@ -131,9 +123,6 @@ void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& curren
     Eigen::Matrix3d transformationFromLocalToInertialFrame =
             computeCurrentRotationFromLocalToInertialFrame( currentEstimatedCartesianState );
 
-    // Set root-finder boundaries for the maneuver estimation
-    maneuverBisectionRootFinder_->resetBoundaries( 2.0 * preliminaryApoapsisManeuverMagnitude, 0.5 * preliminaryApoapsisManeuverMagnitude );
-
     // Improve the estimate if magnitude is large enough
     double estimatedApoapsisManeuverMagnitude;
     if ( improveEstimateWithBisection &&
@@ -143,6 +132,10 @@ void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& curren
         // Try using root-finder to improve estimate
         try
         {
+            // Set root-finder boundaries for the maneuver estimation
+            maneuverBisectionRootFinder_->resetBoundaries( 2.0 * preliminaryApoapsisManeuverMagnitude,
+                                                           0.5 * preliminaryApoapsisManeuverMagnitude );
+
             // Set root-finder function as the heat rate and heat load calculator
             estimatedApoapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
                         boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
@@ -194,12 +187,9 @@ void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
     boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
             boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
 
-    // Create reduced state propagation function where termination settings are already set
-    periodReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, periodTerminationSettings, _1 );
-
     // Propagate state for two thirds of the orbit
     std::map< double, Eigen::VectorXd > nominalPropagatedState =
-            periodReducedStatePropagationFunction_( currentEstimatedCartesianState ).second.first;
+            statePropagationFunction_( periodTerminationSettings, currentEstimatedCartesianState ).second.first;
 
     // Retrieve periapsis altitude
     unsigned int i = 0;
@@ -254,7 +244,7 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     boost::shared_ptr< propagators::PropagationTerminationSettings > lifetimeTerminationSettings =
             boost::make_shared< propagators::PropagationTimeTerminationSettings >( lifetimeTerminationTime );
 
-    // Create reduced state propagation function where termination settings are already set
+    // Create reduced state propagation functions where termination settings are already set
     periodReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, periodTerminationSettings, _1 );
     lifetimeReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, lifetimeTerminationSettings, _1 );
 
@@ -303,15 +293,26 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     }
     std::cout << "Lower boundary: " << estimatedLowerAltitudeBound / 1.0e3 << " km" << std::endl;
 
-    // Set root-finder boundaries for the upper altitude limits
-    altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 150.0e3 );
+    // Compute upper bound of corridor based on dynamic pressure, or load from cache
+    double estimatedUpperAltitudeBound;
+    if ( useHeatAsLowerBoundaryThreshold )
+    {
+        // Set root-finder boundaries for the upper altitude limits
+        altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 130.0e3 );
 
-    // Set root-finder function as the dynamic pressure calculator
-    // Add scaling if spacecraft is in walk-in or walk-out phases
-    double estimatedUpperAltitudeBound = periapsisAltitudeScaling_ * altitudeBisectionRootFinder_->execute(
-                boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                    boost::bind( &upperAltitudeBisectionFunction, _1, currentEstimatedKeplerianState, planetaryRadius,
-                                 planetaryGravitationalParameter, minimumAllowedDynamicPressure_, periodReducedStatePropagationFunction_ ) ) );
+        // Set root-finder function as the dynamic pressure calculator
+        // Add scaling if spacecraft is in walk-in or walk-out phases
+        estimatedUpperAltitudeBound = periapsisAltitudeScaling_ * altitudeBisectionRootFinder_->execute(
+                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                        boost::bind( &upperAltitudeBisectionFunction, _1, currentEstimatedKeplerianState, planetaryRadius,
+                                     planetaryGravitationalParameter, minimumAllowedDynamicPressure_,
+                                     periodReducedStatePropagationFunction_ ) ) );
+    }
+    else
+    {
+        // Use value from previous computation (the corridor estimator with heating conditions is always run first)
+        estimatedUpperAltitudeBound = historyOfEstimatedPeriapsisCorridorBoundaries_[ currentOrbitCounter_ ].second;
+    }
     std::cout << "Upper boundary: " << estimatedUpperAltitudeBound / 1.0e3 << " km" << std::endl;
 
     // Check that lower altitude bound is indeed lower
