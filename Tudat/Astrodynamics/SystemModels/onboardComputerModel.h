@@ -270,14 +270,8 @@ public:
      */
     bool isAerobrakingComplete( const bool isCallInternal = false )
     {
-        // Define output variable
-        bool aerobrakingComplete;
-
         // Check if aerobraking is complete
-        //        std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        //        aerobrakingComplete = ( dummyCallCounter_ > ( 5 * 3 - 1 ) );
-        //        dummyCallCounter_++;
-        aerobrakingComplete = guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::aerobraking_complete );
+        bool aerobrakingComplete = guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::aerobraking_complete );
 
         // Inform user
         if ( aerobrakingComplete && !isCallInternal )
@@ -292,8 +286,6 @@ public:
     }
 
 private:
-
-    unsigned int dummyCallCounter_ = 0;
 
     //! Function to run house keeping routines when new orbit is initiated.
     /*!
