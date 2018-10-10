@@ -73,10 +73,10 @@ void NavigationSystem::createNavigationSystemObjects(
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );
     atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 20.0;
-    Eigen::Vector9d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+    Eigen::Vector9d initialNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial translational state
-    setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
+    setCurrentEstimatedCartesianState( initialNavigationFilterState.segment( 0, 6 ) );
     // this function also automatically stores the full state estimates at the current time
 
     // Store the apoapsis value of Keplerian state for the Periapse Time Estimator
@@ -298,11 +298,11 @@ void NavigationSystem::runPeriapseTimeEstimator(
     areaBisectionRootFinder_->resetBoundaries(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
 
-    input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "/Users/Michele/Desktop/Results/"  );
-    input_output::writeMatrixToFile(
-                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
+//    input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+//                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "/Users/Michele/Desktop/Results/" );
+//    input_output::writeMatrixToFile(
+//                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
+//                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
 
     // Determine actual periapse time
     double estimatedActualPeriapseTime;
@@ -406,10 +406,9 @@ void NavigationSystem::runPeriapseTimeEstimator(
 
     // Update navigation system state estimates
     std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;
-//    Eigen::Matrix9d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-//    currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
-//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentEstimatedCovarianceMatrix );
-    // the covariance matrix is reset to the identity, since the new state is improved in accuracy
+//    Eigen::Matrix9d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+//    currentNavigationFilterCovarianceMatrix = Eigen::Matrix9d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
+//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentNavigationFilterCovarianceMatrix );
 
     // Correct history of Keplerian elements by removing error in true anomaly
     for ( std::map< double, Eigen::Vector6d >::iterator
@@ -437,9 +436,9 @@ void NavigationSystem::runAtmosphereEstimator(
     std::vector< double > vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface;
     std::vector< double > vectorOfEstimatedAltitudesBelowAtmosphericInterface;
 
-    input_output::writeMatrixToFile(
-                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                "acceleration" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
+//    input_output::writeMatrixToFile(
+//                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
+//                "acceleration" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
 
     // Convert estimated aerodynamic acceleration to estimated atmospheric density and compute altitude below atmospheric interface
     unsigned int i = 0;
@@ -472,10 +471,10 @@ void NavigationSystem::runAtmosphereEstimator(
         Eigen::VectorXd estimatedAltitudesBelowAtmosphericInterface =
                 utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowAtmosphericInterface );
 
-        input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface,
-                                         "density" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
-        input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface,
-                                         "altitude" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
+//        input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface,
+//                                         "density" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
+//        input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface,
+//                                         "altitude" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
@@ -614,7 +613,7 @@ void NavigationSystem::runAtmosphereEstimator(
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
 Eigen::Vector9d NavigationSystem::onboardSystemModel(
-        const double currentTime, const Eigen::Vector9d& currentEstimatedState,
+        const double currentTime, const Eigen::Vector9d& currentNavigationFilterState,
         const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
@@ -623,13 +622,13 @@ Eigen::Vector9d NavigationSystem::onboardSystemModel(
     Eigen::Vector9d currentStateDerivative = Eigen::Vector9d::Zero( );
 
     // Translational kinematics
-    currentStateDerivative.segment( 0, 3 ) = currentEstimatedState.segment( cartesian_velocity_index, 3 );
+    currentStateDerivative.segment( 0, 3 ) = currentNavigationFilterState.segment( cartesian_velocity_index, 3 );
 
     // Translational dynamics
     currentStateDerivative.segment( 3, 3 ) =
-            getCurrentEstimatedGravitationalTranslationalAcceleration( currentEstimatedState.segment( cartesian_position_index, 6 ) ) +
+            getCurrentEstimatedGravitationalTranslationalAcceleration( currentNavigationFilterState.segment( cartesian_position_index, 6 ) ) +
             removeErrorsFromInertialMeasurementUnitMeasurement( accelerometerMeasurementFunction( ),
-                                                                currentEstimatedState.segment( accelerometer_bias_index, 3 ) );
+                                                                currentNavigationFilterState.segment( accelerometer_bias_index, 3 ) );
 
     // Give output
     return currentStateDerivative;
@@ -637,20 +636,20 @@ Eigen::Vector9d NavigationSystem::onboardSystemModel(
 
 //! Function to model the onboard measurements based on the simplified onboard model.
 Eigen::Vector3d NavigationSystem::onboardMeasurementModel(
-        const double currentTime, const Eigen::Vector9d& currentEstimatedState )
+        const double currentTime, const Eigen::Vector9d& currentNavigationFilterState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Return radial vector
-    return currentEstimatedState.segment( cartesian_position_index, 3 );
+    return currentNavigationFilterState.segment( cartesian_position_index, 3 );
 }
 
 //! Function to model the onboard system Jacobian based on the simplified onboard model.
 Eigen::Matrix9d NavigationSystem::onboardSystemJacobian(
-        const double currentTime, const Eigen::Vector9d& currentEstimatedState )
+        const double currentTime, const Eigen::Vector9d& currentNavigationFilterState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
-    TUDAT_UNUSED_PARAMETER( currentEstimatedState );
+    TUDAT_UNUSED_PARAMETER( currentNavigationFilterState );
 
     // Declare Jacobian matrix and set to zero
     Eigen::Matrix9d currentSystemJacobian = Eigen::Matrix9d::Zero( );
@@ -677,10 +676,10 @@ Eigen::Matrix9d NavigationSystem::onboardSystemJacobian(
 
 //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
 Eigen::Matrix< double, 3, 9 > NavigationSystem::onboardMeasurementJacobian(
-        const double currentTime, const Eigen::Vector9d& currentEstimatedState )
+        const double currentTime, const Eigen::Vector9d& currentNavigationFilterState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
-    TUDAT_UNUSED_PARAMETER( currentEstimatedState );
+    TUDAT_UNUSED_PARAMETER( currentNavigationFilterState );
 
     // Declare Jacobian matrix and set to zero
     Eigen::Matrix< double, 3, 9 > currentMeasurementJacobian = Eigen::Matrix< double, 3, 9 >::Zero( );
