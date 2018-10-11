@@ -224,10 +224,10 @@ public:
         }
         else
         {
-            // Inform user
-            std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
-                         "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl
-                      << "Time difference: " << currentTime - navigationSystem_->getCurrentTime( ) << "." << std::endl;
+//            // Inform user
+//            std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
+//                         "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl
+//                      << "Time difference: " << currentTime - navigationSystem_->getCurrentTime( ) << "." << std::endl;
 
             // Return previous value of propagation termination index
             isPropagationToBeStopped = previousIsPropagationToBeStopped_;
