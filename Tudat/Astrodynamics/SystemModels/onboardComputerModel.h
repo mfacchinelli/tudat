@@ -49,7 +49,9 @@ public:
 
         // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects(
-                    saveFrequency, boost::bind( &InstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ) );
+                    saveFrequency,
+                    boost::bind( &InstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ),
+                    boost::bind( &InstrumentsModel::getCurrentGyroscopeMeasurement, instrumentsModel_ ) );
         initialTime_ = navigationSystem_->getCurrentTime( );
 
         // Create guidance system objects
@@ -84,7 +86,10 @@ public:
             instrumentsModel_->updateInstruments( currentTime );
 
             // Extract measurements
-            Eigen::Vector3d currentExternalMeasurement = instrumentsModel_->getCurrentGenericRangingSystemMeasurement( );
+            Eigen::Vector7d currentExternalMeasurement;
+            currentExternalMeasurement.segment( 0, 3 ) = instrumentsModel_->getCurrentGenericRangingSystemMeasurement( );
+            currentExternalMeasurement.segment( 3, 4 ) = instrumentsModel_->getCurrentStarTrackerMeasurement( );
+            Eigen::Vector3d currentGyroscopeMeasurement = instrumentsModel_->getCurrentGyroscopeMeasurement( );
 
             // Update filter to current time
             navigationSystem_->determineNavigationPhase( );
@@ -92,13 +97,13 @@ public:
             {
                 // Feed maneuver to the navigation system and update filter
                 performManeuverOnNextCall_ = false; // reset flag
-                navigationSystem_->runStateEstimator( currentExternalMeasurement,
+                navigationSystem_->runStateEstimator( currentExternalMeasurement, currentGyroscopeMeasurement,
                                                       controlSystem_->getScheduledApoapsisManeuver( ) );
             }
             else
             {
                 // Update filter only
-                navigationSystem_->runStateEstimator( currentExternalMeasurement );
+                navigationSystem_->runStateEstimator( currentExternalMeasurement, currentGyroscopeMeasurement );
             }
 
             // Check if it is time for a Deep Space Network update

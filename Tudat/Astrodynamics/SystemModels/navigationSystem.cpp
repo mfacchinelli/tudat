@@ -32,9 +32,9 @@ Eigen::Vector3d removeErrorsFromInertialMeasurementUnitMeasurement( const Eigen:
 }
 
 //! Function to create navigation objects for onboard state estimation.
-void NavigationSystem::createNavigationSystemObjects(
-        const unsigned int saveFrequency,
-        const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
+void NavigationSystem::createNavigationSystemObjects( const unsigned int saveFrequency,
+                                                      const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction,
+                                                      const boost::function< Eigen::Vector3d( ) >& gyroscopeMeasurementFunction )
 {
     // Create filter object
     switch ( navigationFilterSettings_->filteringTechnique_ )
@@ -43,19 +43,21 @@ void NavigationSystem::createNavigationSystemObjects(
     {
         navigationFilter_ = filters::createFilter< double, double >(
                     navigationFilterSettings_,
-                    boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2, accelerometerMeasurementFunction ),
+                    boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2,
+                                 accelerometerMeasurementFunction, gyroscopeMeasurementFunction ),
                     boost::bind( &NavigationSystem::onboardMeasurementModel, this, _1, _2 ),
                     boost::bind( &NavigationSystem::onboardSystemJacobian, this, _1, _2 ),
-                    boost::lambda::constant( Eigen::Matrix9d::Identity( ) ),
+                    boost::lambda::constant( Eigen::Matrix16d::Identity( ) ),
                     boost::bind( &NavigationSystem::onboardMeasurementJacobian, this, _1, _2 ),
-                    boost::lambda::constant( Eigen::Matrix3d::Identity( ) ) );
+                    boost::lambda::constant( Eigen::Matrix7d::Identity( ) ) );
         break;
     }
     case filters::unscented_kalman_filter:
     {
         navigationFilter_ = filters::createFilter< double, double >(
                     navigationFilterSettings_,
-                    boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2, accelerometerMeasurementFunction ),
+                    boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2,
+                                 accelerometerMeasurementFunction, gyroscopeMeasurementFunction ),
                     boost::bind( &NavigationSystem::onboardMeasurementModel, this, _1, _2 ) );
         break;
     }
@@ -73,7 +75,11 @@ void NavigationSystem::createNavigationSystemObjects(
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );
     atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 20.0;
-    Eigen::Vector9d initialNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+    Eigen::Vector16d initialNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+
+    // Set initial rotational state
+    currentEstimatedRotationalState_.setZero( );
+    currentEstimatedRotationalState_.segment( 0, 4 ) = initialNavigationFilterState.segment( quaternion_real_index, 4 ).normalized( );
 
     // Set initial translational state
     setCurrentEstimatedCartesianState( initialNavigationFilterState.segment( 0, 6 ) );
@@ -114,6 +120,7 @@ void NavigationSystem::createOnboardEnvironmentUpdater( )
     // Set integrated type and body list
     std::map< propagators::IntegratedStateType, std::vector< std::pair< std::string, std::string > > > integratedTypeAndBodyList;
     integratedTypeAndBodyList[ propagators::translational_state ] = { std::make_pair( spacecraftName_, "" ) };
+    integratedTypeAndBodyList[ propagators::rotational_state ] = { std::make_pair( spacecraftName_, "" ) };
 
     // Create environment settings
     std::map< propagators::EnvironmentModelsToUpdate, std::vector< std::string > > environmentModelsToUpdate =
@@ -231,7 +238,8 @@ void NavigationSystem::improveStateEstimateOnNavigationPhaseTransition( )
 
 //! Function to post-process the accelerometer measurements.
 void NavigationSystem::postProcessAccelerometerMeasurements(
-        std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface )
+        std::vector< Eigen::Vector3d >& vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
+        const std::map< double, Eigen::Vector7d >& mapOfEstimatedRotationalStatesBelowAtmosphericInterface )
 {
     // Inform user
     std::cout << std::endl << "Removing Accelerometer Errors." << std::endl;
@@ -268,6 +276,19 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
             statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
+
+    // Remove errors from accelerometer measurements and convert to inertial frame
+    unsigned int i = 0;
+    for ( rotationalStateConstantIterator_ = mapOfEstimatedRotationalStatesBelowAtmosphericInterface.begin( );
+          rotationalStateConstantIterator_ != mapOfEstimatedRotationalStatesBelowAtmosphericInterface.end( );
+          rotationalStateConstantIterator_++, i++ )
+    {
+        vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
+                linear_algebra::convertVectorToQuaternionFormat(
+                    rotationalStateConstantIterator_->second.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
+                removeErrorsFromInertialMeasurementUnitMeasurement( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ),
+                                                                    estimatedAccelerometerErrors_ );
+    }
 }
 
 //! Function to run the Periapse Time Estimator (PTE).
@@ -406,8 +427,8 @@ void NavigationSystem::runPeriapseTimeEstimator(
 
     // Update navigation system state estimates
     std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;
-//    Eigen::Matrix9d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-//    currentNavigationFilterCovarianceMatrix = Eigen::Matrix9d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
+//    Eigen::Matrix16d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+//    currentNavigationFilterCovarianceMatrix = Eigen::Matrix16d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
 //    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentNavigationFilterCovarianceMatrix );
 
     // Correct history of Keplerian elements by removing error in true anomaly
@@ -612,47 +633,63 @@ void NavigationSystem::runAtmosphereEstimator(
 }
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector9d NavigationSystem::onboardSystemModel(
-        const double currentTime, const Eigen::Vector9d& currentNavigationFilterState,
-        const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction )
+Eigen::Vector16d NavigationSystem::onboardSystemModel(
+        const double currentTime, const Eigen::Vector16d& currentNavigationFilterState,
+        const boost::function< Eigen::Vector3d( ) >& accelerometerMeasurementFunction,
+        const boost::function< Eigen::Vector3d( ) >& gyroscopeMeasurementFunction )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare state derivative vector
-    Eigen::Vector9d currentStateDerivative = Eigen::Vector9d::Zero( );
+    Eigen::Vector16d currentStateDerivative = Eigen::Vector16d::Zero( );
 
     // Translational kinematics
-    currentStateDerivative.segment( 0, 3 ) = currentNavigationFilterState.segment( cartesian_velocity_index, 3 );
+    currentStateDerivative.segment( cartesian_position_index, 3 ) = currentNavigationFilterState.segment( cartesian_velocity_index, 3 );
 
     // Translational dynamics
-    currentStateDerivative.segment( 3, 3 ) =
+    currentStateDerivative.segment( cartesian_velocity_index, 3 ) =
             getCurrentEstimatedGravitationalTranslationalAcceleration( currentNavigationFilterState.segment( cartesian_position_index, 6 ) ) +
             removeErrorsFromInertialMeasurementUnitMeasurement( accelerometerMeasurementFunction( ),
                                                                 currentNavigationFilterState.segment( accelerometer_bias_index, 3 ) );
+
+    // Rotational kinematics
+    Eigen::Vector3d currentActualRotationalVelocityVector = removeErrorsFromInertialMeasurementUnitMeasurement(
+                gyroscopeMeasurementFunction( ), currentNavigationFilterState.segment( gyroscope_bias_index, 3 ) );
+    currentStateDerivative.segment( quaternion_real_index, 4 ) = propagators::calculateQuaternionDerivative(
+                currentNavigationFilterState.segment( quaternion_real_index, 4 ).normalized( ), currentActualRotationalVelocityVector );
 
     // Give output
     return currentStateDerivative;
 }
 
 //! Function to model the onboard measurements based on the simplified onboard model.
-Eigen::Vector3d NavigationSystem::onboardMeasurementModel(
-        const double currentTime, const Eigen::Vector9d& currentNavigationFilterState )
+Eigen::Vector7d NavigationSystem::onboardMeasurementModel(
+        const double currentTime, const Eigen::Vector16d& currentNavigationFilterState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
+    // Declare output vector
+    Eigen::Vector7d currentMeasurementVector;
+
+    // Add radial vector
+    currentMeasurementVector.segment( 0, 3 ) = currentNavigationFilterState.segment( cartesian_position_index, 3 );
+
+    // Add rotational attitude
+    currentMeasurementVector.segment( 3, 4 ) = currentNavigationFilterState.segment( quaternion_real_index, 4 ).normalized( );
+
     // Return radial vector
-    return currentNavigationFilterState.segment( cartesian_position_index, 3 );
+    return currentMeasurementVector;
 }
 
 //! Function to model the onboard system Jacobian based on the simplified onboard model.
-Eigen::Matrix9d NavigationSystem::onboardSystemJacobian(
-        const double currentTime, const Eigen::Vector9d& currentNavigationFilterState )
+Eigen::Matrix16d NavigationSystem::onboardSystemJacobian(
+        const double currentTime, const Eigen::Vector16d& currentNavigationFilterState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
     TUDAT_UNUSED_PARAMETER( currentNavigationFilterState );
 
     // Declare Jacobian matrix and set to zero
-    Eigen::Matrix9d currentSystemJacobian = Eigen::Matrix9d::Zero( );
+    Eigen::Matrix16d currentSystemJacobian = Eigen::Matrix16d::Zero( );
 
     // Add terms due to velocity
     currentSystemJacobian( 0, 3 ) = 1.0;
@@ -675,8 +712,8 @@ Eigen::Matrix9d NavigationSystem::onboardSystemJacobian(
 }
 
 //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-Eigen::Matrix< double, 3, 9 > NavigationSystem::onboardMeasurementJacobian(
-        const double currentTime, const Eigen::Vector9d& currentNavigationFilterState )
+Eigen::Matrix< double, 7, 16 > NavigationSystem::onboardMeasurementJacobian(
+        const double currentTime, const Eigen::Vector16d& currentNavigationFilterState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
     TUDAT_UNUSED_PARAMETER( currentNavigationFilterState );
