@@ -18,6 +18,7 @@
 #include <Eigen/Geometry>
 
 #include "Tudat/Basics/basicTypedefs.h"
+#include "Tudat/Basics/utilities.h"
 
 #include "Tudat/Mathematics/RootFinders/bisection.h"
 #include "Tudat/SimulationSetup/PropagationSetup/propagationTerminationSettings.h"
@@ -25,7 +26,7 @@
 namespace tudat
 {
 
-namespace guidance_navigation_control
+namespace system_models
 {
 
 //! Class for guidance system of an aerobraking maneuver.
@@ -39,33 +40,36 @@ public:
         walk_in_phase = 0,
         main_phase = 1,
         walk_out_phase = 2,
-        aerobraking_completed = 3
+        periapsis_raise_phase = 3,
+        aerobraking_complete = 4
     };
 
     //! Constructor.
     /*!
      *  Constructor.
-     *  \param targetPeriapsisAltitude
-     *  \param targetApoapsisAltitude
-     *  \param maximumAllowedHeatRate
-     *  \param maximumAllowedHeatLoad
-     *  \param minimumAllowedDynamicPressure
+     *  \param targetPeriapsisAltitude Double denoting the value of the target periapsis altitude.
+     *  \param targetApoapsisAltitude Double denoting the value of the target apoapsis altitude.
+     *  \param maximumAllowedHeatRate Double denoting the maximum allowed heat rate that the spacecraft can endure.
+     *  \param maximumAllowedHeatLoad Double denoting the maximum allowed heat load that the spacecraft can endure.
+     *  \param minimumAllowedDynamicPressure Double denoting the minimum allowed dynamic pressure that the spacecraft should encounter.
+     *  \param minimumAllowedLifetime Double denoting the minimum allowed predicted lifetime in days.
      */
     GuidanceSystem( const double targetPeriapsisAltitude,
                     const double targetApoapsisAltitude,
                     const double maximumAllowedHeatRate,
                     const double maximumAllowedHeatLoad,
-                    const double minimumAllowedDynamicPressure ) :
+                    const double minimumAllowedDynamicPressure,
+                    const double minimumAllowedLifetime ) :
         targetPeriapsisAltitude_( targetPeriapsisAltitude ), targetApoapsisAltitude_( targetApoapsisAltitude ),
         maximumAllowedHeatRate_( maximumAllowedHeatRate ), maximumAllowedHeatLoad_( maximumAllowedHeatLoad ),
-        minimumAllowedDynamicPressure_( minimumAllowedDynamicPressure )
+        minimumAllowedDynamicPressure_( minimumAllowedDynamicPressure ), minimumAllowedLifetime_( minimumAllowedLifetime )
     {
         // Create root-finder object for bisection of periapsis altitude
         // The values inserted are the tolerance in independent value (i.e., the percentage corresponding to 0.5 km difference at
         // 100 km altitude) and the maximum number of iterations (i.e., 10 iterations)
         altitudeBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( 0.5 / 100.0, 10 );
 
-        // Create root-finder object for bisection of periapsis altitude
+        // Create root-finder object for bisection of maneuver magnitude estimate
         // The values inserted are the tolerance in independent value (i.e., the percentage corresponding to 0.5 km difference at
         // 100 km altitude) and the maximum number of iterations (i.e., 10 iterations)
         maneuverBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( 0.5 / 100.0, 10 );
@@ -75,9 +79,16 @@ public:
     ~GuidanceSystem( ) { }
 
     //! Function to create the guidance system objects.
+    /*!
+     *  Function to create the guidance system objects.
+     *  \param statePropagationFunction Function used to propagate the spacecraft position, based on custom termination settings
+     *      and custom initial conditions. The output of the function is a pair, where the first element is a boolean denoting
+     *      whether the propagation was successful, and the second element is another pair, where the first entry is the state
+     *      history and the second entry the dependent variable history.
+     */
     void createGuidanceSystemObjects(
-            const boost::function< std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >(
-                const boost::shared_ptr< propagators::PropagationTerminationSettings >,
+            const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
+            std::map< double, Eigen::VectorXd > > >( const boost::shared_ptr< propagators::PropagationTerminationSettings >,
                 const Eigen::Vector6d& ) >& statePropagationFunction )
     {
         // Create propagation function
@@ -88,34 +99,51 @@ public:
     /*!
      *  Function to determine in which aerobraking phase the spacecraft is currently in. Aerobraking is divided in four phases:
      *  walk-in, main, walk-out and completed. During the walk-in phase, the periapsis is slowly lowered into the atmosphere,
-     *  \param currentEstimatedKeplerianState Current estimated translational Keplerian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
      *  \param pairOfAtmosphereInitiationIndicators Pair of integers, where the first element denotes the number of atmosphere
      *      samples that have been taken so far, and the second element indicates the number of atmosphere samples required for
      *      the atmosphere estimator to be considered initialized.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
      */
     void determineAerobrakingPhase( const Eigen::Vector6d& currentEstimatedKeplerianState,
-                                    const std::pair< unsigned int, unsigned int >& pairOfAtmosphereInitiationIndicators )
+                                    const std::pair< unsigned int, unsigned int >& pairOfAtmosphereInitiationIndicators,
+                                    const double planetaryRadius )
     {
-        // Declare aerobraking phase indicator and set value to main phase
+        // Store previous aerobraking phase indicator
+        AerobrakingPhaseIndicator previousAerobrakingPhase = currentOrbitAerobrakingPhase_;
+
+        // Declare current orbit aerobraking phase indicator and set value to main phase
         AerobrakingPhaseIndicator detectedAerobrakingPhase = main_phase;
 
         // Set periapsis altitude scaling to default value
-        periapsisAltitudeWalkInScaling_ = 1.0;
+        periapsisAltitudeScaling_ = 1.0;
 
         // Check whether atmosphere has been initiated
         if ( pairOfAtmosphereInitiationIndicators.first < pairOfAtmosphereInitiationIndicators.second )
         {
             detectedAerobrakingPhase = walk_in_phase;
-            periapsisAltitudeWalkInScaling_ = 1.2 - 0.2 *
+            periapsisAltitudeScaling_ = 1.2 - 0.2 *
                     static_cast< double >( pairOfAtmosphereInitiationIndicators.first ) /
                     static_cast< double >( pairOfAtmosphereInitiationIndicators.second );
         }
 
         // Check whether apoapsis is approaching target value
         double predictedApoapsisRadius = computeCurrentFirstOrderEstimatedApoapsisRadius( currentEstimatedKeplerianState );
-        if ( std::fabs( predictedApoapsisRadius - targetApoapsisAltitude_ ) < 50e3 )
+        if ( currentEstimatedKeplerianState[ 1 ] < 0.3 )
         {
             detectedAerobrakingPhase = walk_out_phase;
+        }
+
+        // Check whether it is time to perform periapsis raise maneuver is complete
+        if ( ( predictedApoapsisRadius - planetaryRadius ) < 1.25 * targetApoapsisAltitude_ )
+        {
+            detectedAerobrakingPhase = periapsis_raise_phase;
+        }
+
+        // Check whether aerobraking is complete
+        if ( previousAerobrakingPhase == periapsis_raise_phase )
+        {
+            detectedAerobrakingPhase = aerobraking_complete;
         }
 
         // Set current orbit aerobraking phase
@@ -128,29 +156,57 @@ public:
      *  corridor. The lower bound corresponds to the altitude where the estimated heat rate and heat load are below the maximum
      *  allowed value (which depend on the spacecraft material properties), whereas the upper bound corresponds to the altitude
      *  where the dynamic pressure is higher than the minimum allowed value (which depends on the total aerobraking duration).
-     *  \param currentTime
-     *  \param currentEstimatedKeplerianState
-     *  \param planetaryRadius
-     *  \param planetaryGravitationalParameter
+     *  \param currentTime Double denoting the current time.
+     *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
+     *  \param planetaryGravitationalParameter Double denoting the gravitational parameter of the planet being orbited.
      */
     void runCorridorEstimator( const double currentTime,
+                               const Eigen::Vector6d& currentEstimatedCartesianState,
                                const Eigen::Vector6d& currentEstimatedKeplerianState,
                                const double planetaryRadius,
                                const double planetaryGravitationalParameter );
 
-    //! Function to run maneuver estimator (ME).
+    //! Function to run apoapsis maneuver estimator (ME).
     /*!
-     *  Function to run maneuver estimator (ME). Note that since the root-finder uses the propagator defined in the runCorridorEstimator
-     *  function (i.e., reducedStatePropagationFunction_), said function needs to be run before this one.
-     *  \param currentEstimatedCartesianState
-     *  \param currentEstimatedKeplerianState
-     *  \param currentEstimatedMeanAnomaly
-     *  \param planetaryRadius
+     *  Function to run apoapsis maneuver estimator (ME). Note that since the root-finder uses the propagator defined in the
+     *  runCorridorEstimator function (i.e., periodReducedStatePropagationFunction_), said function needs to be run before this one.
+     *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
+     *  \param currentEstimatedMeanMotion Double denoting the current estimated mean motion.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
+     *  \param improveEstimateWithBisection Boolean denoting whether the maneuver estimate should be improved by using a
+     *      bisection root-finder algorithm.
      */
-    void runManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
-                               const Eigen::Vector6d& currentEstimatedKeplerianState,
-                               const double currentEstimatedMeanAnomaly,
-                               const double planetaryRadius );
+    void runApoapsisManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
+                                       const Eigen::Vector6d& currentEstimatedKeplerianState,
+                                       const double currentEstimatedMeanMotion,
+                                       const double planetaryRadius,
+                                       const bool improveEstimateWithBisection = true );
+
+    //! Function to run periapsis maneuver estimator (ME).
+    /*!
+     *  Function to run periapsis maneuver estimator (ME).
+     *  \param currentTime Double denoting the current time.
+     *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
+     *  \param currentEstimatedMeanMotion Double denoting the current estimated mean motion.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
+     *  \param planetaryGravitationalParameter Double denoting the gravitational parameter of the planet being orbited.
+     */
+    void runPeriapsisManeuverEstimator( const double currentTime,
+                                        const Eigen::Vector6d& currentEstimatedCartesianState,
+                                        const Eigen::Vector6d& currentEstimatedKeplerianState,
+                                        const double currentEstimatedMeanMotion,
+                                        const double planetaryRadius,
+                                        const double planetaryGravitationalParameter );
+
+    //! Function to set the value of the current orbit counter.
+    void setCurrentOrbitCounter( const unsigned int currentOrbitCounter )
+    {
+        currentOrbitCounter_ = currentOrbitCounter;
+    }
 
     //! Function to retrieve whether the apoapsis maneuver is to be performed.
     /*!
@@ -163,9 +219,58 @@ public:
     bool getIsApoapsisManeuverToBePerformed( ) { return !std::get< 0 >( periapsisTargetingInformation_ ); }
 
     //! Function to retirieve the value of the apoapsis maneuver vector.
-    Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApsoapsisManeuver_; }
+    Eigen::Vector3d getScheduledApsisManeuver( ) { return scheduledApsisManeuver_; }
+
+    //! Function to retrieve whether the input aerobraking phase is active.
+    /*!
+     *  Function to retrieve whether the the input aerobraking phase is active. The value of currentOrbitAerobrakingPhase_ is
+     *  determined by the function determineAerobrakingPhase.
+     *  \return Boolean denoting whether the input aerobraking phase is active.
+     */
+    bool getIsAerobrakingPhaseActive( const AerobrakingPhaseIndicator inputAerobrakingPhase )
+    {
+        return ( currentOrbitAerobrakingPhase_ == inputAerobrakingPhase );
+    }
+
+    //! Function to retrieve the history of estimated periapsis corridor boundaries.
+    std::map< unsigned int, std::pair< double, double > > getHistoryOfEstimatedPeriapsisCorridorBoundaries( )
+    {
+        return historyOfEstimatedPeriapsisCorridorBoundaries_;
+    }
+
+    //! Function to retrieve the history of apo- and periapsis maneuver magnitudes.
+    std::pair< double, std::map< unsigned int, double > > getHistoryOfApsisManeuverMagnitudes( )
+    {
+        // Sum all maneuver contributions
+        double cumulativeManeuverMagnitude = 0;
+        for ( std::map< unsigned int, double >::const_iterator mapIterator = historyOfApsisManeuverMagnitudes_.begin( );
+              mapIterator != historyOfApsisManeuverMagnitudes_.end( ); mapIterator++ )
+        {
+            cumulativeManeuverMagnitude += std::fabs( mapIterator->second );
+        }
+
+        // Give output
+        return std::make_pair( cumulativeManeuverMagnitude, historyOfApsisManeuverMagnitudes_ );
+    }
 
 private:
+
+    //! Function to run corridor estimator with nominal conditions.
+    /*!
+     *  Function to run corridor estimator with nominal conditions.
+     *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
+     *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
+     *  \param planetaryRadius Double denoting the radius of the planet being orbited.
+     *  \param planetaryGravitationalParameter Double denoting the gravitational parameter of the planet being orbited.
+     *  \param useHeatAsLowerBoundaryThreshold Boolean denoting whether the heating conditions should be used as threshold,
+     *      otherwise lifetime is used.
+     */
+    void estimateCorridorBoundaries( const double currentTime,
+                                     const Eigen::Vector6d& currentEstimatedCartesianState,
+                                     const Eigen::Vector6d& currentEstimatedKeplerianState,
+                                     const double planetaryRadius,
+                                     const double planetaryGravitationalParameter,
+                                     const bool useHeatAsLowerBoundaryThreshold = true );
 
     //! Function to compute the rotation from local to intertial frame.
     /*!
@@ -173,8 +278,8 @@ private:
      *  rotation from trajectory to inertial frame is found, then the rotation from local to trajectory is added. The first DCM is
      *  found by using the velocity and radial distance vector. The velocity (unit) vector corresponds directly to the x-axis of the
      *  trajectory frame, whereas the z-axis is computed by subtracting from the radial distance (unit) vector its projection on the
-     *  x-axis. Then, the y-axis is determined via the right-hand rule (i.e., with the cross product). Note that since the estimated
-     *  state is used, the actual transformation can differ.
+     *  x-axis, and then inverting to find the unit vector that points toward the planet. Then, the y-axis is determined via the
+     *  right-hand rule (i.e., with the cross product). Note that since the estimated state is used, the actual transformation can differ.
      *  \param currentEstimatedCartesianState Current estimated Cartesian state as provided by the navigation system.
      *  \return Direction cosine matrix representing the estimated rotation from local to inertial frame.
      */
@@ -190,6 +295,7 @@ private:
         // Find trajectory z-axis unit vector
         Eigen::Vector3d zUnitVector = currentEstimatedCartesianState.segment( 0, 3 ).normalized( );
         zUnitVector -= zUnitVector.dot( xUnitVector ) * xUnitVector;
+        zUnitVector *= -1.0; // axis points toward planet
         transformationFromTrajectoryToInertialFrame.col( 2 ) = zUnitVector;
 
         // Find body-fixed y-axis unit vector
@@ -244,6 +350,9 @@ private:
     //! Double denoting the miminum allowed dynamic pressure that the spacecraft should encounter.
     const double minimumAllowedDynamicPressure_;
 
+    //! Double denoting the minimum allowed predicted lifetime in days.
+    const double minimumAllowedLifetime_;
+
     //! Pointer to root-finder used to esimate the periapsis corridor altitudes.
     boost::shared_ptr< root_finders::BisectionCore< double > > altitudeBisectionRootFinder_;
 
@@ -253,17 +362,28 @@ private:
     //! Function to propagate state with custom propagation termination settings.
     /*!
      *  Function to propagate state with custom propagation termination settings. This function simply refers to the
-     *  propagateStateWithCustomTerminationSettings function of the navigation system, in order to propagate the state from the
-     *  input initial condition, until the custom termination conditions are reached.
+     *  propagateTranslationalStateWithCustomTerminationSettings function of the navigation system, in order to propagate the state
+     *  from the input initial condition, until the custom termination conditions are reached.
      */
-    boost::function< std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >(
+    boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > >(
             const boost::shared_ptr< propagators::PropagationTerminationSettings >, const Eigen::Vector6d& ) > statePropagationFunction_;
+
+    //! Function to propagate state for two thirds of the orbital period.
+    boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > >(
+            const Eigen::Vector6d& ) > periodReducedStatePropagationFunction_;
+
+    //! Function to propagate state for two times the lifetime limit.
+    boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > >(
+            const Eigen::Vector6d& ) > lifetimeReducedStatePropagationFunction_;
 
     //! Enumeration denoting the aerobraking phase belonging to the current orbit.
     AerobrakingPhaseIndicator currentOrbitAerobrakingPhase_;
 
-    //! Double denoting the scaling to be applied to the periapsis altitude target altitude during walk-in phase.
-    double periapsisAltitudeWalkInScaling_;
+    //! Double denoting the scaling to be applied to the periapsis altitude target altitude during the walk-in and walk-out phases.
+    double periapsisAltitudeScaling_;
+
+    //! Integer denoting the value of the current orbit.
+    unsigned int currentOrbitCounter_;
 
     //! Tuple containing the periapsis targeting information.
     /*!
@@ -274,26 +394,22 @@ private:
      */
     std::tuple< bool, double, double > periapsisTargetingInformation_;
 
-    //! Function to propagate state for two thirds of the orbital period.
-    boost::function< std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > >( const Eigen::Vector6d& ) >
-    reducedStatePropagationFunction_;
-
     //! Vector denoting the velocity change scheduled to be applied at apoapsis.
-    Eigen::Vector3d scheduledApsoapsisManeuver_;
+    Eigen::Vector3d scheduledApsisManeuver_;
 
     //! History of estimated periapsis corridor boundaries.
     /*!
      *  History of estimated periapsis corridor boundaries, stored as a map, where the keys are the orbit numbers and the
      *  mapped values are pairs, whose first element is the lower altitude bound and the second one the upper altitude bound.
      */
-    std::vector< std::pair< double, double > > historyOfEstimatedPeriapsisCorridorBoundaries_;
+    std::map< unsigned int, std::pair< double, double > > historyOfEstimatedPeriapsisCorridorBoundaries_;
 
-    //! History of estimated apoapsis maneuver magnitudes.
-    std::vector< double > historyOfApoapsisManeuverMagnitudes_;
+    //! History of estimated apo- and periapsis maneuver magnitudes.
+    std::map< unsigned int, double > historyOfApsisManeuverMagnitudes_;
 
 };
 
-} // namespace guidance_navigation_control
+} // namespace system_models
 
 } // namespace tudat
 

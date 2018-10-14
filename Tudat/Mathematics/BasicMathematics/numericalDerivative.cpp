@@ -24,49 +24,56 @@ namespace numerical_derivatives
 {
 
 //! Get coefficients of a certain order for central difference numerical derivatives.
-const std::map< int, double >& getCentralDifferenceCoefficients( CentralDifferenceOrders order )
+std::map< int, double > getCentralDifferenceCoefficients( const CentralDifferenceOrders order )
 {
-    static std::map< CentralDifferenceOrders, std::map< int, double > > coefficients;
-
-    if ( coefficients.empty( ) )
+    // Give value to the coefficients map, based on order
+    std::map< int, double > coefficients;
+    switch ( order )
     {
-        // Initialize the coefficients map
-        coefficients[ order2 ] = std::map< int, double >( );
-        coefficients[ order2 ][ -1 ] = -1.0 / 2.0;
-        coefficients[ order2 ][ 1 ] = 1.0 / 2.0;
-
-        coefficients[ order4 ] = std::map< int, double >( );
-        coefficients[ order4 ][ -2 ] = 1.0 / 12.0;
-        coefficients[ order4 ][ -1 ] = -2.0 / 3.0;
-        coefficients[ order4 ][ 1 ] = 2.0 / 3.0;
-        coefficients[ order4 ][ 2 ] = -1.0 / 12.0;
-
-        coefficients[ order6 ] = std::map< int, double >( );
-        coefficients[ order6 ][ -3 ] = -1.0 / 60.0;
-        coefficients[ order6 ][ -2 ] = 3.0 / 20.0;
-        coefficients[ order6 ][ -1 ] = -3.0 / 4.0;
-        coefficients[ order6 ][ 1 ] = 1.0 / 60.0;
-        coefficients[ order6 ][ 2 ] = -3.0 / 20.0;
-        coefficients[ order6 ][ 3 ] = 3.0 / 4.0;
-
-        coefficients[ order8 ] = std::map< int, double >( );
-        coefficients[ order8 ][ -4 ] = 1.0 / 280.0;
-        coefficients[ order8 ][ -3 ] = -4.0 / 105.0;
-        coefficients[ order8 ][ -2 ] = 1.0 / 5.0;
-        coefficients[ order8 ][ -1 ] = -4.0 / 5.0;
-        coefficients[ order8 ][ 1 ] = 4.0 / 5.0;
-        coefficients[ order8 ][ 2 ] = -1.0 / 5.0;
-        coefficients[ order8 ][ 3 ] = 4.0 / 105.0;
-        coefficients[ order8 ][ 4 ] = -1.0 / 280.0;
+    case order2:
+    {
+        coefficients[ -1 ] = -1.0 / 2.0;
+        coefficients[ 1 ] = 1.0 / 2.0;
+        break;
     }
-
-    return coefficients[ order ];
+    case order4:
+    {
+        coefficients[ -2 ] = 1.0 / 12.0;
+        coefficients[ -1 ] = -2.0 / 3.0;
+        coefficients[ 1 ] = 2.0 / 3.0;
+        coefficients[ 2 ] = -1.0 / 12.0;
+        break;
+    }
+    case order6:
+    {
+        coefficients[ -3 ] = -1.0 / 60.0;
+        coefficients[ -2 ] = 3.0 / 20.0;
+        coefficients[ -1 ] = -3.0 / 4.0;
+        coefficients[ 1 ] = 1.0 / 60.0;
+        coefficients[ 2 ] = -3.0 / 20.0;
+        coefficients[ 3 ] = 3.0 / 4.0;
+        break;
+    }
+    case order8:
+    {
+        coefficients[ -4 ] = 1.0 / 280.0;
+        coefficients[ -3 ] = -4.0 / 105.0;
+        coefficients[ -2 ] = 1.0 / 5.0;
+        coefficients[ -1 ] = -4.0 / 5.0;
+        coefficients[ 1 ] = 4.0 / 5.0;
+        coefficients[ 2 ] = -1.0 / 5.0;
+        coefficients[ 3 ] = 4.0 / 105.0;
+        coefficients[ 4 ] = -1.0 / 280.0;
+        break;
+    }
+    }
+    return coefficients;
 }
 
 Eigen::MatrixXd computeCentralDifference( const Eigen::VectorXd& input, const boost::function<
                                           Eigen::VectorXd( const Eigen::VectorXd& ) >& function,
                                           double minimumStep, double relativeStepSize,
-                                          CentralDifferenceOrders order )
+                                          const CentralDifferenceOrders order )
 {
     Eigen::MatrixXd result;
 
@@ -83,8 +90,64 @@ Eigen::MatrixXd computeCentralDifference( const Eigen::VectorXd& input, const bo
     return result;
 }
 
+//! Function to compute central difference with double as output and Eigen::VectorXd as input.
+double computeCentralDifference(
+        const boost::function< double( const Eigen::VectorXd& ) >& dependentVariableFunction,
+        const Eigen::VectorXd& nominalIndependentVariable,
+        const Eigen::VectorXd& independentVariableStepSize,
+        const CentralDifferenceOrders order )
+{
+    // Retrieve coefficients
+    const std::map< int, double > coefficients = getCentralDifferenceCoefficients( order );
+
+    // Pre-allocate variables
+    Eigen::VectorXd perturbedInput;
+    double perturbedOutput;
+    double numericalDerivative = 0.0;
+
+    // Compute the numerical derivative.
+    for ( std::map< int, double >::const_iterator coefficientIterator = coefficients.begin( );
+          coefficientIterator != coefficients.end( ); coefficientIterator++ )
+    {
+        // Generate deviated input.
+        perturbedInput = nominalIndependentVariable + coefficientIterator->first * independentVariableStepSize;
+        perturbedOutput = dependentVariableFunction( perturbedInput );
+
+        // Compute derivative
+        numericalDerivative += perturbedOutput * ( coefficientIterator->second / independentVariableStepSize.norm( ) );
+    }
+    return numericalDerivative;
+}
+
+//! Function to compute central difference with double as output and Eigen::VectorXd as input.
+Eigen::VectorXd computeCentralDifference(
+        const Eigen::VectorXd& nominalIndependentVariable,
+        const Eigen::VectorXd& independentVariableStepSize,
+        const boost::function< Eigen::VectorXd( const Eigen::VectorXd& ) >& dependentVariableFunction,
+        const CentralDifferenceOrders order )
+{
+    // Retrieve coefficients
+    const std::map< int, double > coefficients = getCentralDifferenceCoefficients( order );
+
+    // Pre-allocate variables
+    Eigen::VectorXd perturbedInput;
+    Eigen::VectorXd perturbedOutput;
+    Eigen::VectorXd numericalDerivative = Eigen::VectorXd::Zero( dependentVariableFunction( nominalIndependentVariable ).size( ) );
+
+    // Compute the numerical derivative.
+    for ( std::map< int, double >::const_iterator coefficientIterator = coefficients.begin( );
+          coefficientIterator != coefficients.end( ); coefficientIterator++ )
+    {
+        // Generate deviated input.
+        perturbedInput = nominalIndependentVariable + coefficientIterator->first * independentVariableStepSize;
+        perturbedOutput = dependentVariableFunction( perturbedInput );
+
+        // Compute derivative
+        numericalDerivative += perturbedOutput * ( coefficientIterator->second / independentVariableStepSize.norm( ) );
+    }
+    return numericalDerivative;
+}
+
 } // namespace numerical_derivatives
 
 } // namespace tudat
-
-

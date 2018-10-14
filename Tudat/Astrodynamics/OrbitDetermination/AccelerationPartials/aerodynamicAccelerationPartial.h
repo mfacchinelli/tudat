@@ -191,7 +191,7 @@ public:
         int numberOfColumns = 0;
 
         // Check if parameter is gravitational parameter.
-        if( parameter->getParameterName( ).first ==  estimatable_parameters::constant_drag_coefficient )
+        if( parameter->getParameterName( ).first == estimatable_parameters::constant_drag_coefficient )
         {
             // Check if parameter body is accelerated body,
             if( parameter->getParameterName( ).second.first == acceleratedBody_ )
@@ -227,6 +227,12 @@ public:
      *  \param currentTime Time at which partials are to be calculated
      */
     void update( const double currentTime = TUDAT_NAN );
+
+    //! Function to retrieve the current aerodynamic acceleration partial.
+    Eigen::Matrix< double, 3, 6 > getCurrentAerodynamicAccelerationPartial( )
+    {
+        return currentAccelerationStatePartials_;
+    }
 
 protected:
 

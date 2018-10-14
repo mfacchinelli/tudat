@@ -175,9 +175,8 @@ BOOST_AUTO_TEST_CASE( test_DissipationParameterEstimation )
 
         // Define integrator and propagator settings.
         boost::shared_ptr< IntegratorSettings< > > integratorSettings =
-                boost::make_shared< RungeKuttaVariableStepSizeSettings< double, Eigen::MatrixXd > >
-                ( rungeKuttaVariableStepSize, 0.0, fixedStepSize,
-                  RungeKuttaCoefficients::rungeKuttaFehlberg78, fixedStepSize, fixedStepSize, 1.0, 1.0 );
+                boost::make_shared< RungeKuttaVariableStepSizeSettings< double > >
+                ( 0.0, fixedStepSize, RungeKuttaCoefficients::rungeKuttaFehlberg78, fixedStepSize, fixedStepSize, 1.0, 1.0 );
 
         boost::shared_ptr< PropagatorSettings< double > > propagatorSettings =
                 boost::make_shared< TranslationalStatePropagatorSettings< double > >
@@ -402,9 +401,8 @@ BOOST_AUTO_TEST_CASE( test_LoveNumberEstimationFromOrbiterData )
 
     // Create integrator settings
     boost::shared_ptr< IntegratorSettings< > > integratorSettings =
-            boost::make_shared< RungeKuttaVariableStepSizeSettings< double, Eigen::MatrixXd > >
-            ( rungeKuttaVariableStepSize, double( initialEphemerisTime ), 60.0,
-              RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78,
+            boost::make_shared< RungeKuttaVariableStepSizeSettings< double > >
+            ( double( initialEphemerisTime ), 60.0, RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78,
               60.0, 60.0, 1.0, 1.0 );
 
     // Define link ends to use

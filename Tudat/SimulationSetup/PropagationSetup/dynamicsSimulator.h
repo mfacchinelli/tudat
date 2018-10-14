@@ -29,7 +29,6 @@
 #include "Tudat/SimulationSetup/PropagationSetup/propagationTermination.h"
 #include "Tudat/Astrodynamics/Propagators/dynamicsStateDerivativeModel.h"
 #include "Tudat/Mathematics/Interpolators/lagrangeInterpolator.h"
-#include "Tudat/Astrodynamics/GuidanceNavigationControl/controlSystem.h"
 
 namespace tudat
 {
@@ -65,7 +64,7 @@ Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > getInitialStatesOfBodies(
     {
         ephemerisOfCurrentBody = bodyMap.at( bodiesToIntegrate.at( i ) )->getEphemeris( );
 
-        if ( ! ephemerisOfCurrentBody )
+        if ( !ephemerisOfCurrentBody )
         {
             throw std::runtime_error( "Could not determine initial state for body " + bodiesToIntegrate.at( i ) +
                                       " because it does not have a valid Ephemeris object." );
@@ -310,6 +309,8 @@ public:
      *  after propagation and resetting ephemerides (default false).
      *  \param setIntegratedResult Boolean to determine whether to automatically use the integrated results to set
      *  ephemerides (default false).
+     *  \param printNumberOfFunctionEvaluations Boolean denoting whether the number of function evaluations should be printed
+     *  at the end of propagation.
      *  \param initialClockTime Initial clock time from which to determine cumulative computation time.
      *  By default now( ), i.e. the moment at which this function is called.
      */
@@ -321,7 +322,9 @@ public:
             const bool clearNumericalSolutions = false,
             const bool setIntegratedResult = false,
             const bool printNumberOfFunctionEvaluations = false,
-            const std::chrono::steady_clock::time_point initialClockTime = std::chrono::steady_clock::now( ) ):
+            const std::chrono::steady_clock::time_point initialClockTime = std::chrono::steady_clock::now( ),
+            const std::vector< boost::shared_ptr< SingleStateTypeDerivative< StateScalarType, TimeType > > >& stateDerivativeModels =
+            std::vector< boost::shared_ptr< SingleStateTypeDerivative< StateScalarType, TimeType > > >( ) ):
         DynamicsSimulator< StateScalarType, TimeType >(
             bodyMap, clearNumericalSolutions, setIntegratedResult ),
         integratorSettings_( integratorSettings ),
@@ -333,16 +336,16 @@ public:
     {
         if( propagatorSettings == NULL )
         {
-            throw std::runtime_error( "Error in dynamics simulator, propagator settings not defined" );
+            throw std::runtime_error( "Error in dynamics simulator, propagator settings not defined." );
         }
         else if( boost::dynamic_pointer_cast< SingleArcPropagatorSettings< StateScalarType > >( propagatorSettings ) == NULL )
         {
-            throw std::runtime_error( "Error in dynamics simulator, input must be single-arc" );
+            throw std::runtime_error( "Error in dynamics simulator, input must be single-arc." );
         }
 
         if( integratorSettings == NULL )
         {
-            throw std::runtime_error( "Error in dynamics simulator, integrator settings not defined" );
+            throw std::runtime_error( "Error in dynamics simulator, integrator settings not defined." );
         }
 
         if( setIntegratedResult_ )
@@ -354,11 +357,21 @@ public:
 
         environmentUpdater_ = createEnvironmentUpdaterForDynamicalEquations< StateScalarType, TimeType >(
                     propagatorSettings_, bodyMap_ );
-        dynamicsStateDerivative_ = boost::make_shared< DynamicsStateDerivativeModel< TimeType, StateScalarType > >(
-                    createStateDerivativeModels< StateScalarType, TimeType >(
-                        propagatorSettings_, bodyMap_, initialPropagationTime_ ),
-                    boost::bind( &EnvironmentUpdater< StateScalarType, TimeType >::updateEnvironment,
-                                 environmentUpdater_, _1, _2, _3 ) );
+        if( stateDerivativeModels.size( ) == 0 )
+        {
+            dynamicsStateDerivative_ = boost::make_shared< DynamicsStateDerivativeModel< TimeType, StateScalarType > >(
+                        createStateDerivativeModels< StateScalarType, TimeType >(
+                            propagatorSettings_, bodyMap_, initialPropagationTime_ ),
+                        boost::bind( &EnvironmentUpdater< StateScalarType, TimeType >::updateEnvironment,
+                                     environmentUpdater_, _1, _2, _3 ) );
+        }
+        else
+        {
+            dynamicsStateDerivative_ = boost::make_shared< DynamicsStateDerivativeModel< TimeType, StateScalarType > >(
+                        stateDerivativeModels,
+                        boost::bind( &EnvironmentUpdater< StateScalarType, TimeType >::updateEnvironment,
+                                     environmentUpdater_, _1, _2, _3 ) );
+        }
         propagationTerminationCondition_ = createPropagationTerminationConditions(
                     propagatorSettings_->getTerminationSettings( ), bodyMap_, integratorSettings->initialTimeStep_ );
 
@@ -394,11 +407,20 @@ public:
         {
             integrateEquationsOfMotion( propagatorSettings_->getInitialStates( ) );
         }
+        else
+        {
+            // Reset functions
+            dynamicsStateDerivative_->setPropagationSettings( std::vector< IntegratedStateType >( ), 1, 0 );
+            dynamicsStateDerivative_->resetFunctionEvaluationCounter( );
+            dynamicsStateDerivative_->resetCumulativeFunctionEvaluationCounter( );
+
+            // Call state derivative function to set accelerations
+            dynamicsStateDerivative_->computeStateDerivative( this->initialPropagationTime_, propagatorSettings_->getInitialStates( ) );
+        }
     }
 
     //! Destructor
-    ~SingleArcDynamicsSimulator( )
-    { }
+    ~SingleArcDynamicsSimulator( ) { }
 
     //! This function numerically (re-)integrates the equations of motion.
     /*!
@@ -448,8 +470,8 @@ public:
         // Retrieve and print number of total function evaluations
         if ( printNumberOfFunctionEvaluations_ )
         {
-            std::cout << "Total Number of Function Evaluations: " <<
-                         dynamicsStateDerivative_->getNumberOfFunctionEvaluations( ) << std::endl;
+            std::cout << "Total Number of Function Evaluations: "
+                      << dynamicsStateDerivative_->getNumberOfFunctionEvaluations( ) << std::endl;
         }
 
         if( this->setIntegratedResult_ )
@@ -702,7 +724,7 @@ public:
     void resetPropagationTerminationConditions( )
     {
         propagationTerminationCondition_ = createPropagationTerminationConditions(
-                    propagatorSettings_->getTerminationSettings(), bodyMap_,
+                    propagatorSettings_->getTerminationSettings( ), bodyMap_,
                             integratorSettings_->initialTimeStep_ );
     }
 
@@ -818,7 +840,7 @@ protected:
     //! Initial time of propagation
     double initialPropagationTime_;
 
-    //! Boolean specifiying whether number of evaluations has to be printed at the end of propagation.
+    //! Boolean denoting whether the number of function evaluations should be printed at the end of propagation.
     bool printNumberOfFunctionEvaluations_;
 
     //! Initial clock time

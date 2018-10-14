@@ -33,9 +33,10 @@ namespace unit_tests
 BOOST_AUTO_TEST_SUITE( test_unscented_kalman_filter )
 
 // Functions for unscented Kalman filter
-Eigen::Vector2d stateFunction1( const double time, const Eigen::Vector2d& state,
-                                const Eigen::Vector2d& control )
+Eigen::Vector2d stateFunction1( const double time, const Eigen::Vector2d& state, const Eigen::Vector2d& control )
 {
+    TUDAT_UNUSED_PARAMETER( time );
+    TUDAT_UNUSED_PARAMETER( control );
     Eigen::Vector2d stateDerivative;
     stateDerivative[ 0 ] = state[ 1 ] * std::pow( std::cos( state[ 0 ] ), 3 );
     stateDerivative[ 1 ] = std::sin( state[ 0 ] );
@@ -43,6 +44,7 @@ Eigen::Vector2d stateFunction1( const double time, const Eigen::Vector2d& state,
 }
 Eigen::Vector1d measurementFunction1( const double time, const Eigen::Vector2d& state )
 {
+    TUDAT_UNUSED_PARAMETER( time );
     Eigen::Vector1d measurement;
     measurement[ 0 ] = std::pow( state[ 0 ], 3 );
     return measurement;
@@ -54,7 +56,7 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterFirstCase )
     using namespace tudat::filters;
 
     // Set initial conditions
-    const double initialTime = 0;
+    const double initialTime = 0.0;
     const double timeStep = 0.01;
     const unsigned int numberOfTimeSteps = 1000;
 
@@ -64,18 +66,18 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterFirstCase )
 
     Eigen::Vector2d initialEstimatedStateVector;
     initialEstimatedStateVector[ 0 ] = 10.0;
-    initialEstimatedStateVector[ 1 ] = -3;
+    initialEstimatedStateVector[ 1 ] = -3.0;
 
     Eigen::Matrix2d initialEstimatedStateCovarianceMatrix = Eigen::Matrix2d::Zero( );
-    initialEstimatedStateCovarianceMatrix( 0, 0 ) = 100;
-    initialEstimatedStateCovarianceMatrix( 1, 1 ) = 100;
+    initialEstimatedStateCovarianceMatrix( 0, 0 ) = 100.0;
+    initialEstimatedStateCovarianceMatrix( 1, 1 ) = 100.0;
 
     // Set system and measurement uncertainty
     Eigen::Matrix2d systemUncertainty = Eigen::Matrix2d::Zero( );
     Eigen::Vector1d measurementUncertainty = Eigen::Vector1d::Zero( );
-    systemUncertainty( 0, 0 ) = 100;
-    systemUncertainty( 1, 1 ) = 100;
-    measurementUncertainty[ 0 ] = 100;
+    systemUncertainty( 0, 0 ) = 100.0;
+    systemUncertainty( 1, 1 ) = 100.0;
+    measurementUncertainty[ 0 ] = 100.0;
 
     // Set integrator settings
     boost::shared_ptr< numerical_integrators::IntegratorSettings< > > integratorSettings =
@@ -86,12 +88,12 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterFirstCase )
     boost::shared_ptr< ControlWrapper< double, double, 2 > > control =
             boost::make_shared< ControlWrapper< double, double, 2 > >( boost::lambda::constant( Eigen::Vector2d::Zero( ) ) );
 
-    // Create extended Kalman filter object
+    // Create unscented Kalman filter object
     UnscentedKalmanFilterDoublePointer unscentedFilter = boost::make_shared< UnscentedKalmanFilterDouble >(
                 boost::bind( &stateFunction1, _1, _2,
-                             boost::bind( &ControlWrapper< double, double, 2 >::getControlVector, control ) ),
+                             boost::bind( &ControlWrapper< double, double, 2 >::getCurrentControlVector, control ) ),
                 boost::bind( &measurementFunction1, _1, _2 ),
-                systemUncertainty, measurementUncertainty,
+                systemUncertainty, measurementUncertainty, timeStep,
                 initialTime, initialEstimatedStateVector, initialEstimatedStateCovarianceMatrix,
                 integratorSettings );
 
@@ -99,28 +101,29 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterFirstCase )
     const bool showProgress = false;
     double currentTime = initialTime;
     Eigen::Vector2d currentActualStateVector = initialStateVector;
-    Eigen::Vector2d currentNoisyStateVector;
     Eigen::Vector2d currentControlVector = Eigen::Vector2d::Zero( );
     Eigen::Vector1d currentMeasurementVector;
     std::map< double, Eigen::Vector2d > actualStateVectorHistory;
     std::map< double, Eigen::Vector1d > measurementVectorHistory;
     actualStateVectorHistory[ initialTime ] = initialStateVector;
-    for( unsigned int i = 0; i < numberOfTimeSteps; i++ )
+    for ( unsigned int i = 0; i < numberOfTimeSteps; i++ )
     {
         // Compute actual values and perturb them
-        currentTime += timeStep;
-        currentActualStateVector += stateFunction1( currentTime, currentActualStateVector, currentControlVector ) * timeStep;
-        currentNoisyStateVector = currentActualStateVector + unscentedFilter->produceSystemNoise( ) * timeStep;
+        currentActualStateVector += ( stateFunction1( currentTime, currentActualStateVector, currentControlVector ) +
+                                      unscentedFilter->produceSystemNoise( ) ) * timeStep;
         currentMeasurementVector = measurementFunction1( currentTime, currentActualStateVector ) +
                 unscentedFilter->produceMeasurementNoise( );
-        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
-        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Update control class
-        control->setControlVector( currentTime, unscentedFilter->getCurrentStateEstimate( ) );
+        control->setCurrentControlVector( currentTime, unscentedFilter->getCurrentStateEstimate( ) );
 
         // Update filter
-        unscentedFilter->updateFilter( currentTime, currentMeasurementVector );
+        unscentedFilter->updateFilter( currentMeasurementVector );
+        currentTime = unscentedFilter->getCurrentTime( );
+
+        // Store values
+        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
+        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Print progress
         if ( showProgress )
@@ -133,46 +136,25 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterFirstCase )
 
     // Check that final state is as expected
     Eigen::Vector2d expectedFinalState = Eigen::Vector2d::Zero( );
-    expectedFinalState << 4.5338646359583299, -10.411203259530938;
+    expectedFinalState << 5.04684539050115, -10.9757030087281;
+    Eigen::Vector2d tolerances;
+    tolerances << 0.05, 0.3;
     for ( int i = 0; i < expectedFinalState.rows( ); i++ )
     {
-        BOOST_CHECK_SMALL( unscentedFilter->getCurrentStateEstimate( )[ i ] - expectedFinalState[ i ],
-                           std::numeric_limits< double >::epsilon( ) );
+        BOOST_CHECK_CLOSE_FRACTION( unscentedFilter->getCurrentStateEstimate( )[ i ], expectedFinalState[ i ], tolerances[ i ] );
     }
 
     // Check that noise is actually normally distributed (within 5 %)
     std::pair< std::vector< Eigen::VectorXd >, std::vector< Eigen::VectorXd > > noiseHistory = unscentedFilter->getNoiseHistory( );
-    Eigen::MatrixXd systemNoise = utilities::convertStlVectorToEigenMatrix( noiseHistory.first );
-    Eigen::MatrixXd measurementNoise = utilities::convertStlVectorToEigenMatrix( noiseHistory.second );
+    Eigen::MatrixXd systemNoise = utilities::convertStlVectorToEigenMatrix< double >( noiseHistory.first );
+    Eigen::MatrixXd measurementNoise = utilities::convertStlVectorToEigenMatrix< double >( noiseHistory.second );
     for ( unsigned int i = 0; i < 2; i++ )
     {
         BOOST_CHECK_CLOSE_FRACTION( statistics::computeStandardDeviationOfVectorComponents( systemNoise.row( i ) ),
-                                    std::sqrt( systemUncertainty( i, i ) ), 5e-2 );
+                                    std::sqrt( systemUncertainty( i, i ) ), 5.0e-2 );
     }
     BOOST_CHECK_CLOSE_FRACTION( statistics::computeStandardDeviationOfVectorComponents( measurementNoise.row( 0 ) ),
-                                std::sqrt( measurementUncertainty( 0, 0 ) ), 5e-2 );
-
-    // Save actual state history
-    input_output::writeDataMapToTextFile( actualStateVectorHistory, "UKFActualStateHistory.dat",
-                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
-
-    // Save estimated state history
-    input_output::writeDataMapToTextFile( unscentedFilter->getEstimatedStateHistory( ), "UKFEstimatedStateHistory.dat",
-                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
-
-    // Save measurement history
-    input_output::writeDataMapToTextFile( measurementVectorHistory, "UKFMeasurementHistory.dat",
-                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KF" );
-
-//    // Save noise histories
-//    systemNoise.transposeInPlace( );
-//    measurementNoise.transposeInPlace( );
-//    input_output::writeMatrixToFile( systemNoise, "systemNoise.dat", 16, "/Users/Michele/Desktop/KF" );
-//    input_output::writeMatrixToFile( measurementNoise, "measurementNoise.dat", 16, "/Users/Michele/Desktop/KF" );
-
-//    // Save sigma points history
-//    std::map< double, Eigen::MatrixXd > sigmaPointHistory = unscentedFilter->getHistoryOfSigmaPoints( );
-//    input_output::writeDataMapToTextFile( sigmaPointHistory, "UKFSigmaPoints.dat", "/Users/Michele/Desktop/KF" );
+                                std::sqrt( measurementUncertainty( 0, 0 ) ), 5.0e-2 );
 }
 
 //! Typedefs.
@@ -183,14 +165,17 @@ typedef Eigen::Matrix< long double, 3, 3 > Matrix3ld;
 // Functions for unscented Kalman filter
 Vector3ld stateFunction2( const long double time, const Vector3ld& state, const Vector3ld& control )
 {
+    TUDAT_UNUSED_PARAMETER( time );
+    TUDAT_UNUSED_PARAMETER( control );
     Vector3ld stateFunction;
     stateFunction[ 0 ] = state[ 1 ];
     stateFunction[ 1 ] = state[ 2 ];
-    stateFunction[ 2 ] = 0.05 * state[ 0 ] * ( state[ 1 ] + state[ 2 ] );
+    stateFunction[ 2 ] = 0.05L * state[ 0 ] * ( state[ 1 ] + state[ 2 ] );
     return stateFunction;
 }
 Vector1ld measurementFunction2( const long double time, const Vector3ld& state )
 {
+    TUDAT_UNUSED_PARAMETER( time );
     Vector1ld measurement;
     measurement[ 0 ] = state[ 0 ];
     return measurement;
@@ -203,17 +188,17 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterSecondCase )
     using namespace tudat::filters;
 
     // Set initial conditions
-    const long double initialTime = 0;
-    const long double timeStep = 1.0;
+    const long double initialTime = 0.0L;
+    const long double timeStep = 1.0L;
     const unsigned int numberOfTimeSteps = 100;
 
     Vector3ld initialStateVector = Vector3ld::Zero( );
-    initialStateVector[ 2 ] = 1.0;
+    initialStateVector[ 2 ] = 1.0L;
 
     Vector3ld initialEstimatedStateVector;
-    initialEstimatedStateVector[ 0 ] = 0.05376671395461;
-    initialEstimatedStateVector[ 1 ] = 0.183388501459509;
-    initialEstimatedStateVector[ 2 ] = 0.774115313899635;
+    initialEstimatedStateVector[ 0 ] = 0.05376671395461L;
+    initialEstimatedStateVector[ 1 ] = 0.183388501459509L;
+    initialEstimatedStateVector[ 2 ] = 0.774115313899635L;
 
     Matrix3ld initialEstimatedStateCovarianceMatrix = Matrix3ld::Identity( );
 
@@ -222,49 +207,50 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterSecondCase )
     Vector1ld measurementUncertainty = 0.01 * Vector1ld::Identity( );
 
     // Set null integrator settings
-    boost::shared_ptr< numerical_integrators::IntegratorSettings< long double > > integratorSettings = NULL;
+    boost::shared_ptr< numerical_integrators::IntegratorSettings< long double > > integratorSettings = nullptr;
 
     // Create control class
     boost::shared_ptr< ControlWrapper< long double, long double, 3 > > control =
             boost::make_shared< ControlWrapper< long double, long double, 3 > >(
                 boost::lambda::constant( Vector3ld::Zero( ) ) );
 
-    // Create extended Kalman filter object
+    // Create unscented Kalman filter object
     boost::shared_ptr< KalmanFilterBase< long double, long double > > unscentedFilter =
             boost::make_shared< UnscentedKalmanFilter< long double, long double > >(
                 boost::bind( &stateFunction2, _1, _2,
-                             boost::bind( &ControlWrapper< long double, long double, 3 >::getControlVector, control ) ),
+                             boost::bind( &ControlWrapper< long double, long double, 3 >::getCurrentControlVector, control ) ),
                 boost::bind( &measurementFunction2, _1, _2 ),
-                systemUncertainty, measurementUncertainty,
+                systemUncertainty, measurementUncertainty, timeStep,
                 initialTime, initialEstimatedStateVector, initialEstimatedStateCovarianceMatrix,
                 integratorSettings, custom_parameters, std::make_pair( 0.001, 0.0 ) );
 
     // Loop over each time step
     const bool showProgress = false;
-    double currentTime = initialTime;
+    long double currentTime = initialTime;
     Vector3ld currentActualStateVector = initialStateVector;
-    Vector3ld currentNoisyStateVector;
     Vector3ld currentControlVector = Vector3ld::Zero( );
     Vector1ld currentMeasurementVector;
     std::map< long double, Vector3ld > actualStateVectorHistory;
     std::map< long double, Vector1ld > measurementVectorHistory;
     actualStateVectorHistory[ initialTime ] = initialStateVector;
-    for( unsigned int i = 0; i < numberOfTimeSteps; i++ )
+    for ( unsigned int i = 0; i < numberOfTimeSteps; i++ )
     {
         // Compute actual values and perturb them
-        currentTime += timeStep;
-        currentActualStateVector = stateFunction2( currentTime, currentActualStateVector, currentControlVector );
-        currentNoisyStateVector = currentActualStateVector + unscentedFilter->produceSystemNoise( );
+        currentActualStateVector = stateFunction2( currentTime, currentActualStateVector, currentControlVector ) +
+                unscentedFilter->produceSystemNoise( );
         currentMeasurementVector = measurementFunction2( currentTime, currentActualStateVector ) +
                 unscentedFilter->produceMeasurementNoise( );
-        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
-        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Update control class
-        control->setControlVector( currentTime, unscentedFilter->getCurrentStateEstimate( ) );
+        control->setCurrentControlVector( currentTime, unscentedFilter->getCurrentStateEstimate( ) );
 
         // Update filter
-        unscentedFilter->updateFilter( currentTime, currentMeasurementVector );
+        unscentedFilter->updateFilter( currentMeasurementVector );
+        currentTime = unscentedFilter->getCurrentTime( );
+
+        // Store values
+        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
+        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Print progress
         if ( showProgress )
@@ -285,9 +271,11 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterSecondCase )
 // Constant parameters for example
 const double gravitationalParameter = 32.2;
 
-// Functions for extended Kalman filter.
+// Functions for unscented Kalman filter.
 Eigen::Vector3d stateFunction3( const double time, const Eigen::Vector3d& state, const Eigen::Vector3d& control )
 {
+    TUDAT_UNUSED_PARAMETER( time );
+    TUDAT_UNUSED_PARAMETER( control );
     Eigen::Vector3d stateDerivative = Eigen::Vector3d::Zero( );
     stateDerivative[ 0 ] = state[ 1 ];
     stateDerivative[ 1 ] = 0.0034 * gravitationalParameter * std::exp( - state[ 0 ] / 22000.0 ) *
@@ -296,6 +284,7 @@ Eigen::Vector3d stateFunction3( const double time, const Eigen::Vector3d& state,
 }
 Eigen::Vector1d measurementFunction3( const double time, const Eigen::Vector3d& state )
 {
+    TUDAT_UNUSED_PARAMETER( time );
     Eigen::Vector1d measurement;
     measurement[ 0 ] = state[ 0 ];
     return measurement;
@@ -307,7 +296,7 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterThirdCase )
     using namespace tudat::filters;
 
     // Set initial conditions
-    const double initialTime = 0;
+    const double initialTime = 0.0;
     const double timeStep = 0.1;
     const unsigned int numberOfTimeSteps = 300;
 
@@ -343,12 +332,12 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterThirdCase )
     boost::shared_ptr< ControlWrapper< double, double, 3 > > control =
             boost::make_shared< ControlWrapper< double, double, 3 > >( boost::lambda::constant( Eigen::Vector3d::Zero( ) ) );
 
-    // Create extended Kalman filter object
+    // Create unscented Kalman filter object
     UnscentedKalmanFilterDoublePointer unscentedFilter = boost::make_shared< UnscentedKalmanFilterDouble >(
                 boost::bind( &stateFunction3, _1, _2,
-                             boost::bind( &ControlWrapper< double, double, 3 >::getControlVector, control ) ),
+                             boost::bind( &ControlWrapper< double, double, 3 >::getCurrentControlVector, control ) ),
                 boost::bind( &measurementFunction3, _1, _2 ),
-                systemUncertainty, measurementUncertainty,
+                systemUncertainty, measurementUncertainty, timeStep,
                 initialTime, initialEstimatedStateVector, initialEstimatedStateCovarianceMatrix,
                 integratorSettings );
 
@@ -356,28 +345,29 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterThirdCase )
     const bool showProgress = false;
     double currentTime = initialTime;
     Eigen::Vector3d currentActualStateVector = initialStateVector;
-    Eigen::Vector3d currentNoisyStateVector;
     Eigen::Vector3d currentControlVector = Eigen::Vector3d::Zero( );
     Eigen::Vector1d currentMeasurementVector;
     std::map< double, Eigen::Vector3d > actualStateVectorHistory;
     std::map< double, Eigen::Vector1d > measurementVectorHistory;
     actualStateVectorHistory[ initialTime ] = initialStateVector;
-    for( unsigned int i = 0; i < numberOfTimeSteps; i++ )
+    for ( unsigned int i = 0; i < numberOfTimeSteps; i++ )
     {
         // Compute actual values and perturb them
-        currentTime += timeStep;
-        currentActualStateVector += stateFunction3( currentTime, currentActualStateVector, currentControlVector ) * timeStep;
-        currentNoisyStateVector = currentActualStateVector + unscentedFilter->produceSystemNoise( ) * timeStep;
+        currentActualStateVector += ( stateFunction3( currentTime, currentActualStateVector, currentControlVector ) +
+                                      unscentedFilter->produceSystemNoise( ) ) * timeStep;
         currentMeasurementVector = measurementFunction3( currentTime, currentActualStateVector ) +
                 unscentedFilter->produceMeasurementNoise( );
-        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
-        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Update control class
-        control->setControlVector( currentTime, unscentedFilter->getCurrentStateEstimate( ) );
+        control->setCurrentControlVector( currentTime, unscentedFilter->getCurrentStateEstimate( ) );
 
         // Update filter
-        unscentedFilter->updateFilter( currentTime, currentMeasurementVector );
+        unscentedFilter->updateFilter( currentMeasurementVector );
+        currentTime = unscentedFilter->getCurrentTime( );
+
+        // Store values
+        actualStateVectorHistory[ currentTime ] = currentActualStateVector;
+        measurementVectorHistory[ currentTime ] = currentMeasurementVector;
 
         // Print progress
         if ( showProgress )
@@ -390,11 +380,11 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterThirdCase )
 
     // Check that final state is as expected
     Eigen::Vector3d expectedFinalState = Eigen::Vector3d::Zero( );
-    expectedFinalState << 25180.660764835568, -3330.7628220316465, 502.65462274722211;
+    expectedFinalState << 25200.383066001908, -3334.8971957588378, 502.3444368942321;
     for ( int i = 0; i < expectedFinalState.rows( ); i++ )
     {
         BOOST_CHECK_SMALL( unscentedFilter->getCurrentStateEstimate( )[ i ] - expectedFinalState[ i ],
-                           std::numeric_limits< double >::epsilon( ) );
+                           100.0 * std::numeric_limits< double >::epsilon( ) );
     }
 
     // Check that noise is actually normally distributed (within 5 %)
@@ -404,26 +394,10 @@ BOOST_AUTO_TEST_CASE( testUnscentedKalmanFilterThirdCase )
     for ( unsigned int i = 0; i < 2; i++ )
     {
         BOOST_CHECK_CLOSE_FRACTION( statistics::computeStandardDeviationOfVectorComponents( systemNoise.row( i ) ),
-                                    std::sqrt( systemUncertainty( i, i ) ), 5e-2 );
+                                    std::sqrt( systemUncertainty( i, i ) ), 5.0e-2 );
     }
     BOOST_CHECK_CLOSE_FRACTION( statistics::computeStandardDeviationOfVectorComponents( measurementNoise.row( 0 ) ),
-                                std::sqrt( measurementUncertainty( 0, 0 ) ), 5e-2 );
-
-    // Save actual state history
-    input_output::writeDataMapToTextFile( actualStateVectorHistory, "UKFActualStateHistory.dat",
-                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
-
-    // Save estimated state history
-    input_output::writeDataMapToTextFile( unscentedFilter->getEstimatedStateHistory( ), "UKFEstimatedStateHistory.dat",
-                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
-
-    // Save estimated state history
-    input_output::writeDataMapToTextFile( unscentedFilter->getEstimatedCovarianceHistory( ), "UKFEstimatedCovarianceHistory.dat",
-                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
-
-    // Save measurement history
-    input_output::writeDataMapToTextFile( measurementVectorHistory, "UKFMeasurementHistory.dat",
-                                          "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Test/SimulationOutput/KFBook" );
+                                std::sqrt( measurementUncertainty( 0, 0 ) ), 5.0e-2 );
 }
 
 BOOST_AUTO_TEST_SUITE_END( )

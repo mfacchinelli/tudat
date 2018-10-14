@@ -430,10 +430,8 @@ Eigen::VectorXd executeEarthOrbiterParameterEstimation(
 
     // Create integrator settings
     boost::shared_ptr< IntegratorSettings< TimeType > > integratorSettings =
-            boost::make_shared< RungeKuttaVariableStepSizeSettings< TimeType,
-            Eigen::Matrix< StateScalarType, Eigen::Dynamic, Eigen::Dynamic > > >
-            ( rungeKuttaVariableStepSize, TimeType( initialEphemerisTime ), 40.0,
-              RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78,
+            boost::make_shared< RungeKuttaVariableStepSizeSettings< TimeType > >
+            ( TimeType( initialEphemerisTime ), 40.0, RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78,
               40.0, 40.0, 1.0, 1.0 );
 
     // Define parameters.
@@ -673,7 +671,7 @@ std::pair< Eigen::VectorXd, bool > executeEarthOrbiterBiasEstimation(
     std::vector< std::string > groundStationNames;
     groundStationNames.push_back( "Station1" );
     groundStationNames.push_back( "Station2" );
-    \
+
     createGroundStation( bodyMap.at( "Earth" ), "Station1", ( Eigen::Vector3d( ) << 0.0, 0.35, 0.0 ).finished( ),
                          geodetic_position );
     createGroundStation( bodyMap.at( "Earth" ), "Station2", ( Eigen::Vector3d( ) << 0.0, -0.55, 2.0 ).finished( ),
@@ -717,11 +715,10 @@ std::pair< Eigen::VectorXd, bool > executeEarthOrbiterBiasEstimation(
 
     // Create integrator settings
     boost::shared_ptr< IntegratorSettings< TimeType > > integratorSettings =
-            boost::make_shared< RungeKuttaVariableStepSizeSettings< TimeType,
-            Eigen::Matrix< StateScalarType, Eigen::Dynamic, Eigen::Dynamic > > >
-            ( rungeKuttaVariableStepSize, TimeType( initialEphemerisTime ), 120.0,
-              RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78,
+            boost::make_shared< RungeKuttaVariableStepSizeSettings< TimeType > >
+            ( TimeType( initialEphemerisTime ), 120.0, RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78,
               120.0, 120.0, 1.0, 1.0 );
+
 
     // Define parameters.
     std::vector< LinkEnds > stationReceiverLinkEnds;
