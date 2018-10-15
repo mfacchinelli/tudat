@@ -26,20 +26,20 @@ boost::shared_ptr< aerodynamics::AerodynamicTorque > createAerodynamicTorqueMode
         const std::string& nameOfBodyExertingTorque )
 {
     // Check existence of required environment models
-    if( bodyUndergoingTorque->getAerodynamicCoefficientInterface( ) == NULL )
+    if( bodyUndergoingTorque->getAerodynamicCoefficientInterface( ) == nullptr )
     {
         throw std::runtime_error( "Error when making aerodynamic torque, body " +
                                   nameOfBodyUndergoingTorque +
                                   "has no aerodynamic coefficients." );
     }
 
-    if( bodyExertingTorque->getAtmosphereModel( ) == NULL )
+    if( bodyExertingTorque->getAtmosphereModel( ) == nullptr )
     {
         throw std::runtime_error(  "Error when making aerodynamic torque, central body " +
                                    nameOfBodyExertingTorque + " has no atmosphere model.");
     }
 
-    if( bodyExertingTorque->getShapeModel( ) == NULL )
+    if( bodyExertingTorque->getShapeModel( ) == nullptr )
     {
         throw std::runtime_error( "Error when making aerodynamic torque, central body " +
                                   nameOfBodyExertingTorque + " has no shape model." );
@@ -50,7 +50,7 @@ boost::shared_ptr< aerodynamics::AerodynamicTorque > createAerodynamicTorqueMode
             boost::dynamic_pointer_cast< aerodynamics::AtmosphericFlightConditions >(
                 bodyUndergoingTorque->getFlightConditions( ) );
 
-    if( bodyFlightConditions == NULL && bodyUndergoingTorque->getFlightConditions( ) == NULL )
+    if( bodyFlightConditions == nullptr && bodyUndergoingTorque->getFlightConditions( ) == nullptr )
     {
         bodyFlightConditions = createAtmosphericFlightConditions( bodyUndergoingTorque,
                                                        bodyExertingTorque,
@@ -59,7 +59,7 @@ boost::shared_ptr< aerodynamics::AerodynamicTorque > createAerodynamicTorqueMode
         bodyUndergoingTorque->setFlightConditions(
                     bodyFlightConditions );
     }
-    else if( bodyFlightConditions == NULL && bodyUndergoingTorque->getFlightConditions( ) != NULL )
+    else if( bodyFlightConditions == nullptr && bodyUndergoingTorque->getFlightConditions( ) != nullptr )
     {
         throw std::runtime_error( "Error when making aerodynamic torque, found flight conditions that are not atmospheric." );
     }
@@ -120,7 +120,7 @@ boost::shared_ptr< gravitation::SecondDegreeGravitationalTorqueModel > createSec
     // Check model availability
     boost::shared_ptr< gravitation::GravityFieldModel > gravityFieldModel = bodyExertingTorque->getGravityFieldModel( );
     boost::function< double( ) > gravitationalParameterOfAttractingBodyFunction;
-    if( gravityFieldModel ==  NULL )
+    if( gravityFieldModel == nullptr )
     {
         throw std::runtime_error( "Error when making second degree gravitational torque, " + nameOfBodyExertingTorque +
                                   " does not possess a gravity field" );
@@ -150,7 +150,7 @@ boost::shared_ptr< basic_astrodynamics::CustomTorque > createControlTorqueModel(
 {
     // Check model availability
     boost::shared_ptr< system_models::ControlSystem > controlSystem = bodyUndergoingTorque->getControlSystem( );
-    if ( controlSystem ==  NULL )
+    if ( controlSystem == nullptr )
     {
         throw std::runtime_error( "Error when making control torque, " + nameOfBodyUndergoingTorque +
                                   " does not possess a control system." );

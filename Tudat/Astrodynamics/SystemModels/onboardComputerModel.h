@@ -123,6 +123,15 @@ public:
             std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
             double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
 
+            // Update attitude controller
+            controlSystem_->updateAttitudeController(
+                        currentEstimatedState.first, navigationSystem_->getCurrentEstimatedRotationalState( ).segment( 0, 4 ),
+                        removeErrorsFromInertialMeasurementUnitMeasurement(
+                            instrumentsModel_->getCurrentGyroscopeMeasurement( ),
+                            navigationSystem_->getCurrentNavigationFilterState( ).segment( NavigationSystem::gyroscope_bias_index, 6 ) ),
+                        navigationSystem_->getNavigationRefreshStepSize( ),
+                        navigationSystem_->getCurrentEstimatedMeanMotion( ) );
+
             // Check which orbit phase the spacecraft is in (if any)
             // Check true anomaly to see if apoapsis maneuvering phase
             if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ )

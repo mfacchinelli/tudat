@@ -125,7 +125,10 @@ public:
 
         // Set values to their initial conditions
         atmosphereEstimatorInitialized_ = false;
+
         estimatedAccelerometerErrors_.setZero( );
+        estimatedGyroscopeErrors_.setZero( );
+
         previousNavigationPhase_ = undefined_navigation_phase;
         timeAtNavigationPhaseInterface_ = TUDAT_NAN;
     }
@@ -141,7 +144,7 @@ public:
      *  \param saveFrequency Integer denoting the frequency with which state estimates need to be stored in history.
      *  \param accelerometerMeasurementFunction Function returning the current accelerometer measurement, taken directly from the
      *      onboard inertial measurement unit.
-     *  \param accelerometerMeasurementFunction Function returning the current gyroscope measurement, taken directly from the
+     *  \param gyroscopeMeasurementFunction Function returning the current gyroscope measurement, taken directly from the
      *      onboard inertial measurement unit.
      */
     void createNavigationSystemObjects(
@@ -241,11 +244,12 @@ public:
 
             // Update rotational state
             Eigen::Vector3d currentActualGyroscopeMeasurement = removeErrorsFromInertialMeasurementUnitMeasurement(
-                        currentGyroscopeMeasurement, navigationFilter_->getCurrentStateEstimate( ).segment( gyroscope_bias_index, 3 ) );
-            currentEstimatedRotationalState_.segment( 0, 4 ) +=
-                    propagators::calculateQuaternionDerivative( currentEstimatedRotationalState_.segment( 0, 4 ).normalized( ),
-                                                                currentActualGyroscopeMeasurement ) * navigationRefreshStepSize_;
-            currentEstimatedRotationalState_.normalize( );
+                        currentGyroscopeMeasurement, estimatedGyroscopeErrors_ );
+//            currentEstimatedRotationalState_.segment( 0, 4 ) +=
+//                    propagators::calculateQuaternionDerivative( currentEstimatedRotationalState_.segment( 0, 4 ).normalized( ),
+//                                                                currentActualGyroscopeMeasurement ) * navigationRefreshStepSize_;
+//            currentEstimatedRotationalState_.normalize( );
+            currentEstimatedRotationalState_.segment( 0, 4 ) = currentExternalMeasurement.segment( 3, 4 );
             currentEstimatedRotationalState_.segment( 4, 3 ) = currentActualGyroscopeMeasurement;
 
             // Update time
@@ -266,7 +270,7 @@ public:
             currentEstimatedRotationalState_.segment( 0, 4 ) = currentNavigationFilterState.segment( quaternion_real_index, 4 ).normalized( );
             currentEstimatedRotationalState_.segment( 4, 3 ) =
                     removeErrorsFromInertialMeasurementUnitMeasurement( currentGyroscopeMeasurement,
-                                                                        currentNavigationFilterState.segment( gyroscope_bias_index, 6 ) );
+                                                                        estimatedGyroscopeErrors_ );
             setCurrentEstimatedCartesianState( currentNavigationFilterState.segment( cartesian_position_index, 6 ) );
             break;
         }
@@ -307,6 +311,7 @@ public:
         double currentIterationTime;
         std::map< double, Eigen::Vector6d > mapOfEstimatedCartesianStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
+        std::map< double, Eigen::Vector7d > mapOfEstimatedRotationalStatesBelowAtmosphericInterface;
         std::map< double, Eigen::Vector3d > mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface;
         std::vector< Eigen::Vector3d > vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface;
         for ( translationalStateConstantIterator_ = currentOrbitHistoryOfEstimatedTranslationalStates_.begin( );
@@ -321,6 +326,8 @@ public:
                         translationalStateConstantIterator_->second.first;
                 mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ] =
                         translationalStateConstantIterator_->second.second;
+                mapOfEstimatedRotationalStatesBelowAtmosphericInterface[ currentIterationTime ] =
+                        currentOrbitHistoryOfEstimatedRotationalStates_[ currentIterationTime ];
                 mapOfExpectedAerodynamicAccelerationBelowAtmosphericInterface[ currentIterationTime ] =
                         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_[ currentIterationTime ];
                 vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.push_back(
@@ -338,7 +345,8 @@ public:
         if ( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ) > 0 )
         {
             // Remove errors from measured accelerations
-            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface );
+            postProcessAccelerometerMeasurements( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface,
+                                                  mapOfEstimatedRotationalStatesBelowAtmosphericInterface );
 
             // Compute magnitude of aerodynamic acceleration
             std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
@@ -484,6 +492,12 @@ public:
         return std::make_pair( currentEstimatedCartesianState_, currentEstimatedKeplerianState_ );
     }
 
+    //! Function to retireve the current estimated rotational state.
+    Eigen::Vector7d getCurrentEstimatedRotationalState( )
+    {
+        return currentEstimatedRotationalState_;
+    }
+
     //! Function to compute the current estimated mean motion.
     double getCurrentEstimatedMeanMotion( )
     {
@@ -506,7 +520,7 @@ public:
                 ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) - planetaryRadius_;
 
         // Compute initial first order apoapsis altitudes
-        Eigen::Vector6d initialEstimatedKeplerianState = historyOfEstimatedStates_.begin( )->second.second;
+        Eigen::Vector6d initialEstimatedKeplerianState = historyOfEstimatedStates_.begin( )->second.first.second;
         double initialEstimatedApoapsisAltitude = initialEstimatedKeplerianState[ 0 ] *
                 ( 1.0 + initialEstimatedKeplerianState[ 1 ] ) - planetaryRadius_;
 
@@ -592,6 +606,12 @@ public:
         return estimatedAccelerometerErrors_;
     }
 
+    //! Function to retrieve the estimated accelerometer errors.
+    Eigen::Vector3d getEstimatedGyroscopeErrors( )
+    {
+        return estimatedGyroscopeErrors_;
+    }
+
     //! Function to retrieve information on the initialization of the atmosphere estimator.
     /*!
      *  Function to retrieve information on the initialization of the atmosphere estimator.
@@ -660,6 +680,7 @@ public:
     //! Function to retireve the frequency (in days) with which Deep Space Network tracking has to be performed.
     unsigned int getFrequencyOfDeepSpaceNetworkTracking( ) { return frequencyOfDeepSpaceNetworkTracking_; }
 
+    //! Function to reset the current time.
     void setCurrentTime( const double newCurrentTime )
     {
         currentTime_ = newCurrentTime;
@@ -819,7 +840,7 @@ private:
             mapOfStatesToUpdate_[ propagators::translational_state ] = estimatedState;
         }
         mapOfStatesToUpdate_[ propagators::translational_state ] += onboardBodyMap_.at( planetName_ )->getState( );
-        mapOfStatesToUpdate[ propagators::rotational_state ] = currentEstimatedRotationalState_;
+        mapOfStatesToUpdate_[ propagators::rotational_state ] = currentEstimatedRotationalState_;
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate_ );
 
         // Loop over bodies exerting accelerations on spacecraft
@@ -1163,8 +1184,11 @@ private:
     //! Vector denoting the current estimated non-gravitational translational accelerations.
     Eigen::Vector3d currentEstimatedNonGravitationalTranslationalAcceleration_;
 
-    //! Vector denoting the bias and scale errors of the accelerometer after calibration.
+    //! Vector denoting the bias error of the accelerometer.
     Eigen::Vector3d estimatedAccelerometerErrors_;
+
+    //! Vector denoting the bias error of the gyroscope.
+    Eigen::Vector3d estimatedGyroscopeErrors_;
 
     //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
     std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;

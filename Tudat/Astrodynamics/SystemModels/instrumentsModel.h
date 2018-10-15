@@ -8,8 +8,8 @@
  *    http://tudat.tudelft.nl/LICENSE.
  */
 
-#ifndef TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H
-#define TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H
+#ifndef TUDAT_INSTRUMENTS_MODEL_H
+#define TUDAT_INSTRUMENTS_MODEL_H
 
 #include <cmath>
 #include <Eigen/Core>
@@ -643,6 +643,12 @@ private:
             }
         }
 
+        // Transform acceleration to body-fixed frame
+        currentTranslationalAcceleration_ =
+                bodyMap_.at( spacecraftName_ )->getCurrentRotationToLocalFrame( ).toRotationMatrix( ).transpose( ) *
+                currentTranslationalAcceleration_;
+        // transpose is taken due to the different definition of quaternion in Eigen
+
         // Add errors to acceleration value
         currentTranslationalAcceleration_ = scaleMisalignmentMatrix * currentTranslationalAcceleration_;
         currentTranslationalAcceleration_.noalias( ) += biasVector + produceAccelerometerNoise( );
@@ -1070,4 +1076,4 @@ private:
 
 } // namespace tudat
 
-#endif // TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H
+#endif // TUDAT_INSTRUMENTS_MODEL_H

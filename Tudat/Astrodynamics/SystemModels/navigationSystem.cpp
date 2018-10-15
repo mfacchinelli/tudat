@@ -246,14 +246,15 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
 
     // Extract current variable history
     std::vector< std::vector< double > > currentVariableHistory;
-    currentVariableHistory.resize( estimatedAccelerometerErrors_.size( ) );
+    currentVariableHistory.resize( estimatedAccelerometerErrors_.size( ) + estimatedGyroscopeErrors_.size( ) );
     std::map< double, Eigen::VectorXd > currentOrbitNavigationFilterEstimatedState = navigationFilter_->getEstimatedStateHistory( );
     for ( std::map< double, Eigen::VectorXd >::const_iterator stateHistoryIterator = currentOrbitNavigationFilterEstimatedState.begin( );
           stateHistoryIterator != currentOrbitNavigationFilterEstimatedState.end( ); stateHistoryIterator++ )
     {
-        for ( unsigned int i = 0; i < currentVariableHistory.size( ); i++ )
+        for ( unsigned int i = 0; i < estimatedAccelerometerErrors_.size( ); i++ )
         {
-            currentVariableHistory.at( i ).push_back( stateHistoryIterator->second[ i + 6 ] );
+            currentVariableHistory.at( i ).push_back( stateHistoryIterator->second[ accelerometer_bias_index + i ] );
+            currentVariableHistory.at( 3 + i ).push_back( stateHistoryIterator->second[ gyroscope_bias_index + i ] );
         }
     }
 
@@ -261,21 +262,8 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
     for ( unsigned int i = 0; i < estimatedAccelerometerErrors_.rows( ); i++ )
     {
         estimatedAccelerometerErrors_[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( i ) );
+        estimatedGyroscopeErrors_[ i ] = statistics::computeSampleMedian( currentVariableHistory.at( 3 + i ) );
     }
-
-    // Remove errors from accelerometer measurements and convert to inertial frame
-    for ( unsigned int i = 0; i < vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.size( ); i++ )
-    {
-        vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ) =
-                removeErrorsFromInertialMeasurementUnitMeasurement(
-                    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ), estimatedAccelerometerErrors_ );
-    }
-
-    // Apply smoothing method to noisy accelerometer data
-    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 60.0 / atmosphericNavigationRefreshStepSize_ );
-    numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
-    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
-            statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
 
     // Remove errors from accelerometer measurements and convert to inertial frame
     unsigned int i = 0;
@@ -289,6 +277,12 @@ void NavigationSystem::postProcessAccelerometerMeasurements(
                 removeErrorsFromInertialMeasurementUnitMeasurement( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.at( i ),
                                                                     estimatedAccelerometerErrors_ );
     }
+
+    // Apply smoothing method to noisy accelerometer data
+    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 60.0 / atmosphericNavigationRefreshStepSize_ );
+    numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
+    vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface =
+            statistics::computeMovingAverage( vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface, numberOfSamplePoints );
 }
 
 //! Function to run the Periapse Time Estimator (PTE).
@@ -566,6 +560,9 @@ void NavigationSystem::runAtmosphereEstimator(
         }
         }
 
+        // Add values to hisotry
+        historyOfEstimatedAtmosphereParameters_[ currentOrbitCounter_ ] = modelSpecificParameters;
+
         // Check that estimated atmospheric parameters make sense
         if ( ( modelSpecificParameters[ 1 ] < 0 ) || // density at zero altitude is negative
              ( modelSpecificParameters[ 2 ] < 0 ) ) // scale height is negative
@@ -586,9 +583,6 @@ void NavigationSystem::runAtmosphereEstimator(
             modelSpecificParameters /= historyOfEstimatedAtmosphereParameters_.size( );
         }
         std::cout << "Atmosphere values: " << modelSpecificParameters.transpose( ) << std::endl;
-
-        // Add values to hisotry
-        historyOfEstimatedAtmosphereParameters_[ currentOrbitCounter_ ] = modelSpecificParameters;
 
         // Perform moving average if enough parameters are available
         unsigned int numberOfSamplesForMovingAverage = historyOfEstimatedAtmosphereParameters_.size( );
@@ -647,16 +641,21 @@ Eigen::Vector16d NavigationSystem::onboardSystemModel(
     currentStateDerivative.segment( cartesian_position_index, 3 ) = currentNavigationFilterState.segment( cartesian_velocity_index, 3 );
 
     // Translational dynamics
+    Eigen::Vector4d currentQuaternion = currentNavigationFilterState.segment( quaternion_real_index, 4 ).normalized( );
+    Eigen::Vector3d accelerometerMeasurement =
+            linear_algebra::convertVectorToQuaternionFormat( currentQuaternion ).toRotationMatrix( ).transpose( ) *
+            accelerometerMeasurementFunction( );
+    // transpose is taken due to the different definition of quaternion in Eigen
     currentStateDerivative.segment( cartesian_velocity_index, 3 ) =
             getCurrentEstimatedGravitationalTranslationalAcceleration( currentNavigationFilterState.segment( cartesian_position_index, 6 ) ) +
-            removeErrorsFromInertialMeasurementUnitMeasurement( accelerometerMeasurementFunction( ),
+            removeErrorsFromInertialMeasurementUnitMeasurement( accelerometerMeasurement,
                                                                 currentNavigationFilterState.segment( accelerometer_bias_index, 3 ) );
 
     // Rotational kinematics
     Eigen::Vector3d currentActualRotationalVelocityVector = removeErrorsFromInertialMeasurementUnitMeasurement(
                 gyroscopeMeasurementFunction( ), currentNavigationFilterState.segment( gyroscope_bias_index, 3 ) );
     currentStateDerivative.segment( quaternion_real_index, 4 ) = propagators::calculateQuaternionDerivative(
-                currentNavigationFilterState.segment( quaternion_real_index, 4 ).normalized( ), currentActualRotationalVelocityVector );
+                currentQuaternion, currentActualRotationalVelocityVector );
 
     // Give output
     return currentStateDerivative;
@@ -719,7 +718,7 @@ Eigen::Matrix< double, 7, 16 > NavigationSystem::onboardMeasurementJacobian(
     TUDAT_UNUSED_PARAMETER( currentNavigationFilterState );
 
     // Declare Jacobian matrix and set to zero
-    Eigen::Matrix< double, 3, 9 > currentMeasurementJacobian = Eigen::Matrix< double, 3, 9 >::Zero( );
+    Eigen::Matrix< double, 7, 16 > currentMeasurementJacobian = Eigen::Matrix< double, 7, 16 >::Zero( );
 
     // Add terms due to position
     currentMeasurementJacobian.block( 0, 0, 3, 3 ).setIdentity( );
