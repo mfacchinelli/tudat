@@ -155,7 +155,7 @@ public:
         computeWeightedAverageFromSigmaPointEstimates( aPrioriStateEstimate, sigmaPointsStateEstimates );
 
         // Compute the weighted average to find the a-priori covariance matrix
-        DependentMatrix aPrioriCovarianceEstimate = DependentMatrix::Zero( stateDimension_, stateDimension_ );
+        DependentMatrix aPrioriCovarianceEstimate = this->systemUncertainty_;
         computeWeightedAverageFromSigmaPointEstimates( aPrioriCovarianceEstimate, aPrioriStateEstimate, sigmaPointsStateEstimates );
 
         // Re-compute sigma points
@@ -176,7 +176,7 @@ public:
         computeWeightedAverageFromSigmaPointEstimates( measurementEstimate, sigmaPointsMeasurementEstimates );
 
         // Compute innovation and cross-correlation matrices
-        DependentMatrix innovationMatrix = DependentMatrix::Zero( measurementDimension_, measurementDimension_ );
+        DependentMatrix innovationMatrix = this->measurementUncertainty_;
         computeWeightedAverageFromSigmaPointEstimates( innovationMatrix, measurementEstimate, sigmaPointsMeasurementEstimates );
         DependentMatrix crossCorrelationMatrix = DependentMatrix::Zero( stateDimension_, measurementDimension_ );
         for ( sigmaPointConstantIterator_ = sigmaPointsStateEstimates.begin( );
@@ -394,12 +394,13 @@ private:
                                                         const std::map< unsigned int, DependentVector >& sigmaPointEstimates )
     {
         // Loop over each sigma point
+        DependentVector currentVectorDifference;
         for ( sigmaPointConstantIterator_ = sigmaPointEstimates.begin( );
               sigmaPointConstantIterator_ != sigmaPointEstimates.end( ); sigmaPointConstantIterator_++ )
         {
+            currentVectorDifference = sigmaPointConstantIterator_->second - referenceVector;
             weightedAverageMatrix += covarianceEstimationWeights_.at( sigmaPointConstantIterator_->first ) *
-                    ( sigmaPointConstantIterator_->second - referenceVector ) *
-                    ( sigmaPointConstantIterator_->second - referenceVector ).transpose( );
+                    ( currentVectorDifference * currentVectorDifference.transpose( ) );
         }
     }
 

@@ -148,7 +148,8 @@ void NavigationSystem::improveStateEstimateOnNavigationPhaseTransition( )
     Eigen::Vector6d improvedEstimatedState;
 
     // Check to see if there are enough elements
-    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 60.0 / navigationRefreshStepSize_ );
+    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 120.0 / navigationRefreshStepSize_ );
+    std::cout << "samples: " << numberOfSamplePoints << ". step size: " << navigationRefreshStepSize_ << std::endl;
     numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     std::map< double, Eigen::VectorXd > historyOfEstimatedStates = navigationFilter_->getEstimatedStateHistory( );
     if ( historyOfEstimatedStates.size( ) > numberOfSamplePoints )
@@ -216,7 +217,7 @@ void NavigationSystem::improveStateEstimateOnNavigationPhaseTransition( )
             improvedTrueAnomaly += std::pow( currentRelativeTime, vectorOfPolynomialPowers.at( i ) ) *
                     estimatedTrueAnomalyFunctionParameters[ i ];
         }
-        improvedEstimatedState[ 5 ] = improvedTrueAnomaly;
+        improvedEstimatedState[ 5 ] = currentEstimatedKeplerianState_[ 5 ];//improvedTrueAnomaly;
 
         // Set new value of state
         setCurrentEstimatedKeplerianState( improvedEstimatedState );
@@ -298,11 +299,11 @@ void NavigationSystem::runPeriapseTimeEstimator(
     areaBisectionRootFinder_->resetBoundaries(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
 
-//    input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-//                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "/Users/Michele/Desktop/Results/" );
-//    input_output::writeMatrixToFile(
-//                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-//                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
+    input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "~/TudatResults/" );
+    input_output::writeMatrixToFile(
+                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
+                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "~/TudatResults/" );
 
     // Determine actual periapse time
     double estimatedActualPeriapseTime;
@@ -436,9 +437,9 @@ void NavigationSystem::runAtmosphereEstimator(
     std::vector< double > vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface;
     std::vector< double > vectorOfEstimatedAltitudesBelowAtmosphericInterface;
 
-//    input_output::writeMatrixToFile(
-//                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-//                "acceleration" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
+    input_output::writeMatrixToFile(
+                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
+                "acceleration" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "~/TudatResults/" );
 
     // Convert estimated aerodynamic acceleration to estimated atmospheric density and compute altitude below atmospheric interface
     unsigned int i = 0;
@@ -471,10 +472,10 @@ void NavigationSystem::runAtmosphereEstimator(
         Eigen::VectorXd estimatedAltitudesBelowAtmosphericInterface =
                 utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowAtmosphericInterface );
 
-//        input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface,
-//                                         "density" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
-//        input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface,
-//                                         "altitude" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
+        input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface,
+                                         "density" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "~/TudatResults/" );
+        input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface,
+                                         "altitude" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "~/TudatResults/" );
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );

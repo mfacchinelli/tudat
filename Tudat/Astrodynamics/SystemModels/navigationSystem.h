@@ -205,7 +205,7 @@ public:
         if ( ( previousNavigationPhase_ == aided_navigation_phase ) && ( currentNavigationPhase_ == unaided_navigation_phase ) )
         {
             // Improve state estimate if passing from aided to unaided
-            improveStateEstimateOnNavigationPhaseTransition( );
+//            improveStateEstimateOnNavigationPhaseTransition( );
         }
         else if ( ( previousNavigationPhase_ == unaided_navigation_phase ) && ( currentNavigationPhase_ == aided_navigation_phase ) )
         {
@@ -244,7 +244,7 @@ public:
             // Extract tiem and estimated state and update navigation system
             currentTime_ = navigationFilter_->getCurrentTime( );
             Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
-            setCurrentEstimatedCartesianState( currentNavigationFilterState.segment( 0, 6 ) );
+            setCurrentEstimatedCartesianState( currentNavigationFilterState.segment( cartesian_position_index, 6 ) );
             break;
         }
         default:
@@ -326,7 +326,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
+//            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
