@@ -218,7 +218,7 @@ public:
         if ( ( previousNavigationPhase_ == aided_navigation_phase ) && ( currentNavigationPhase_ == unaided_navigation_phase ) )
         {
             // Improve state estimate if passing from aided to unaided
-            improveStateEstimateOnNavigationPhaseTransition( );
+//            improveStateEstimateOnNavigationPhaseTransition( );
         }
         else if ( ( previousNavigationPhase_ == unaided_navigation_phase ) && ( currentNavigationPhase_ == aided_navigation_phase ) )
         {
@@ -245,10 +245,6 @@ public:
             // Update rotational state
             Eigen::Vector3d currentActualGyroscopeMeasurement = removeErrorsFromInertialMeasurementUnitMeasurement(
                         currentGyroscopeMeasurement, estimatedGyroscopeErrors_ );
-//            currentEstimatedRotationalState_.segment( 0, 4 ) +=
-//                    propagators::calculateQuaternionDerivative( currentEstimatedRotationalState_.segment( 0, 4 ).normalized( ),
-//                                                                currentActualGyroscopeMeasurement ) * navigationRefreshStepSize_;
-//            currentEstimatedRotationalState_.normalize( );
             currentEstimatedRotationalState_.segment( 0, 4 ) = currentExternalMeasurement.segment( 3, 4 );
             currentEstimatedRotationalState_.segment( 4, 3 ) = currentActualGyroscopeMeasurement;
 
@@ -268,9 +264,8 @@ public:
             currentTime_ = navigationFilter_->getCurrentTime( );
             Eigen::Vector16d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
             currentEstimatedRotationalState_.segment( 0, 4 ) = currentNavigationFilterState.segment( quaternion_real_index, 4 ).normalized( );
-            currentEstimatedRotationalState_.segment( 4, 3 ) =
-                    removeErrorsFromInertialMeasurementUnitMeasurement( currentGyroscopeMeasurement,
-                                                                        estimatedGyroscopeErrors_ );
+            currentEstimatedRotationalState_.segment( 4, 3 ) = removeErrorsFromInertialMeasurementUnitMeasurement( currentGyroscopeMeasurement,
+                                                                                                                   estimatedGyroscopeErrors_ );
             setCurrentEstimatedCartesianState( currentNavigationFilterState.segment( cartesian_position_index, 6 ) );
             break;
         }
@@ -279,7 +274,7 @@ public:
                                       std::to_string( currentNavigationPhase_ ) + ") phase not supported." );
         }
 
-        // Check for infinities or NaNs
+        // Check for infinities and/or NaNs
         Eigen::Vector16d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
         if ( !currentNavigationFilterState.allFinite( ) && currentNavigationFilterState.hasNaN( ) )
         {

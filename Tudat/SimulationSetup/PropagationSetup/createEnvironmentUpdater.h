@@ -44,7 +44,7 @@ void checkValidityOfRequiredEnvironmentUpdates(
  * and returned by reference
  * \param integratedStateList List of states that are numerically integrated.
  */
-void removePropagatedStatesFomEnvironmentUpdates(
+void removePropagatedStatesFromEnvironmentUpdates(
         std::map< propagators::EnvironmentModelsToUpdate, std::vector< std::string > >& environmentModelsToUpdate,
         const std::map< IntegratedStateType, std::vector< std::pair< std::string, std::string > > >& integratedStateList );
 
@@ -237,13 +237,11 @@ std::vector< std::string > > createEnvironmentUpdaterSettings(
     addEnvironmentUpdates( environmentModelsToUpdate, environmentModelsToUpdateForTerminationConditions );
 
     // Remove variables from environment updates that are numerically propagated.
-    removePropagatedStatesFomEnvironmentUpdates(
+    removePropagatedStatesFromEnvironmentUpdates(
                 environmentModelsToUpdate, getIntegratedTypeAndBodyList( propagatorSettings ) );
     checkValidityOfRequiredEnvironmentUpdates( environmentModelsToUpdate, bodyMap );
 
-
     return environmentModelsToUpdate;
-
 }
 
 //! Function to create 'brute-force' update settings, in which each environment model is updated.

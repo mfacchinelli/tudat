@@ -313,12 +313,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
     areaBisectionRootFinder_->resetBoundaries(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
 
-//    input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-//                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "/Users/Michele/Desktop/Results/" );
-//    input_output::writeMatrixToFile(
-//                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-//                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
-
     // Determine actual periapse time
     double estimatedActualPeriapseTime;
     try
@@ -409,29 +403,24 @@ void NavigationSystem::runPeriapseTimeEstimator(
     Eigen::Vector6d estimatedErrorInKeplerianState = Eigen::Vector6d::Zero( );
     estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
     estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
-    //    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
+    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
     // Compute updated estimate in Keplerian state at current time by removing the estimated error
     Eigen::Vector6d updatedCurrentKeplerianState = currentEstimatedKeplerianState_;
     updatedCurrentKeplerianState -= estimatedErrorInKeplerianState;
-    // the updated state is initially defined as the one with semi-major axis and eccentricity from the time before the
-    // atmospheric pass and inclination, right ascension of ascending node, argument of periapsis and true anomaly from the
-    // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
 
     // Update navigation system state estimates
     std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;
-//    Eigen::Matrix16d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-//    currentNavigationFilterCovarianceMatrix = Eigen::Matrix16d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
-//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentNavigationFilterCovarianceMatrix );
+//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState );
 
-    // Correct history of Keplerian elements by removing error in true anomaly
-    for ( std::map< double, Eigen::Vector6d >::iterator
-          keplerianStateIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
-          keplerianStateIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); keplerianStateIterator++ )
-    {
-        keplerianStateIterator->second[ 5 ] -= estimatedErrorInTrueAnomaly;
-    }
+//    // Correct history of Keplerian elements by removing error in true anomaly
+//    for ( std::map< double, Eigen::Vector6d >::iterator
+//          keplerianStateIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
+//          keplerianStateIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); keplerianStateIterator++ )
+//    {
+//        keplerianStateIterator->second[ 5 ] -= estimatedErrorInTrueAnomaly;
+//    }
 }
 
 //! Function to run the Atmosphere Estimator (AE).
@@ -450,10 +439,6 @@ void NavigationSystem::runAtmosphereEstimator(
     // Pre-allocate variables
     std::vector< double > vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface;
     std::vector< double > vectorOfEstimatedAltitudesBelowAtmosphericInterface;
-
-//    input_output::writeMatrixToFile(
-//                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-//                "acceleration" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
 
     // Convert estimated aerodynamic acceleration to estimated atmospheric density and compute altitude below atmospheric interface
     unsigned int i = 0;
@@ -485,11 +470,6 @@ void NavigationSystem::runAtmosphereEstimator(
                 utilities::convertStlVectorToEigenVector( vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface );
         Eigen::VectorXd estimatedAltitudesBelowAtmosphericInterface =
                 utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowAtmosphericInterface );
-
-//        input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface,
-//                                         "density" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
-//        input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface,
-//                                         "altitude" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "/Users/Michele/Desktop/Results/" );
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
