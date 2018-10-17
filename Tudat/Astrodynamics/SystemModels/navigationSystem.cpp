@@ -394,7 +394,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     Eigen::Vector6d estimatedErrorInKeplerianState = Eigen::Vector6d::Zero( );
     estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
     estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
-    //    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
+    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
     // Compute updated estimate in Keplerian state at current time by removing the estimated error
@@ -406,17 +406,15 @@ void NavigationSystem::runPeriapseTimeEstimator(
 
     // Update navigation system state estimates
     std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;
-//    Eigen::Matrix9d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-//    currentNavigationFilterCovarianceMatrix = Eigen::Matrix9d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
 //    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentNavigationFilterCovarianceMatrix );
 
-    // Correct history of Keplerian elements by removing error in true anomaly
-    for ( std::map< double, Eigen::Vector6d >::iterator
-          keplerianStateIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
-          keplerianStateIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); keplerianStateIterator++ )
-    {
-        keplerianStateIterator->second[ 5 ] -= estimatedErrorInTrueAnomaly;
-    }
+//    // Correct history of Keplerian elements by removing error in true anomaly
+//    for ( std::map< double, Eigen::Vector6d >::iterator
+//          keplerianStateIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
+//          keplerianStateIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); keplerianStateIterator++ )
+//    {
+//        keplerianStateIterator->second[ 5 ] -= estimatedErrorInTrueAnomaly;
+//    }
 }
 
 //! Function to run the Atmosphere Estimator (AE).
