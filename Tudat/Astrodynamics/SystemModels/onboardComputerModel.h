@@ -13,6 +13,8 @@
 
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 
+#include "Tudat/Astrodynamics/Propagators/imanRmsMethod.h"
+
 #include "Tudat/Astrodynamics/SystemModels/controlSystem.h"
 #include "Tudat/Astrodynamics/SystemModels/guidanceSystem.h"
 #include "Tudat/Astrodynamics/SystemModels/instrumentsModel.h"
@@ -225,9 +227,12 @@ public:
         else
         {
             // Inform user
-            std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
-                         "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl
-                      << "Time difference: " << currentTime - navigationSystem_->getCurrentTime( ) << "." << std::endl;
+            if ( !propagators::IMAN_RMS_ANALYSIS )
+            {
+                std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
+                             "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl
+                          << "Time difference: " << currentTime - navigationSystem_->getCurrentTime( ) << "." << std::endl;
+            }
 
             // Return previous value of propagation termination index
             isPropagationToBeStopped = previousIsPropagationToBeStopped_;

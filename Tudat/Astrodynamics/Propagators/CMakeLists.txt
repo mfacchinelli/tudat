@@ -53,6 +53,7 @@ set(PROPAGATORS_HEADERS
   "${SRCROOT}${PROPAGATORSDIR}/rotationalMotionModifiedRodriguesParametersStateDerivative.h"
   "${SRCROOT}${PROPAGATORSDIR}/rotationalMotionExponentialMapStateDerivative.h"
   "${SRCROOT}${PROPAGATORSDIR}/stateDerivativeCircularRestrictedThreeBodyProblem.h"
+  "${SRCROOT}${PROPAGATORSDIR}/imanRmsMethod.h"
 )
 
 # Add static libraries.

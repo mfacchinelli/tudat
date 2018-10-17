@@ -176,7 +176,14 @@ public:
         }
 
         // Set and give current navigation phase
-        currentNavigationPhase_ = aided_navigation_phase;//detectedNavigationPhase;
+        if ( propagators::IMAN_RMS_ANALYSIS )
+        {
+            currentNavigationPhase_ = aided_navigation_phase;
+        }
+        else
+        {
+            currentNavigationPhase_ = detectedNavigationPhase;
+        }
         return currentNavigationPhase_;
     }
 
