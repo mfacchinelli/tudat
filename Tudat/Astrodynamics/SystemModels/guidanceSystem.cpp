@@ -98,6 +98,11 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
                 estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
                                             planetaryRadius, planetaryGravitationalParameter, false );
             }
+            else
+            {
+                // Inform user
+                std::cout << "Lifetime requirement met." << std::endl;
+            }
         }
         break;
     }
@@ -275,7 +280,7 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     if ( useHeatAsLowerBoundaryThreshold )
     {
         // Set root-finder boundaries for the lower altitude limits
-        altitudeBisectionRootFinder_->resetBoundaries( 90.0e3, 120.0e3 );
+        altitudeBisectionRootFinder_->resetBoundaries( 90.0e3, 130.0e3 );
 
         // Set root-finder function as the heat rate and heat load calculator
         // Add scaling if spacecraft is in walk-in or walk-out phases
@@ -288,7 +293,7 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     else
     {
         // Set root-finder boundaries for the lower altitude limits
-        altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 137.5e3 );
+        altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 140.0e3 );
 
         // Set root-finder function as the lifetime calculator
         estimatedLowerAltitudeBound = altitudeBisectionRootFinder_->execute(
