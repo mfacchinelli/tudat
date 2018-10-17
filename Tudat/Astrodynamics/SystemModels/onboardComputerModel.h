@@ -50,7 +50,7 @@ public:
         // Create navigation system objects
         navigationSystem_->createNavigationSystemObjects(
                     saveFrequency, boost::bind( &InstrumentsModel::getCurrentAccelerometerMeasurement, instrumentsModel_ ) );
-        initialTime_ = navigationSystem_->getCurrentTime( );
+        initialTime_ = 236455200.0;
 
         // Create guidance system objects
         guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
@@ -169,7 +169,7 @@ public:
                 }
 
                 // Run house keeping routines
-                if ( navigationSystem_->currentOrbitCounter_ != 0 )
+                if ( navigationSystem_->currentOrbitCounter_ != 135 )//125 )
                 {
                     runHouseKeepingRoutines( );
                 }

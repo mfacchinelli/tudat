@@ -64,9 +64,9 @@ void NavigationSystem::createNavigationSystemObjects(
     }
 
     // Set time-related parameters
-    initialTime_ = navigationFilter_->getInitialTime( );
-    currentTime_ = initialTime_;
-    currentOrbitCounter_ = 0;
+    initialTime_ = 236455200.0;
+    currentTime_ = navigationFilter_->getInitialTime( );
+    currentOrbitCounter_ = 135;//125;
     saveFrequency_ = saveFrequency;
     saveIndex_ = 0;
 
@@ -76,7 +76,7 @@ void NavigationSystem::createNavigationSystemObjects(
     Eigen::Vector9d initialNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial translational state
-    setCurrentEstimatedCartesianState( initialNavigationFilterState.segment( 0, 6 ) );
+    setCurrentEstimatedCartesianState( initialNavigationFilterState.segment( cartesian_position_index, 6 ) );
     // this function also automatically stores the full state estimates at the current time
 
     // Store the apoapsis value of Keplerian state for the Periapse Time Estimator
@@ -149,7 +149,6 @@ void NavigationSystem::improveStateEstimateOnNavigationPhaseTransition( )
 
     // Check to see if there are enough elements
     unsigned int numberOfSamplePoints = static_cast< unsigned int >( 120.0 / navigationRefreshStepSize_ );
-    std::cout << "samples: " << numberOfSamplePoints << ". step size: " << navigationRefreshStepSize_ << std::endl;
     numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     std::map< double, Eigen::VectorXd > historyOfEstimatedStates = navigationFilter_->getEstimatedStateHistory( );
     if ( historyOfEstimatedStates.size( ) > numberOfSamplePoints )
@@ -395,7 +394,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     Eigen::Vector6d estimatedErrorInKeplerianState = Eigen::Vector6d::Zero( );
     estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
     estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
-    //    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
+    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
     // Compute updated estimate in Keplerian state at current time by removing the estimated error
@@ -407,17 +406,15 @@ void NavigationSystem::runPeriapseTimeEstimator(
 
     // Update navigation system state estimates
     std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;
-//    Eigen::Matrix9d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-//    currentNavigationFilterCovarianceMatrix = Eigen::Matrix9d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
-//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentNavigationFilterCovarianceMatrix );
+//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState );
 
-    // Correct history of Keplerian elements by removing error in true anomaly
-    for ( std::map< double, Eigen::Vector6d >::iterator
-          keplerianStateIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
-          keplerianStateIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); keplerianStateIterator++ )
-    {
-        keplerianStateIterator->second[ 5 ] -= estimatedErrorInTrueAnomaly;
-    }
+//    // Correct history of Keplerian elements by removing error in true anomaly
+//    for ( std::map< double, Eigen::Vector6d >::iterator
+//          keplerianStateIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
+//          keplerianStateIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); keplerianStateIterator++ )
+//    {
+//        keplerianStateIterator->second[ 5 ] -= estimatedErrorInTrueAnomaly;
+//    }
 }
 
 //! Function to run the Atmosphere Estimator (AE).

@@ -120,13 +120,28 @@ public:
             }
         }
 
+        // Populate atmospheric parameters estimates
+        Eigen::MatrixXd atmosphericParameters = input_output::readMatrixFromFile(
+                    "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Thesis/"
+                    "SimulationOutputTransOnlyReduced/atmosphericParameters.dat" );
+        unsigned int limitValue;
+        if ( selectedOnboardAtmosphereModel_ == aerodynamics::exponential_atmosphere_model )
+            limitValue = 3;
+        else
+            limitValue = 6;
+        for ( unsigned int i = 0; i < atmosphericParameters.rows( ); i++ )
+        {
+            historyOfEstimatedAtmosphereParameters_[ static_cast< unsigned int >( atmosphericParameters( i, 0 ) ) ] =
+                    atmosphericParameters.row( i ).segment( 1, limitValue );
+        }
+
         // Create environment updater
         createOnboardEnvironmentUpdater( );
 
         // Set values to their initial conditions
-        atmosphereEstimatorInitialized_ = false;
+        atmosphereEstimatorInitialized_ = true;
         estimatedAccelerometerErrors_.setZero( );
-        previousNavigationPhase_ = undefined_navigation_phase;
+        previousNavigationPhase_ = aided_navigation_phase;
         timeAtNavigationPhaseInterface_ = TUDAT_NAN;
     }
 
@@ -482,17 +497,19 @@ public:
         double currentEstimatedApoapsisAltitude = currentEstimatedKeplerianState_[ 0 ] *
                 ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) - planetaryRadius_;
 
-        // Compute initial first order apoapsis altitudes
-        Eigen::Vector6d initialEstimatedKeplerianState = historyOfEstimatedStates_.begin( )->second.second;
-        double initialEstimatedApoapsisAltitude = initialEstimatedKeplerianState[ 0 ] *
-                ( 1.0 + initialEstimatedKeplerianState[ 1 ] ) - planetaryRadius_;
-
         // Compute current DAIA
-        double currentDynamicAtmosphericInterfaceAltitude = 0.275 * currentEstimatedApoapsisAltitude +
-                0.01 * ( initialEstimatedApoapsisAltitude - currentEstimatedApoapsisAltitude );
+        double currentPercentageValue = 0.5 * ( 1 + ( 1 - currentEstimatedKeplerianState_[ 0 ] / 26021000.0 ) );
+        double currentDynamicAtmosphericInterfaceAltitude =
+                currentPercentageValue * ( currentEstimatedKeplerianState_[ 0 ] - planetaryRadius_ );
+        if ( currentDynamicAtmosphericInterfaceAltitude > currentEstimatedApoapsisAltitude )
+        {
+            std::cerr << "Warning in navigation system. Current value of DAIA is larger than the estimated osculating "
+                         "apoapsis altitude. DAIA: " << currentDynamicAtmosphericInterfaceAltitude / 1.0e3
+                      << " km. Apoapsis altitude: " << currentEstimatedApoapsisAltitude / 1.0e3 << " km." << std::endl;
+        }
 
         // Compute current altitude
-        double currentEstimatedAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( );
+        double currentEstimatedAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
 
         // Output whether the altitude is above DAIA
         return ( currentEstimatedAltitude > currentDynamicAtmosphericInterfaceAltitude );

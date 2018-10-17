@@ -535,6 +535,11 @@ public:
                     generateRandomAtmospherePerturbationCoefficients( );
             randomPerturbationsCoefficients_.first = randomAtmospherePerturbations.first;
             randomPerturbationsCoefficients_.second = randomAtmospherePerturbations.second;
+
+            for ( unsigned int i = 0; i < 125; i++ )
+            {
+                randomizeAtmospherePerturbations( );
+            }
         }
 //        std::cout << randomPerturbationsCoefficients_.first << " " << randomPerturbationsCoefficients_.second.transpose( ) << std::endl;
     }
