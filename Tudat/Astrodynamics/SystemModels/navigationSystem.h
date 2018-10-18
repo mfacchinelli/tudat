@@ -252,7 +252,7 @@ public:
                                       std::to_string( currentNavigationPhase_ ) + ") phase not supported." );
         }
 
-        // Check for NaNs
+        // Check for infinities and/or NaNs
         Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
         if ( !currentNavigationFilterState.allFinite( ) && currentNavigationFilterState.hasNaN( ) )
         {
