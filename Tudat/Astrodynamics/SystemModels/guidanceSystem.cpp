@@ -41,14 +41,8 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
         // Create propagation termination settings based on period and lifetime to be used throughout the function
         double periodTerminationTime = currentTime + 2.0 / 3.0 *
                 basic_astrodynamics::computeKeplerOrbitalPeriod( currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter );
-//        boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
-//                boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
-
-        std::vector< boost::shared_ptr< propagators::PropagationTerminationSettings > > terminationSettingsList;
-        terminationSettingsList.push_back( boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime ) );
-        terminationSettingsList.push_back( boost::make_shared< propagators::PropagationCPUTimeTerminationSettings >( 360.0 ) );
         boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
-                boost::make_shared< propagators::PropagationHybridTerminationSettings >( terminationSettingsList, true );
+                boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
 
         // Propagate state for two thirds of the orbit
         std::map< double, Eigen::VectorXd > nominalPropagatedState =
@@ -97,6 +91,11 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
                 // Run corridor estimator with lifetime as lower limit
                 estimateCorridorBoundaries( currentTime, currentEstimatedCartesianState, currentEstimatedKeplerianState,
                                             planetaryRadius, planetaryGravitationalParameter, false );
+            }
+            else
+            {
+                // Inform user
+                std::cout << "Lifetime requirement met." << std::endl;
             }
         }
         break;
@@ -190,8 +189,14 @@ void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
     // Create propagation termination settings based on period and lifetime to be used throughout the function
     double periodTerminationTime = currentTime + 2.0 / 3.0 *
             basic_astrodynamics::computeKeplerOrbitalPeriod( currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter );
+//    boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
+//            boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
+
+    std::vector< boost::shared_ptr< propagators::PropagationTerminationSettings > > terminationSettingsList;
+    terminationSettingsList.push_back( boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime ) );
+    terminationSettingsList.push_back( boost::make_shared< propagators::PropagationCPUTimeTerminationSettings >( 360.0 ) );
     boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
-            boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
+            boost::make_shared< propagators::PropagationHybridTerminationSettings >( terminationSettingsList, true );
 
     // Propagate state for two thirds of the orbit
     std::map< double, Eigen::VectorXd > nominalPropagatedState =
@@ -275,7 +280,7 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     if ( useHeatAsLowerBoundaryThreshold )
     {
         // Set root-finder boundaries for the lower altitude limits
-        altitudeBisectionRootFinder_->resetBoundaries( 90.0e3, 120.0e3 );
+        altitudeBisectionRootFinder_->resetBoundaries( 90.0e3, 130.0e3 );
 
         // Set root-finder function as the heat rate and heat load calculator
         // Add scaling if spacecraft is in walk-in or walk-out phases
@@ -288,7 +293,7 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     else
     {
         // Set root-finder boundaries for the lower altitude limits
-        altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 137.5e3 );
+        altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 140.0e3 );
 
         // Set root-finder function as the lifetime calculator
         estimatedLowerAltitudeBound = altitudeBisectionRootFinder_->execute(

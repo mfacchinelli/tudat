@@ -148,7 +148,7 @@ void NavigationSystem::improveStateEstimateOnNavigationPhaseTransition( )
     Eigen::Vector6d improvedEstimatedState;
 
     // Check to see if there are enough elements
-    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 120.0 / navigationRefreshStepSize_ );
+    unsigned int numberOfSamplePoints = static_cast< unsigned int >( 60.0 / navigationRefreshStepSize_ );
     numberOfSamplePoints = ( ( numberOfSamplePoints % 2 ) == 0 ) ? numberOfSamplePoints + 1 : numberOfSamplePoints; // only odd values
     std::map< double, Eigen::VectorXd > historyOfEstimatedStates = navigationFilter_->getEstimatedStateHistory( );
     if ( historyOfEstimatedStates.size( ) > numberOfSamplePoints )

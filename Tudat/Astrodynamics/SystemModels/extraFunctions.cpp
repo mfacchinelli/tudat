@@ -111,11 +111,8 @@ double lowerAltitudeBisectionFunctionBasedOnLifetimeCondition(
                     initialKeplerianState, planetaryGravitationalParameter ) );
 
     // Give propagation a score based on lifetime
-    double actualLifetime =
-            ( propagationResult.second.first.rbegin( )->first - propagationResult.second.first.begin( )->first ) /
+    double actualLifetime = ( propagationResult.second.first.rbegin( )->first - propagationResult.second.first.begin( )->first ) /
             physical_constants::JULIAN_DAY;
-    std::cout << "Altitude: " << currentAltitudeGuess / 1.0e3 << "km. Lifetime: " << actualLifetime << " day" << std::endl
-              << "Score: " << actualLifetime - minimumLifetime << std::endl << std::endl;
 
     // Return value to to indicate closeness to limiting value
     return actualLifetime - minimumLifetime;

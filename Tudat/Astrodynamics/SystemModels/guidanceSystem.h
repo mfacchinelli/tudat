@@ -122,20 +122,19 @@ public:
         if ( pairOfAtmosphereInitiationIndicators.first < pairOfAtmosphereInitiationIndicators.second )
         {
             detectedAerobrakingPhase = walk_in_phase;
-            periapsisAltitudeScaling_ = 1.2 - 0.2 *
-                    static_cast< double >( pairOfAtmosphereInitiationIndicators.first ) /
-                    static_cast< double >( pairOfAtmosphereInitiationIndicators.second );
+            periapsisAltitudeScaling_ = 1.2 - 0.2 * ( static_cast< double >( pairOfAtmosphereInitiationIndicators.first ) /
+                                                      static_cast< double >( pairOfAtmosphereInitiationIndicators.second ) );
         }
 
         // Check whether apoapsis is approaching target value
-        double predictedApoapsisRadius = computeCurrentFirstOrderEstimatedApoapsisRadius( currentEstimatedKeplerianState );
         if ( currentEstimatedKeplerianState[ 1 ] < 0.3 )
         {
             detectedAerobrakingPhase = walk_out_phase;
         }
 
         // Check whether it is time to perform periapsis raise maneuver is complete
-        if ( ( predictedApoapsisRadius - planetaryRadius ) < 1.25 * targetApoapsisAltitude_ )
+        if ( ( computeCurrentFirstOrderEstimatedApoapsisRadius( currentEstimatedKeplerianState ) -
+               planetaryRadius ) < 1.25 * targetApoapsisAltitude_ )
         {
             detectedAerobrakingPhase = periapsis_raise_phase;
         }
