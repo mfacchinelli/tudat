@@ -189,9 +189,6 @@ public:
     void runStateEstimator( const Eigen::Vector3d& currentExternalMeasurement,
                             const Eigen::Vector3d& scheduledApoapsisManeuver = Eigen::Vector3d::Zero( ) )
     {
-        if ( int( ( currentTime_ - initialTime_ ) * 10.0 ) % int( 1.0e4 * 10.0 ) == 0.0 )
-            std::cout << int( currentTime_ - initialTime_ ) << std::endl;
-
         // Add maneuver if requested
         if ( !scheduledApoapsisManeuver.isZero( ) )
         {
