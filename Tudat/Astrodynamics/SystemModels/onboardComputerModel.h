@@ -212,8 +212,14 @@ public:
                 }
 
                 // Perform periapse time and atmosphere estimations
-                std::cerr << "Post-atmosphere processes are OFF." << std::endl;
-//                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+                if ( propagators::IMAN_RMS_ANALYSIS )
+                {
+                    std::cerr << "Post-atmosphere processes are OFF." << std::endl;
+                }
+                else
+                {
+                    navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+                }
 
                 // Invert completion flags
                 maneuveringPhaseComplete_ = false;
