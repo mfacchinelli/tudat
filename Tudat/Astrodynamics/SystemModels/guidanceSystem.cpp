@@ -33,7 +33,7 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
         periapsisTargetingInformation_ = std::make_tuple( true, targetPeriapsisAltitude_, targetPeriapsisAltitude_ );
         break;
     }
-    case periapsis_raise_phase:
+    case termination_phase:
     {
         // Inform user
         std::cout << std::endl << "Raising Periapsis To Target Value." << std::endl;
@@ -132,7 +132,7 @@ void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& curren
     double estimatedApoapsisManeuverMagnitude;
     if ( improveEstimateWithBisection &&
          ( std::fabs( preliminaryApoapsisManeuverMagnitude ) > 0.15 ) && // 0.15 N is an empirical value
-         ( currentOrbitAerobrakingPhase_ != periapsis_raise_phase ) )
+         ( currentOrbitAerobrakingPhase_ != termination_phase ) )
     {
         // Try using root-finder to improve estimate
         try
