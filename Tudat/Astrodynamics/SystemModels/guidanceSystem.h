@@ -40,7 +40,7 @@ public:
         walk_in_phase = 0,
         main_phase = 1,
         walk_out_phase = 2,
-        periapsis_raise_phase = 3,
+        termination_phase = 3,
         aerobraking_complete = 4
     };
 
@@ -137,11 +137,11 @@ public:
         // Check whether it is time to perform periapsis raise maneuver is complete
         if ( ( predictedApoapsisRadius - planetaryRadius ) < 1.25 * targetApoapsisAltitude_ )
         {
-            detectedAerobrakingPhase = periapsis_raise_phase;
+            detectedAerobrakingPhase = termination_phase;
         }
 
         // Check whether aerobraking is complete
-        if ( previousAerobrakingPhase == periapsis_raise_phase )
+        if ( previousAerobrakingPhase == termination_phase )
         {
             detectedAerobrakingPhase = aerobraking_complete;
         }

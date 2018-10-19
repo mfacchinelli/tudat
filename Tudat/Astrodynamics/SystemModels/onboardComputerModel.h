@@ -204,7 +204,7 @@ public:
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
             // Check aerobraking phase and true anomaly to see if periapsis maneuvering phase
-            else if ( guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::periapsis_raise_phase ) &&
+            else if ( guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::termination_phase ) &&
                       ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) && !atmosphericPhaseComplete_ )
             {
                 // Inform user
