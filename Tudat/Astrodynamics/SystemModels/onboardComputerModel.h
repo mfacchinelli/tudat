@@ -148,6 +148,12 @@ public:
                 // Propagation is stopped only if an apoapsis maneuver needs to be performed
                 isPropagationToBeStopped = guidanceSystem_->getIsApoapsisManeuverToBePerformed( );
 
+                if ( propagators::IMAN_ANALYSIS_INDEX == 2 )
+                {
+                    std::cerr << "Apoapsis maneuver is OFF." << std::endl;
+                    isPropagationToBeStopped = false;
+                }
+
                 // If propagation is to be stopped, to add Delta V to state, run remaining pre-maneuver processes
                 if ( isPropagationToBeStopped )
                 {
