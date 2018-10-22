@@ -564,7 +564,12 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
                 }
             }
 
-            bool analyzeStopCondition = IMAN_RMS_ANALYSIS ? ( saveIndex == 0 ) : true;
+            bool analyzeStopCondition;
+            if ( IMAN_ANALYSIS_INDEX != 1 )
+                analyzeStopCondition = true;
+            else
+                analyzeStopCondition = saveIndex == 0;
+
             if ( analyzeStopCondition )
             {
                 if( propagationTerminationCondition->checkStopCondition( static_cast< double >( currentTime ), currentCPUTime ) )

@@ -21,7 +21,11 @@ namespace tudat
 namespace propagators
 {
 
-extern bool IMAN_RMS_ANALYSIS;
+// IMAN analysis index:
+//      0: nominal simulation
+//      1: RMS simulation
+//      2: tuning (loop) simulation
+extern unsigned int IMAN_ANALYSIS_INDEX;
 
 } // namespace propagators
 

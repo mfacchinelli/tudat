@@ -212,7 +212,7 @@ public:
                 }
 
                 // Perform periapse time and atmosphere estimations
-                if ( propagators::IMAN_RMS_ANALYSIS )
+                if ( propagators::IMAN_ANALYSIS_INDEX != 0 )
                 {
                     std::cerr << "Post-atmosphere processes are OFF." << std::endl;
                 }
@@ -233,7 +233,7 @@ public:
         else
         {
             // Inform user
-            if ( !propagators::IMAN_RMS_ANALYSIS )
+            if ( propagators::IMAN_ANALYSIS_INDEX != 1 )
             {
                 std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
                              "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl

@@ -126,7 +126,7 @@ public:
         {
             detectedAerobrakingPhase = walk_out_phase;
         }
-        if ( propagators::IMAN_RMS_ANALYSIS )
+        if ( propagators::IMAN_ANALYSIS_INDEX != 0 )
         {
             std::cerr << "Periapsis altitude scaling OFF." << std::endl;
             periapsisAltitudeScaling_ = 1.0;
