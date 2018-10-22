@@ -26,11 +26,12 @@
 #include "Tudat/Astrodynamics/SystemModels/instrumentsModel.h"
 
 #include "Tudat/Mathematics/Filters/createFilter.h"
+#include "Tudat/SimulationSetup/EnvironmentSetup/createAerodynamicCoefficientInterface.h"
 #include "Tudat/SimulationSetup/PropagationSetup/environmentUpdater.h"
 #include "Tudat/SimulationSetup/PropagationSetup/dynamicsSimulator.h"
 
 //! Typedefs and using statements to simplify code.
-namespace Eigen { typedef Eigen::Matrix< double, 9, 1 > Vector9d; typedef Eigen::Matrix< double, 9, 9 > Matrix9d; }
+namespace Eigen { typedef Eigen::Matrix< double, 10, 1 > Vector10d; typedef Eigen::Matrix< double, 10, 10 > Matrix10d; }
 
 namespace tudat
 {
@@ -53,9 +54,7 @@ public:
         cartesian_position_index = 0,
         cartesian_velocity_index = 3,
         accelerometer_bias_index = 6,
-        quaternion_real_index = 9,
-        quaternion_imaginary_index = 10,
-        gyroscope_bias_index = 13,
+        drag_coefficient_index = 9
     };
 
     //! Enumeration for navigation phases.
@@ -126,6 +125,11 @@ public:
         estimatedAccelerometerErrors_.setZero( );
         previousNavigationPhase_ = undefined_navigation_phase;
         timeAtNavigationPhaseInterface_ = TUDAT_NAN;
+
+        // Aerodynamics
+        onboardAerodynamicCoefficients_.setZero( );
+        referenceAreaAerodynamic_ = onboardBodyMap_.at( spacecraftName_ )->getAerodynamicCoefficientInterface( )->getReferenceArea( );
+
     }
 
     //! Destructor.
@@ -176,7 +180,14 @@ public:
         }
 
         // Set and give current navigation phase
-        currentNavigationPhase_ = aided_navigation_phase;//detectedNavigationPhase;
+        if ( propagators::IMAN_RMS_ANALYSIS )
+        {
+            currentNavigationPhase_ = aided_navigation_phase;
+        }
+        else
+        {
+            currentNavigationPhase_ = detectedNavigationPhase;
+        }
         return currentNavigationPhase_;
     }
 
@@ -220,10 +231,17 @@ public:
             // Update filter
             navigationFilter_->updateFilter( currentExternalMeasurementVector );
 
-            // Extract tiem and estimated state and update navigation system
+            // Extract time and estimated state and update navigation system
             currentTime_ = navigationFilter_->getCurrentTime( );
-            Eigen::Vector9d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+            Eigen::Vector10d updatedEstimatedState = navigationFilter_->getCurrentStateEstimate( );
             setCurrentEstimatedCartesianState( updatedEstimatedState.segment( 0, 6 ) );
+
+            // Reset drag coefficient
+            onboardAerodynamicCoefficients_[ 0 ] = updatedEstimatedState[ 9 ];
+            onboardBodyMap_.at( spacecraftName_ )->setAerodynamicCoefficientInterface(
+                        simulation_setup::createAerodynamicCoefficientInterface(
+                            boost::make_shared< simulation_setup::ConstantAerodynamicCoefficientSettings >(
+                                referenceAreaAerodynamic_, onboardAerodynamicCoefficients_, true, true ), spacecraftName_ ) );
             break;
         }
         default:
@@ -342,7 +360,7 @@ public:
         std::cout << "Propagated state for " << currentLightTimeDelay / 60.0 << " minutes." << std::endl;
 
         // Reset navigation filter (including covariance)
-        Eigen::Matrix9d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+        Eigen::Matrix10d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
         currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
         setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, currentEstimatedCovarianceMatrix );
     }
@@ -412,7 +430,7 @@ public:
     double getCurrentTime( ) { return currentTime_; }
 
     //! Function to retireve current state.
-    Eigen::Vector9d getCurrentEstimatedState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
+    Eigen::Vector10d getCurrentEstimatedState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
 
     //! Function to retrieve the history of estimated states directly from the navigation filter.
     std::map< double, Eigen::VectorXd > getHistoryOfEstimatedStatesFromNavigationFilter( )
@@ -464,14 +482,12 @@ public:
      *  \return Vector denoting the full acceleration vector experienced by the spacecraft.
      */
     Eigen::Vector3d getCurrentEstimatedTranslationalAcceleration(
-            const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
+            const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ),
+            const double estimatedDragCoefficient = 0.0 )
     {
-        if ( !estimatedState.isZero( ) )
+        if ( !estimatedState.isZero( ) && estimatedDragCoefficient != 0.0 )
         {
-            if ( !estimatedState.isApprox( currentEstimatedCartesianState_ ) )
-            {
-                updateOnboardModel( estimatedState );
-            }
+            updateOnboardModel( estimatedState, estimatedDragCoefficient );
         }
         return currentEstimatedTranslationalAcceleration_;
     }
@@ -508,14 +524,12 @@ public:
      *  \return Vector denoting only the non-gravitational (i.e., aerodynamic) accelerations experienced by the spacecraft.
      */
     Eigen::Vector3d getCurrentEstimatedNonGravitationalTranslationalAcceleration(
-            const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
+            const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ),
+            const double estimatedDragCoefficient = 0.0 )
     {
-        if ( !estimatedState.isZero( ) )
+        if ( !estimatedState.isZero( ) && estimatedDragCoefficient != 0.0 )
         {
-            if ( !estimatedState.isApprox( currentEstimatedCartesianState_ ) )
-            {
-                updateOnboardModel( estimatedState );
-            }
+            updateOnboardModel( estimatedState, estimatedDragCoefficient );
         }
         return currentEstimatedNonGravitationalTranslationalAcceleration_;
     }
@@ -606,7 +620,7 @@ public:
      *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
      */
     void setCurrentEstimatedCartesianState( const Eigen::Vector6d& newCurrentCartesianState,
-                                            const Eigen::Matrix9d& newCurrentCovarianceMatrix = Eigen::Matrix9d::Zero( ) )
+                                            const Eigen::Matrix10d& newCurrentCovarianceMatrix = Eigen::Matrix10d::Zero( ) )
     {
         // Update navigation system current value
         currentEstimatedCartesianState_ = newCurrentCartesianState;
@@ -615,7 +629,7 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector9d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        Eigen::Vector10d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
         navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                      newCurrentCovarianceMatrix );
@@ -636,7 +650,7 @@ public:
      *  \param newCurrentCovarianceMatrix New covariance matrix at current time.
      */
     void setCurrentEstimatedKeplerianState( const Eigen::Vector6d& newCurrentKeplerianState,
-                                            const Eigen::Matrix9d& newCurrentCovarianceMatrix = Eigen::Matrix9d::Zero( ) )
+                                            const Eigen::Matrix10d& newCurrentCovarianceMatrix = Eigen::Matrix10d::Zero( ) )
     {
         // Update navigation system current value
         currentEstimatedKeplerianState_ = newCurrentKeplerianState;
@@ -645,7 +659,7 @@ public:
         storeCurrentTimeAndStateEstimates( ); // overwrite previous values
 
         // Update navigation filter current value
-        Eigen::Vector9d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+        Eigen::Vector10d updatedCurrentEstimatedState = navigationFilter_->getCurrentStateEstimate( );
         updatedCurrentEstimatedState.segment( 0, 6 ) = currentEstimatedCartesianState_;
         navigationFilter_->modifyCurrentStateAndCovarianceEstimates( updatedCurrentEstimatedState,
                                                                      newCurrentCovarianceMatrix );
@@ -738,7 +752,8 @@ private:
      *  \param estimatedState State at which the environment has to be updated and accelerations computed and stored. If left
      *      empty, currentEstimatedCartesianState_ is taken as state.
      */
-    void updateOnboardModel( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ) )
+    void updateOnboardModel( const Eigen::Vector6d& estimatedState = Eigen::Vector6d::Zero( ),
+                             const double estimatedDragCoefficient = 0.0 )
     {
         // Update environment
         if ( estimatedState.isZero( ) )
@@ -751,6 +766,16 @@ private:
         }
         mapOfStatesToUpdate_[ propagators::translational_state ] += onboardBodyMap_.at( planetName_ )->getState( );
         onboardEnvironmentUpdater_->updateEnvironment( currentTime_, mapOfStatesToUpdate_ );
+
+        // Update drag coefficient
+        if ( estimatedDragCoefficient != 0.0 )
+        {
+            onboardAerodynamicCoefficients_[ 0 ] = estimatedDragCoefficient;
+            onboardBodyMap_.at( spacecraftName_ )->setAerodynamicCoefficientInterface(
+                        simulation_setup::createAerodynamicCoefficientInterface(
+                            boost::make_shared< simulation_setup::ConstantAerodynamicCoefficientSettings >(
+                                referenceAreaAerodynamic_, onboardAerodynamicCoefficients_, true, true ), spacecraftName_ ) );
+        }
 
         // Loop over bodies exerting accelerations on spacecraft
         for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -865,16 +890,16 @@ private:
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
 
     //! Function to model the onboard system dynamics based on the simplified onboard model.
-    Eigen::Vector9d onboardSystemModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Vector10d onboardSystemModel( const double currentTime, const Eigen::Vector10d& currentEstimatedState );
 
     //! Function to model the onboard measurements based on the simplified onboard model.
-    Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Vector3d onboardMeasurementModel( const double currentTime, const Eigen::Vector10d& currentEstimatedState );
 
     //! Function to model the onboard system Jacobian based on the simplified onboard model.
-    Eigen::Matrix9d onboardSystemJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Matrix10d onboardSystemJacobian( const double currentTime, const Eigen::Vector10d& currentEstimatedState );
 
     //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-    Eigen::Matrix< double, 3, 9 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector9d& currentEstimatedState );
+    Eigen::Matrix< double, 3, 10 > onboardMeasurementJacobian( const double currentTime, const Eigen::Vector10d& currentEstimatedState );
 
     //! Function to store current time and current state estimates.
     void storeCurrentTimeAndStateEstimates( )
@@ -1013,6 +1038,9 @@ private:
 
     //! Double denoting the integration constant time step for navigation during the atmospheric phase.
     double atmosphericNavigationRefreshStepSize_;
+
+    Eigen::Vector3d onboardAerodynamicCoefficients_;
+    double referenceAreaAerodynamic_;
 
     //! Vector denoting the current estimated translational state in Cartesian elements.
     Eigen::Vector6d currentEstimatedCartesianState_;

@@ -43,7 +43,7 @@ void NavigationSystem::createNavigationSystemObjects( const unsigned int saveFre
                                                                      boost::bind( &NavigationSystem::onboardSystemModel, this, _1, _2 ),
                                                                      boost::bind( &NavigationSystem::onboardMeasurementModel, this, _1, _2 ),
                                                                      boost::bind( &NavigationSystem::onboardSystemJacobian, this, _1, _2 ),
-                                                                     boost::lambda::constant( Eigen::Matrix9d::Identity( ) ),
+                                                                     boost::lambda::constant( Eigen::Matrix10d::Identity( ) ),
                                                                      boost::bind( &NavigationSystem::onboardMeasurementJacobian, this, _1, _2 ),
                                                                      boost::lambda::constant( Eigen::Matrix3d::Identity( ) ) );
         break;
@@ -69,7 +69,7 @@ void NavigationSystem::createNavigationSystemObjects( const unsigned int saveFre
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );
     atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 20.0;
-    Eigen::Vector9d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
+    Eigen::Vector10d initialEstimatedState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial translational state
     setCurrentEstimatedCartesianState( initialEstimatedState.segment( 0, 6 ) );
@@ -302,21 +302,15 @@ void NavigationSystem::runPeriapseTimeEstimator(
     Eigen::Vector6d estimatedErrorInKeplerianState = Eigen::Vector6d::Zero( );
     estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
     estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
-    //    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
+    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
     historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
 
     // Compute updated estimate in Keplerian state at current time by removing the estimated error
     Eigen::Vector6d updatedCurrentKeplerianState = currentEstimatedKeplerianState_;
     updatedCurrentKeplerianState -= estimatedErrorInKeplerianState;
-    // the updated state is initially defined as the one with semi-major axis and eccentricity from the time before the
-    // atmospheric pass and inclination, right ascension of ascending node, argument of periapsis and true anomaly from the
-    // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
 
     // Update navigation system state estimates
-    Eigen::Matrix9d currentEstimatedCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-    currentEstimatedCovarianceMatrix.block( 0, 0, 6, 6 ).setIdentity( );
-    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentEstimatedCovarianceMatrix );
-    // the covariance matrix is reset to the identity, since the new state is improved in accuracy
+    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState );
 
     // Correct history of Keplerian elements by removing error in true anomaly
     for ( std::map< double, Eigen::Vector6d >::iterator
@@ -520,19 +514,20 @@ void NavigationSystem::runAtmosphereEstimator(
 }
 
 //! Function to model the onboard system dynamics based on the simplified onboard model.
-Eigen::Vector9d NavigationSystem::onboardSystemModel(
-        const double currentTime, const Eigen::Vector9d& currentEstimatedState )
+Eigen::Vector10d NavigationSystem::onboardSystemModel(
+        const double currentTime, const Eigen::Vector10d& currentEstimatedState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
     // Declare state derivative vector
-    Eigen::Vector9d currentStateDerivative = Eigen::Vector9d::Zero( );
+    Eigen::Vector10d currentStateDerivative = Eigen::Vector10d::Zero( );
 
     // Translational kinematics
     currentStateDerivative.segment( 0, 3 ) = currentEstimatedState.segment( 3, 3 );
 
     // Translational dynamics
-    currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
+    currentStateDerivative.segment( 3, 3 ) = getCurrentEstimatedTranslationalAcceleration(
+                currentEstimatedState.segment( cartesian_position_index, 6 ), currentEstimatedState[ drag_coefficient_index ] );
 
     // Give output
     return currentStateDerivative;
@@ -540,7 +535,7 @@ Eigen::Vector9d NavigationSystem::onboardSystemModel(
 
 //! Function to model the onboard measurements based on the simplified onboard model.
 Eigen::Vector3d NavigationSystem::onboardMeasurementModel(
-        const double currentTime, const Eigen::Vector9d& currentEstimatedState )
+        const double currentTime, const Eigen::Vector10d& currentEstimatedState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
 
@@ -551,20 +546,23 @@ Eigen::Vector3d NavigationSystem::onboardMeasurementModel(
     currentMeasurementVector = currentEstimatedState.segment( 6, 3 );
 
     // Add terms due to aerodynamic acceleration
-    currentMeasurementVector += getCurrentEstimatedNonGravitationalTranslationalAcceleration( currentEstimatedState.segment( 0, 6 ) );
+    currentMeasurementVector += getCurrentEstimatedNonGravitationalTranslationalAcceleration(
+                currentEstimatedState.segment( cartesian_position_index, 6 ), currentEstimatedState[ drag_coefficient_index ] );
 
     // Give output
     return currentMeasurementVector;
 }
 
 //! Function to model the onboard system Jacobian based on the simplified onboard model.
-Eigen::Matrix9d NavigationSystem::onboardSystemJacobian(
-        const double currentTime, const Eigen::Vector9d& currentEstimatedState )
+Eigen::Matrix10d NavigationSystem::onboardSystemJacobian(
+        const double currentTime, const Eigen::Vector10d& currentEstimatedState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
+    TUDAT_UNUSED_PARAMETER( currentEstimatedState );
+    updateOnboardModel( currentEstimatedState.segment( cartesian_position_index, 6 ), currentEstimatedState[ drag_coefficient_index ] );
 
     // Declare Jacobian matrix and set to zero
-    Eigen::Matrix9d currentSystemJacobian = Eigen::Matrix9d::Zero( );
+    Eigen::Matrix10d currentSystemJacobian = Eigen::Matrix10d::Zero( );
 
     // Add terms due to velocity
     currentSystemJacobian( 0, 3 ) = 1.0;
@@ -577,23 +575,28 @@ Eigen::Matrix9d NavigationSystem::onboardSystemJacobian(
 
     // Add terms due to aerodynamic acceleration
     currentSystemJacobian.block( 3, 0, 3, 6 ) += onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
+    currentSystemJacobian.block( 3, 9, 3, 1 ) +=
+            onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartialWrtDragCoefficient( );
 
     // Give output
     return currentSystemJacobian;
 }
 
 //! Function to model the onboard measurements Jacobian based on the simplified onboard model.
-Eigen::Matrix< double, 3, 9 > NavigationSystem::onboardMeasurementJacobian(
-        const double currentTime, const Eigen::Vector9d& currentEstimatedState )
+Eigen::Matrix< double, 3, 10 > NavigationSystem::onboardMeasurementJacobian(
+        const double currentTime, const Eigen::Vector10d& currentEstimatedState )
 {
     TUDAT_UNUSED_PARAMETER( currentTime );
     TUDAT_UNUSED_PARAMETER( currentEstimatedState );
+    updateOnboardModel( currentEstimatedState.segment( cartesian_position_index, 6 ), currentEstimatedState[ drag_coefficient_index ] );
 
     // Declare Jacobian matrix and set to zero
-    Eigen::Matrix< double, 3, 9 > currentMeasurementJacobian = Eigen::Matrix< double, 3, 9 >::Zero( );
+    Eigen::Matrix< double, 3, 10 > currentMeasurementJacobian = Eigen::Matrix< double, 3, 10 >::Zero( );
 
     // Add terms due to aerodynamic acceleration
-    currentMeasurementJacobian.block( 0, 0, 3, 6 ) = onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
+    currentMeasurementJacobian.block( 0, 0, 3, 6 ) += onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartial( );
+    currentMeasurementJacobian.block( 0, 9, 3, 1 ) +=
+            onboardAerodynamicAccelerationPartials_->getCurrentAerodynamicAccelerationPartialWrtDragCoefficient( );
 
     // Add terms due to accelerometer bias error
     currentMeasurementJacobian( 0, 6 ) = 1.0;

@@ -23,6 +23,8 @@
 #include "Tudat/Mathematics/RootFinders/bisection.h"
 #include "Tudat/SimulationSetup/PropagationSetup/propagationTerminationSettings.h"
 
+#include "Tudat/Astrodynamics/Propagators/imanRmsMethod.h"
+
 namespace tudat
 {
 
@@ -124,8 +126,11 @@ public:
         {
             detectedAerobrakingPhase = walk_out_phase;
         }
-//        std::cerr << "Periapsis altitude scaling OFF." << std::endl;
-//        periapsisAltitudeScaling_ = 1.0;
+        if ( propagators::IMAN_RMS_ANALYSIS )
+        {
+            std::cerr << "Periapsis altitude scaling OFF." << std::endl;
+            periapsisAltitudeScaling_ = 1.0;
+        }
 
         // Check whether aerobraking is complete
         double predictedPeriapsisRadius = computeCurrentFirstOrderEstimatedPeriapsisRadius( currentEstimatedKeplerianState );

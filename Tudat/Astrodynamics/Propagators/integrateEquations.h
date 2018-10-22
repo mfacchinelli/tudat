@@ -28,6 +28,8 @@
 #include "Tudat/Mathematics/RootFinders/createRootFinder.h"
 #include "Tudat/SimulationSetup/PropagationSetup/propagationTermination.h"
 
+#include "Tudat/Astrodynamics/Propagators/imanRmsMethod.h"
+
 namespace tudat
 {
 
@@ -562,7 +564,8 @@ boost::shared_ptr< PropagationTerminationDetails > integrateEquationsFromIntegra
                 }
             }
 
-//            if ( saveIndex == 0 )
+            bool analyzeStopCondition = IMAN_RMS_ANALYSIS ? ( saveIndex == 0 ) : true;
+            if ( analyzeStopCondition )
             {
                 if( propagationTerminationCondition->checkStopCondition( static_cast< double >( currentTime ), currentCPUTime ) )
                 {

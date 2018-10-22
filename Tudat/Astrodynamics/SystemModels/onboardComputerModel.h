@@ -13,6 +13,8 @@
 
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 
+#include "Tudat/Astrodynamics/Propagators/imanRmsMethod.h"
+
 #include "Tudat/Astrodynamics/SystemModels/controlSystem.h"
 #include "Tudat/Astrodynamics/SystemModels/guidanceSystem.h"
 #include "Tudat/Astrodynamics/SystemModels/instrumentsModel.h"
@@ -44,6 +46,7 @@ public:
         // Define internal variables
         maneuveringPhaseComplete_ = false; // simulation starts at apoapsis with possible need to perform a maneuver
         atmosphericPhaseComplete_ = true;
+
         performManeuverOnNextCall_ = false;
         deepSpaceNetworkTrackingInformation_ = std::make_pair( false, static_cast< unsigned int >( -1 ) );
 
@@ -77,8 +80,7 @@ public:
         bool isPropagationToBeStopped = false;
 
         // Check whether current step has already been performed
-        if ( std::fabs( currentTime - ( navigationSystem_->getCurrentTime( ) +
-                                        navigationSystem_->getNavigationRefreshStepSize( ) ) ) <= 1.0e-5 )
+        if ( ( currentTime - ( navigationSystem_->getCurrentTime( ) + navigationSystem_->getNavigationRefreshStepSize( ) ) ) <= 1e-5 )
         {
             // Update instrument models
             instrumentsModel_->updateInstruments( currentTime );
@@ -210,8 +212,14 @@ public:
                 }
 
                 // Perform periapse time and atmosphere estimations
-                std::cerr << "Post-atmosphere processes are OFF." << std::endl;
-//                navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+                if ( propagators::IMAN_RMS_ANALYSIS )
+                {
+                    std::cerr << "Post-atmosphere processes are OFF." << std::endl;
+                }
+                else
+                {
+                    navigationSystem_->runPostAtmosphereProcesses( currentOrbitHistoryOfMeasuredTranslationalAccelerations );
+                }
 
                 // Invert completion flags
                 maneuveringPhaseComplete_ = false;
@@ -224,10 +232,13 @@ public:
         }
         else
         {
-//            // Inform user
-//            std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
-//                         "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl
-//                      << "Time difference: " << currentTime - navigationSystem_->getCurrentTime( ) << "." << std::endl;
+            // Inform user
+            if ( !propagators::IMAN_RMS_ANALYSIS )
+            {
+                std::cerr << "Warning in onboard computer. The current time (" << currentTime - initialTime_ << ") has already been " <<
+                             "processed. Navigation time: " << navigationSystem_->getCurrentTime( ) - initialTime_ << "." << std::endl
+                          << "Time difference: " << currentTime - navigationSystem_->getCurrentTime( ) << "." << std::endl;
+            }
 
             // Return previous value of propagation termination index
             isPropagationToBeStopped = previousIsPropagationToBeStopped_;
