@@ -58,6 +58,17 @@ public:
         guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
         guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
                                                                    navigationSystem_, _1, _2, -1.0 ) );
+
+        // Set control system initial commanded attitude
+        boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
+                boost::make_shared< propagators::PropagationDependentVariableTerminationSettings >(
+                    boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
+                        propagators::keplerian_state_dependent_variable, navigationSystem_->getSpacecraftName( ),
+                        navigationSystem_->getPlanetName( ), 5 ), 0.009, true, true,
+                    boost::make_shared< root_finders::RootFinderSettings >( root_finders::bisection_root_finder, 0.001, 10 ) );
+        Eigen::Vector6d estimatedPeriapsisTranslationalState =
+                navigationSystem->propagateTranslationalStateWithCustomTerminationSettings( terminationSettings ).second.first.rbegin( )->second;
+        controlSystem->setCommandedQuaternionBasedOnPeriapsisConditions( estimatedPeriapsisTranslationalState );
     }
 
     //! Destructor.
@@ -125,12 +136,11 @@ public:
 
             // Update attitude controller
             controlSystem_->updateAttitudeController(
-                        currentEstimatedState.first, navigationSystem_->getCurrentEstimatedRotationalState( ).segment( 0, 4 ),
+                        navigationSystem_->getCurrentEstimatedRotationalState( ).segment( 0, 4 ),
                         removeErrorsFromInertialMeasurementUnitMeasurement(
                             instrumentsModel_->getCurrentGyroscopeMeasurement( ),
-                            navigationSystem_->getCurrentNavigationFilterState( ).segment( NavigationSystem::gyroscope_bias_index, 6 ) ),
-                        navigationSystem_->getNavigationRefreshStepSize( ),
-                        navigationSystem_->getCurrentEstimatedMeanMotion( ) );
+                            navigationSystem_->getCurrentNavigationFilterState( ).segment( NavigationSystem::gyroscope_bias_index, 3 ) ),
+                        navigationSystem_->getNavigationRefreshStepSize( ) );
 
             // Check which orbit phase the spacecraft is in (if any)
             // Check true anomaly to see if apoapsis maneuvering phase
@@ -210,6 +220,9 @@ public:
                 // Inform user
                 std::cout << std::endl << "REACHED FINAL PERIAPSIS. Preparing to perform maneuver." << std::endl;
 
+                // Set commanded attitude based on periapsis conditions
+                controlSystem_->setCommandedQuaternionBasedOnPeriapsisConditions( currentEstimatedState.first );
+
                 // Run periapsis maneuver estimator
                 guidanceSystem_->runPeriapsisManeuverEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
                                                                 navigationSystem_->getCurrentEstimatedMeanMotion( ),
@@ -232,6 +245,9 @@ public:
             {
                 // Inform user
                 std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;
+
+                // Set commanded attitude based on periapsis conditions
+                controlSystem_->setCommandedQuaternionBasedOnPeriapsisConditions( currentEstimatedState.first );
 
                 // Retireve history of inertial measurement unit measurements
                 std::map< double, Eigen::Vector6d > currentOrbitHistoryOfInertialMeasurementUnitMeasurements =

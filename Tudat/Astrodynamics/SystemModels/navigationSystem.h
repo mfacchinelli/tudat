@@ -660,6 +660,12 @@ public:
         return currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_;
     }
 
+    //! Function to retireve the name of the spacecraft.
+    std::string getSpacecraftName( ) { return spacecraftName_; }
+
+    //! Function to retireve the name of the planet.
+    std::string getPlanetName( ) { return planetName_; }
+
     //! Function to retireve refresh step size of navigation system.
     double getNavigationRefreshStepSize( ) { return navigationRefreshStepSize_; }
 

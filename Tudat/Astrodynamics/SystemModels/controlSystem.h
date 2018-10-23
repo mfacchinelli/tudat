@@ -64,7 +64,8 @@ public:
      *  \param integralGain Vector denoting the integral gain for each of the imaginary quaternion elements.
      *  \param derivativeGain Vector denoting the derivative gain for each of the imaginary quaternion elements.
      */
-    ControlSystem( const Eigen::Vector3d& proportionalGain, const Eigen::Vector3d& integralGain,
+    ControlSystem( const Eigen::Vector3d& proportionalGain,
+                   const Eigen::Vector3d& integralGain,
                    const Eigen::Vector3d& derivativeGain ) :
         proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain )
     {
@@ -84,27 +85,22 @@ public:
      *  The commanded value of the derivative is zero. Note that the integral term is found by integrating numerically, with the
      *  extended Simpson formula. However, whenever the number of available points is less than or equal to 6, this function
      *  reverts to the simple trapezoidal integration.
-     *  \param currentEstimatedTranslationalState Current estimated translational Cartesian state.
      *  \param currentEstimatedQuaternion Current estimated quaternion to base frame.
      *  \param currentMeasuredRotationalVelocityVector Current measured rotational velocity vector.
      *  \param navigationRefreshStepSize Refresh step size of the navigation system.
-     *  \param currentMeanMotion Current mean motion as provided by the navigation system.
      */
-    void updateAttitudeController( const Eigen::Vector6d& currentEstimatedTranslationalState,
-                                   const Eigen::Vector4d& currentEstimatedQuaternion,
+    void updateAttitudeController( const Eigen::Vector4d& currentEstimatedQuaternion,
                                    const Eigen::Vector3d& currentMeasuredRotationalVelocityVector,
-                                   const double navigationRefreshStepSize,
-                                   const double currentMeanMotion )
+                                   const double navigationRefreshStepSize )
     {
         // Determine commanded quaternion
-        Eigen::Vector4d currentCommandedQuaternion = ( isSignToBeFlipped_ ? -1.0 : 1.0 ) *
-                computeCurrentCommandedQuaternion( currentEstimatedTranslationalState );
+        Eigen::Vector4d currentCommandedQuaternion = ( isSignToBeFlipped_ ? -1.0 : 1.0 ) * currentOrbitCommandedQuaternionState_;
 
         // Check if current quaternion signs match the previous time otherwise flip the sign
-        bool doesSignHistoryMatch = currentCommandedQuaternion.isApprox( -previousCommandedQuaternion_, 1e-1 );
+        bool doesSignHistoryMatch = currentCommandedQuaternion.isApprox( -previousCommandedQuaternion_, 1.0e-3 );
         if ( doesSignHistoryMatch )
         {
-            currentCommandedQuaternion *= -1.0;
+//            currentCommandedQuaternion *= -1.0;
         }
         isSignToBeFlipped_ = isSignToBeFlipped_ || doesSignHistoryMatch;
         previousCommandedQuaternion_ = currentCommandedQuaternion;
@@ -115,22 +111,17 @@ public:
         historyOfQuaternionErrors_.push_back( currentErrorInEstimatedQuaternion.segment( 1, 3 ) );
 
         // Compute difference between current and commanded derivative
-        Eigen::Vector4d currentCommandedQuaternionDerivative = computeCurrentCommandedQuaternionDerivative( currentEstimatedQuaternion,
-                                                                                                            currentCommandedQuaternion,
-                                                                                                            currentMeanMotion );
         Eigen::Vector4d currentErrorInEstimatedQuaternionDerivative =
-                computeErrorInEstimatedQuaternion( currentEstimatedQuaternion, currentCommandedQuaternionDerivative ) +
                 computeErrorInEstimatedQuaternion( calculateQuaternionDerivative( currentEstimatedQuaternion,
                                                                                   currentMeasuredRotationalVelocityVector ),
                                                    currentCommandedQuaternion );
 
 //        std::cout << "Current estimated quaternion: " <<
-//                      currentEstimatedQuaternion.transpose( ) << std::endl
+//                     currentEstimatedQuaternion.transpose( ) << std::endl
 //                  << "Current estimated derivative: "  <<
 //                     calculateQuaternionDerivative( currentEstimatedQuaternion,
 //                                                    currentMeasuredRotationalVelocityVector ).transpose( ) << std::endl
 //                  << "Commanded state: " << currentCommandedQuaternion.transpose( ) << std::endl
-//                  << "Commnaded derivative: " << currentCommandedQuaternionDerivative.transpose( ) << std::endl
 //                  << "Proportional: " <<
 //                     proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternion.segment( 1, 3 ) ).transpose( ) << std::endl
 //                  << "Integral: " <<
@@ -173,8 +164,23 @@ public:
     //! Function to retirieve the periapsis maneuver.
     Eigen::Vector3d getScheduledPeriapsisManeuver( ) { return scheduledPeriapsisManeuver_; }
 
+    //! Function to retrieve history of commanded quaternions.
+    std::map< unsigned int, Eigen::Vector4d > getHistoryOfCommandedQuaternions( ) { return historyOfCommandedQuaternionStates_; }
+
     //! Function to retrieve history of control vectors for the current orbit.
     std::vector< Eigen::Vector3d > getCurrentOrbitHistoryOfControlVectors( ) { return currentOrbitHistoryOfControlVectors_; }
+
+    //! Function to set the value of the current orbit counter.
+    void setCurrentOrbitCounter( const unsigned int currentOrbitCounter )
+    {
+        currentOrbitCounter_ = currentOrbitCounter;
+    }
+
+    //! Function to set the commanded quaternion based on periapsis conditions.
+    void setCommandedQuaternionBasedOnPeriapsisConditions( const Eigen::Vector6d& estimatedTranslationalStateAtPeriapsis )
+    {
+        currentOrbitCommandedQuaternionState_ = computeCurrentCommandedQuaternion( estimatedTranslationalStateAtPeriapsis );
+    }
 
     //! Clear history of control vectors for the current orbit.
     void clearCurrentOrbitControlHistory( )
@@ -205,18 +211,21 @@ private:
      *  y-axis is determined via the right-hand rule (i.e., with the cross product). The commanded state thus corresponds to a
      *  state with zero angle of attack, angle of side-slip and bank angle. Note that since the estimated state is used, the actual
      *  transformation can differ.
-     *  \param currentEstimatedTranslationalState Current estimated translational Cartesian state.
+     *  \param estimatedTranslationalStateAtPeriapsis Estimated translational Cartesian state at periapsis.
      *  \return Quaternion representing the estimated rotation from trajectory to inertial frame. Thus the commanded
      *      quaternion corresponds to a state with zero angle of attack, angle of side-slip and bank angle.
      */
-    Eigen::Vector4d computeCurrentCommandedQuaternion( const Eigen::Vector6d& currentEstimatedTranslationalState )
+    Eigen::Vector4d computeCurrentCommandedQuaternion( const Eigen::Vector6d& estimatedTranslationalStateAtPeriapsis )
     {
+        // Declare eventual ouptut vector
+        Eigen::Vector4d commandedQuaternion;
+
         // Declare direction cosine matrix
         Eigen::Matrix3d transformationFromInertialToTrajectoryFrame;
 
         // Find the trajectory x-axis unit vector
-        Eigen::Vector3d currentRadialVector = currentEstimatedTranslationalState.segment( 0, 3 );
-        Eigen::Vector3d xUnitVector = ( currentEstimatedTranslationalState.segment( 3, 3 ) -
+        Eigen::Vector3d currentRadialVector = estimatedTranslationalStateAtPeriapsis.segment( 0, 3 );
+        Eigen::Vector3d xUnitVector = ( estimatedTranslationalStateAtPeriapsis.segment( 3, 3 ) -
                                         7.07763225880808e-05 * Eigen::Vector3d::UnitZ( ).cross( currentRadialVector ) ).normalized( );
         transformationFromInertialToTrajectoryFrame.col( 0 ) = xUnitVector;
 
@@ -229,40 +238,12 @@ private:
         transformationFromInertialToTrajectoryFrame.col( 1 ) = zUnitVector.cross( xUnitVector );
 
         // Transform DCM to quaternion and give output
-        return linear_algebra::convertQuaternionToVectorFormat( Eigen::Quaterniond( transformationFromInertialToTrajectoryFrame ) );
+        commandedQuaternion = linear_algebra::convertQuaternionToVectorFormat(
+                    Eigen::Quaterniond( transformationFromInertialToTrajectoryFrame ) );
+        historyOfCommandedQuaternionStates_[ currentOrbitCounter_ ] = commandedQuaternion;
+        return commandedQuaternion;
         // note that due to the different rotation convention in Eigen, transforming the DCM with the constructor above
         // automatically takes the inverse of the rotation
-    }
-
-    //! Function to compute the current commanded quaternion derivative to base frame.
-    /*!
-     *  Function to compute the current commanded quaternion derivative to base frame. The derivative is computed by
-     *  assuming that the expected rotational velocity of the spacecraft is equal to the mean motion of the spacecraft.
-     *  With this assumption, the spacecraft attitude does not exactly match the commanded attitude (for elliptical orbits),
-     *  but it gives a close approximation, especially for the regions near peri- and apoapsis.
-     *  \param currentEstimatedQuaternion Current estimated quaternion to base frame.
-     *  \param transformationFromTrajectoryToInertialFrame
-     *  \param currentMeanMotion Current mean motion as provided by the navigation system.
-     *  \return Quaternion derivative representing the rotational rate equal to the mean motion of the spacecraft, applied
-     *      around the y-axis (body-fixed).
-     */
-    Eigen::Vector4d computeCurrentCommandedQuaternionDerivative( const Eigen::Vector4d& currentEstimatedQuaternion,
-                                                                 const Eigen::Vector4d& transformationFromInertialToTrajectoryFrame,
-                                                                 const double currentMeanMotion )
-    {
-        // Compute the mean motion in trajectory frame
-        Eigen::Vector3d expectedRotationalVelocityVector = Eigen::Vector3d::Zero( );
-        expectedRotationalVelocityVector[ 1 ] = currentMeanMotion;
-
-        // Transform the rotational velocity vector
-        expectedRotationalVelocityVector = (
-                    linear_algebra::convertVectorToQuaternionFormat(
-                        currentEstimatedQuaternion ).toRotationMatrix( ) *
-                    linear_algebra::convertVectorToQuaternionFormat( transformationFromInertialToTrajectoryFrame ).toRotationMatrix( ) ) *
-                expectedRotationalVelocityVector;
-
-        // Compute the expected derivative
-        return calculateQuaternionDerivative( currentEstimatedQuaternion, expectedRotationalVelocityVector );
     }
 
     //! Double denoting the proportional gain for the PID attitude controller.
@@ -280,6 +261,12 @@ private:
     //! Boolean denoting whether the sign of the quaternion needs to be flipped.
     bool isSignToBeFlipped_;
 
+    //! Integer denoting the value of the current orbit.
+    unsigned int currentOrbitCounter_;
+
+    //! Vector denoting the commanded quaternion based on periapsis conditions.
+    Eigen::Vector4d currentOrbitCommandedQuaternionState_;
+
     //! Vector denoting the current quaternion attitude correction.
     Eigen::Vector3d currentControlVector_;
 
@@ -288,6 +275,9 @@ private:
 
     //! Vector denoting the velocity change scheduled to be applied at periapsis.
     Eigen::Vector3d scheduledPeriapsisManeuver_;
+
+    //! History of commanded quaternion states.
+    std::map< unsigned int, Eigen::Vector4d > historyOfCommandedQuaternionStates_;
 
     //! History of errors in the estimated quaternion state.
     std::vector< Eigen::Vector3d > historyOfQuaternionErrors_;
