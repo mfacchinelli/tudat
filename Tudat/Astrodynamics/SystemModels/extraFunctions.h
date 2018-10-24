@@ -64,7 +64,8 @@ double areaBisectionFunction( const double currentTimeGuess, const double consta
 double maneuverBisectionFunction( const double currentMagnitudeGuess, const Eigen::Vector6d& initialEstimatedCartesianState,
                                   const double targetPeriapsisRadius, const Eigen::Matrix3d& transformationFromLocalToInertialFrame,
                                   const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-                                  std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction );
+                                  std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction,
+                                  const bool apoapsisMaenuverEstimation = true );
 
 //! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
 /*!

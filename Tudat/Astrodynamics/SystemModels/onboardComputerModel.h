@@ -95,7 +95,7 @@ public:
                 // Feed maneuver to the navigation system and update filter
                 performManeuverOnNextCall_ = false; // reset flag
                 navigationSystem_->runStateEstimator( currentExternalMeasurement,
-                                                      controlSystem_->getScheduledApoapsisManeuver( ) );
+                                                      controlSystem_->getScheduledApsisManeuver( ) );
             }
             else
             {
@@ -205,7 +205,7 @@ public:
                                                                 navigationSystem_->getStandardGravitationalParameter( ) );
 
                 // Feed maneuver to the control system
-                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ), false );
+                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
 
                 // Propagation is stopped to perform periapsis maneuver
                 isPropagationToBeStopped = true;
