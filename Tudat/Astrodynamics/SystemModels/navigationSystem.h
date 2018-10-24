@@ -123,7 +123,7 @@ public:
         // Populate atmospheric parameters estimates
         Eigen::MatrixXd atmosphericParameters = input_output::readMatrixFromFile(
                     "/Users/Michele/GitHub/tudat/tudatBundle/tudatApplications/Thesis/"
-                    "SimulationOutputTransOnlyReduced/atmosphericParameters.dat" );
+                    "SimulationOutputTransOnly/server/atmosphericParameters.dat" );
         unsigned int limitValue;
         if ( selectedOnboardAtmosphereModel_ == aerodynamics::exponential_atmosphere_model )
             limitValue = 3;

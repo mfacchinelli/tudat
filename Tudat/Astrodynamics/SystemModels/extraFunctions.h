@@ -95,7 +95,7 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
 //! Altitude correction function for guidance system corridor estimator.
 double correctionFactorForCorridorBoundaries( const double altitudeGuess, const Eigen::Vector2d& linearLeastSquaresEstimate );
 
-//! Class for control system of an aerobraking maneuver.
+//! Class for corridor estimator of an aerobraking maneuver.
 class CorridorEstimator
 {
 public:

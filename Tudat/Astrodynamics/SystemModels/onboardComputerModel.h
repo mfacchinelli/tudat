@@ -54,9 +54,10 @@ public:
 
         // Create guidance system objects
         guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
-        guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
-                                                                   navigationSystem_, _1, _2, -1.0 ),
-                                                      navigationSystem_->getStandardGravitationalParameter( ), navigationSystem_->getRadius( ) );
+        guidanceSystem_->createGuidanceSystemObjects(
+                    boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
+                                 navigationSystem_, _1, _2, -1.0 ),
+                    navigationSystem_->getStandardGravitationalParameter( ), navigationSystem_->getRadius( ) );
     }
 
     //! Destructor.
@@ -170,9 +171,9 @@ public:
                 }
 
                 // Run house keeping routines
-                if ( navigationSystem_->currentOrbitCounter_ != 135 )//125 )
+                if ( navigationSystem_->currentOrbitCounter_ != 133 )
                 {
-                    runHouseKeepingRoutines( );
+//                    runHouseKeepingRoutines( );
                 }
 
                 // Step up orbit counter

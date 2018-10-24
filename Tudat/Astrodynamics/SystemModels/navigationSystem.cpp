@@ -66,7 +66,7 @@ void NavigationSystem::createNavigationSystemObjects(
     // Set time-related parameters
     initialTime_ = 236455200.0;
     currentTime_ = navigationFilter_->getInitialTime( );
-    currentOrbitCounter_ = 135;//125;
+    currentOrbitCounter_ = 133;
     saveFrequency_ = saveFrequency;
     saveIndex_ = 0;
 
