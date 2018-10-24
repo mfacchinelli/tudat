@@ -102,8 +102,8 @@ void NavigationSystem::createNavigationSystemObjects(
     onboardIntegratorSettings_ = boost::make_shared< numerical_integrators::RungeKuttaVariableStepSizeSettingsScalarTolerances< double > >(
                 0.0, 10.0, numerical_integrators::RungeKuttaCoefficients::rungeKuttaFehlberg56, 0.1, 100.0, 1.0e-12, 1.0e-12 );
     onboardPropagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< double > >(
-                std::vector< std::string >( 1, planetName_ ), onboardAccelerationModelMap_,
-                std::vector< std::string >( 1, spacecraftName_ ), Eigen::Vector6d::Zero( ),
+                std::vector< std::string >{ planetName_ }, onboardAccelerationModelMap_,
+                std::vector< std::string >{ spacecraftName_ }, Eigen::Vector6d::Zero( ),
                 0.0, propagators::unified_state_model_exponential_map,
                 boost::make_shared< propagators::DependentVariableSaveSettings >( dependentVariablesList, false ) );
 }

@@ -15,11 +15,14 @@
 #include <tuple>
 #include <vector>
 
+#include <boost/lambda/lambda.hpp>
+
 #include <Eigen/Geometry>
 
 #include "Tudat/Basics/basicTypedefs.h"
 #include "Tudat/Basics/utilities.h"
 
+#include "Tudat/Astrodynamics/SystemModels/extraFunctions.h"
 #include "Tudat/Mathematics/RootFinders/bisection.h"
 #include "Tudat/SimulationSetup/PropagationSetup/propagationTerminationSettings.h"
 
@@ -40,7 +43,7 @@ public:
         walk_in_phase = 0,
         main_phase = 1,
         walk_out_phase = 2,
-        periapsis_raise_phase = 3,
+        termination_phase = 3,
         aerobraking_complete = 4
     };
 
@@ -64,11 +67,6 @@ public:
         maximumAllowedHeatRate_( maximumAllowedHeatRate ), maximumAllowedHeatLoad_( maximumAllowedHeatLoad ),
         minimumAllowedDynamicPressure_( minimumAllowedDynamicPressure ), minimumAllowedLifetime_( minimumAllowedLifetime )
     {
-        // Create root-finder object for bisection of periapsis altitude
-        // The values inserted are the tolerance in independent value (i.e., the percentage corresponding to 0.5 km difference at
-        // 100 km altitude) and the maximum number of iterations (i.e., 10 iterations)
-        altitudeBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( 0.5 / 100.0, 10 );
-
         // Create root-finder object for bisection of maneuver magnitude estimate
         // The values inserted are the tolerance in independent value (i.e., the percentage corresponding to 0.5 km difference at
         // 100 km altitude) and the maximum number of iterations (i.e., 10 iterations)
@@ -89,10 +87,21 @@ public:
     void createGuidanceSystemObjects(
             const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
             std::map< double, Eigen::VectorXd > > >( const boost::shared_ptr< propagators::PropagationTerminationSettings >,
-                const Eigen::Vector6d& ) >& statePropagationFunction )
+                const Eigen::Vector6d& ) >& statePropagationFunction,
+            const double planetaryGravitationalParameter, const double planetaryRadius )
     {
         // Create propagation function
         statePropagationFunction_ = statePropagationFunction;
+
+        // Create root-finder object for bisection of periapsis altitude
+        // The values inserted are the tolerance in independent value (i.e., the percentage corresponding to 0.5 km difference at
+        // 100 km altitude) and the maximum number of iterations (i.e., 10 iterations)
+        corridorEstimator_ = boost::make_shared< CorridorEstimator >( maximumAllowedHeatRate_, maximumAllowedHeatLoad_,
+                                                                      minimumAllowedDynamicPressure_, minimumAllowedLifetime_,
+                                                                      std::make_pair( 90.0e3, 130.0e3 ),
+                                                                      std::make_pair( 100.0e3, 140.0e3 ),
+                                                                      std::make_pair( 100.0e3, 130.0e3 ),
+                                                                      planetaryGravitationalParameter, planetaryRadius );
     }
 
     //! Function to determine in which aerobraking phase the spacecraft is currently in.
@@ -136,11 +145,11 @@ public:
         if ( ( computeCurrentFirstOrderEstimatedApoapsisRadius( currentEstimatedKeplerianState ) -
                planetaryRadius ) < 1.25 * targetApoapsisAltitude_ )
         {
-            detectedAerobrakingPhase = periapsis_raise_phase;
+            detectedAerobrakingPhase = termination_phase;
         }
 
         // Check whether aerobraking is complete
-        if ( previousAerobrakingPhase == periapsis_raise_phase )
+        if ( previousAerobrakingPhase == termination_phase )
         {
             detectedAerobrakingPhase = aerobraking_complete;
         }
@@ -352,8 +361,12 @@ private:
     //! Double denoting the minimum allowed predicted lifetime in days.
     const double minimumAllowedLifetime_;
 
-    //! Pointer to root-finder used to esimate the periapsis corridor altitudes.
-    boost::shared_ptr< root_finders::BisectionCore< double > > altitudeBisectionRootFinder_;
+    //! Function returning the multiplication factor to be used to correct for the difference between the Kepler orbit assumption
+    //! of the corridor estimator.
+    boost::function< double( const double ) > altitudeCorrectionFunction_;
+
+    //! Pointer to corridor estimator object.
+    boost::shared_ptr< CorridorEstimator > corridorEstimator_;
 
     //! Pointer to root-finder used to esimate the value of the apoapsis maneuver.
     boost::shared_ptr< root_finders::BisectionCore< double > > maneuverBisectionRootFinder_;

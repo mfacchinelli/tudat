@@ -2,7 +2,6 @@
 
 #include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
-#include "Tudat/Astrodynamics/SystemModels/extraFunctions.h"
 #include "Tudat/Mathematics/BasicMathematics/functionProxy.h"
 
 namespace tudat
@@ -33,7 +32,7 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
         periapsisTargetingInformation_ = std::make_tuple( true, targetPeriapsisAltitude_, targetPeriapsisAltitude_ );
         break;
     }
-    case periapsis_raise_phase:
+    case termination_phase:
     {
         // Inform user
         std::cout << std::endl << "Raising Periapsis To Target Value." << std::endl;
@@ -132,7 +131,7 @@ void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& curren
     double estimatedApoapsisManeuverMagnitude;
     if ( improveEstimateWithBisection &&
          ( std::fabs( preliminaryApoapsisManeuverMagnitude ) > 0.15 ) && // 0.15 N is an empirical value
-         ( currentOrbitAerobrakingPhase_ != periapsis_raise_phase ) )
+         ( currentOrbitAerobrakingPhase_ != termination_phase ) )
     {
         // Try using root-finder to improve estimate
         try
@@ -279,52 +278,45 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     double estimatedLowerAltitudeBound;
     if ( useHeatAsLowerBoundaryThreshold )
     {
-        // Set root-finder boundaries for the lower altitude limits
-        altitudeBisectionRootFinder_->resetBoundaries( 90.0e3, 130.0e3 );
-
-        // Set root-finder function as the heat rate and heat load calculator
-        // Add scaling if spacecraft is in walk-in or walk-out phases
-        estimatedLowerAltitudeBound = periapsisAltitudeScaling_ * altitudeBisectionRootFinder_->execute(
-                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                        boost::bind( &lowerAltitudeBisectionFunctionBasedOnHeatingConditions, _1, currentEstimatedKeplerianState,
-                                     planetaryRadius, planetaryGravitationalParameter, maximumAllowedHeatRate_, maximumAllowedHeatLoad_,
-                                     periodReducedStatePropagationFunction_ ) ) );
+        // Compute lower altitude bound based on heat rate and heat load
+        // Add scaling if spacecraft is in walk-in phase
+        estimatedLowerAltitudeBound = periapsisAltitudeScaling_ * corridorEstimator_->estimateCorridorBoundary(
+                    CorridorEstimator::lower_heating, currentEstimatedKeplerianState, periodReducedStatePropagationFunction_ );
     }
     else
     {
-        // Set root-finder boundaries for the lower altitude limits
-        altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 140.0e3 );
-
-        // Set root-finder function as the lifetime calculator
-        estimatedLowerAltitudeBound = altitudeBisectionRootFinder_->execute(
-                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                        boost::bind( &lowerAltitudeBisectionFunctionBasedOnLifetimeCondition, _1, currentEstimatedKeplerianState,
-                                     planetaryRadius, planetaryGravitationalParameter, minimumAllowedLifetime_,
-                                     lifetimeReducedStatePropagationFunction_ ) ) );
+        // Compute lower altitude bound based on lifetime
+        // Add scaling if spacecraft is in walk-in phase
+        estimatedLowerAltitudeBound = periapsisAltitudeScaling_ * corridorEstimator_->estimateCorridorBoundary(
+                    CorridorEstimator::lower_lifetime, currentEstimatedKeplerianState, lifetimeReducedStatePropagationFunction_ );
     }
-    std::cout << "Lower boundary: " << estimatedLowerAltitudeBound / 1.0e3 << " km" << std::endl;
 
     // Compute upper bound of corridor based on dynamic pressure, or load from cache
     double estimatedUpperAltitudeBound;
     if ( useHeatAsLowerBoundaryThreshold )
     {
-        // Set root-finder boundaries for the upper altitude limits
-        altitudeBisectionRootFinder_->resetBoundaries( 100.0e3, 130.0e3 );
-
-        // Set root-finder function as the dynamic pressure calculator
-        // Add scaling if spacecraft is in walk-in or walk-out phases
-        estimatedUpperAltitudeBound = periapsisAltitudeScaling_ * altitudeBisectionRootFinder_->execute(
-                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
-                        boost::bind( &upperAltitudeBisectionFunction, _1, currentEstimatedKeplerianState, planetaryRadius,
-                                     planetaryGravitationalParameter, minimumAllowedDynamicPressure_,
-                                     periodReducedStatePropagationFunction_ ) ) );
+        // Compute upper altitude bound based on dynamic pressure
+        // Add scaling if spacecraft is in walk-in phase
+        estimatedUpperAltitudeBound = periapsisAltitudeScaling_ * corridorEstimator_->estimateCorridorBoundary(
+                    CorridorEstimator::upper, currentEstimatedKeplerianState, periodReducedStatePropagationFunction_ );
     }
     else
     {
         // Use value from previous computation (the corridor estimator with heating conditions is always run first)
         estimatedUpperAltitudeBound = historyOfEstimatedPeriapsisCorridorBoundaries_[ currentOrbitCounter_ ].second;
     }
-    std::cout << "Upper boundary: " << estimatedUpperAltitudeBound / 1.0e3 << " km" << std::endl;
+
+    // Correct result for difference between Keplerian assumption and reality
+    altitudeCorrectionFunction_ = corridorEstimator_->getPeriapsisAltitudeCorrectionFunction( );
+    estimatedLowerAltitudeBound *= altitudeCorrectionFunction_( estimatedLowerAltitudeBound );
+    std::cout << "Lower alt corr: " << altitudeCorrectionFunction_( estimatedLowerAltitudeBound ) << std::endl;
+    if ( useHeatAsLowerBoundaryThreshold ) // do not correct twice (if loaded from cache, correction has already been applied)
+    {
+        estimatedUpperAltitudeBound *= altitudeCorrectionFunction_( estimatedUpperAltitudeBound );
+        std::cout << "Upper alt corr: " << altitudeCorrectionFunction_( estimatedUpperAltitudeBound ) << std::endl;
+    }
+    std::cout << "Lower boundary: " << estimatedLowerAltitudeBound / 1.0e3 << " km" << std::endl
+              << "Upper boundary: " << estimatedUpperAltitudeBound / 1.0e3 << " km" << std::endl;
 
     // Check that lower altitude bound is indeed lower
     if ( estimatedLowerAltitudeBound > estimatedUpperAltitudeBound )

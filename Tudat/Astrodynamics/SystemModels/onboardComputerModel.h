@@ -55,7 +55,8 @@ public:
         // Create guidance system objects
         guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
         guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
-                                                                   navigationSystem_, _1, _2, -1.0 ) );
+                                                                   navigationSystem_, _1, _2, -1.0 ),
+                                                      navigationSystem_->getStandardGravitationalParameter( ), navigationSystem_->getRadius( ) );
     }
 
     //! Destructor.
@@ -190,7 +191,7 @@ public:
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
             // Check aerobraking phase and true anomaly to see if periapsis maneuvering phase
-            else if ( guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::periapsis_raise_phase ) &&
+            else if ( guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::termination_phase ) &&
                       ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) && !atmosphericPhaseComplete_ )
             {
                 // Inform user

@@ -3,13 +3,12 @@
 #include "Tudat/Basics/utilities.h"
 
 #include "Tudat/Astrodynamics/Aerodynamics/customConstantTemperatureAtmosphere.h"
-#include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
-#include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
 #include "Tudat/Astrodynamics/BasicAstrodynamics/unitConversions.h"
-#include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
+#include "Tudat/Mathematics/BasicMathematics/functionProxy.h"
 #include "Tudat/Mathematics/BasicMathematics/mathematicalConstants.h"
 #include "Tudat/Mathematics/BasicMathematics/nearestNeighbourSearch.h"
 #include "Tudat/Mathematics/BasicMathematics/numericalDerivative.h"
+#include "Tudat/Mathematics/NumericalQuadrature/trapezoidQuadrature.h"
 
 namespace tudat
 {
@@ -33,128 +32,6 @@ double areaBisectionFunction( const double currentTimeGuess, const double consta
 
     // Return difference in areas
     return upperSliceQuadratureResult - lowerSliceQuadratureResult;
-}
-
-//! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
-double lowerAltitudeBisectionFunctionBasedOnHeatingConditions(
-        const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
-        const double planetaryRadius, const double planetaryGravitationalParameter,
-        const double maximumHeatRate, const double maximumHeatLoad,
-        const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-        std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction )
-{
-    // Copy initial Keplerian state
-    Eigen::Vector6d initialKeplerianState = initialEstimatedKeplerianState;
-
-    // Modify initial state to match new estimated periapsis altitude
-    double estimatedApoapsisRadius = basic_astrodynamics::computeKeplerRadialDistance(
-                initialKeplerianState[ 0 ], initialKeplerianState[ 1 ], initialKeplerianState[ 5 ] );
-    double semiMajorAxis = 0.5 * ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
-    double eccentricity = ( estimatedApoapsisRadius - currentAltitudeGuess - planetaryRadius ) /
-            ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
-    initialKeplerianState[ 0 ] = semiMajorAxis;
-    initialKeplerianState[ 1 ] = eccentricity;
-
-    // Propagate orbit to new condition and retrieve heating conditions
-    std::map< double, Eigen::VectorXd > heatingConditions =
-            statePropagationFunction( orbital_element_conversions::convertKeplerianToCartesianElements(
-                                          initialKeplerianState, planetaryGravitationalParameter ) ).second.second;
-
-    // Separate time and heat rate and find maximum heat rate
-    unsigned int i = 0;
-    std::vector< double > historyOfTimes;
-    Eigen::VectorXd historyOfHeatRates;
-    historyOfHeatRates.resize( heatingConditions.size( ) );
-    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = heatingConditions.begin( );
-          mapIterator != heatingConditions.end( ); mapIterator++, i++ )
-    {
-        historyOfTimes.push_back( mapIterator->first );
-        historyOfHeatRates[ i ] = mapIterator->second[ 1 ];
-    }
-    double heatRate = historyOfHeatRates.maxCoeff( );
-
-    // Compute heat load by integrating heat flux
-    double heatLoad = numerical_quadrature::performTrapezoidalQuadrature(
-                historyOfTimes, utilities::convertEigenVectorToStlVector( historyOfHeatRates ) );
-
-    // Compute offsets w.r.t. maximum allowed heat rate and heat load
-    double offsetInHeatRate = heatRate - maximumHeatRate;
-    double offsetInHeatLoad = heatLoad - maximumHeatLoad;
-
-    // Return value to to indicate closeness to limiting value
-    return ( offsetInHeatRate > offsetInHeatLoad ) ? offsetInHeatRate : offsetInHeatLoad;
-}
-
-//! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
-double lowerAltitudeBisectionFunctionBasedOnLifetimeCondition(
-        const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
-        const double planetaryRadius, const double planetaryGravitationalParameter, const double minimumLifetime,
-        const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-        std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction )
-{
-    // Copy initial Keplerian state
-    Eigen::Vector6d initialKeplerianState = initialEstimatedKeplerianState;
-
-    // Modify initial state to match new estimated periapsis altitude
-    double estimatedPeriapsisRadius = currentAltitudeGuess + planetaryRadius;
-    double estimatedApoapsisRadius = basic_astrodynamics::computeKeplerRadialDistance(
-                initialKeplerianState[ 0 ], initialKeplerianState[ 1 ], initialKeplerianState[ 5 ] );
-    double semiMajorAxis = 0.5 * ( estimatedApoapsisRadius + estimatedPeriapsisRadius );
-    double eccentricity = ( estimatedApoapsisRadius - estimatedPeriapsisRadius ) / ( estimatedApoapsisRadius + estimatedPeriapsisRadius );
-    initialKeplerianState[ 0 ] = semiMajorAxis;
-    initialKeplerianState[ 1 ] = eccentricity;
-
-    // Propagate orbit to new condition and retrieve heating conditions
-    std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-            std::map< double, Eigen::VectorXd > > > propagationResult = statePropagationFunction(
-                orbital_element_conversions::convertKeplerianToCartesianElements(
-                    initialKeplerianState, planetaryGravitationalParameter ) );
-
-    // Give propagation a score based on lifetime
-    double actualLifetime = ( propagationResult.second.first.rbegin( )->first - propagationResult.second.first.begin( )->first ) /
-            physical_constants::JULIAN_DAY;
-
-    // Return value to to indicate closeness to limiting value
-    return actualLifetime - minimumLifetime;
-}
-
-//! Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
-double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
-                                       const double planetaryRadius, const double planetaryGravitationalParameter,
-                                       const double minimumDynamicPressure,
-                                       const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-                                       std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction )
-{
-    // Copy initial Keplerian state
-    Eigen::Vector6d initialKeplerianState = initialEstimatedKeplerianState;
-
-    // Modify initial state to match new estimated periapsis altitude
-    double estimatedApoapsisRadius = basic_astrodynamics::computeKeplerRadialDistance(
-                initialKeplerianState[ 0 ], initialKeplerianState[ 1 ], initialKeplerianState[ 5 ] );
-    double semiMajorAxis = 0.5 * ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
-    double eccentricity = ( estimatedApoapsisRadius - currentAltitudeGuess - planetaryRadius ) /
-            ( estimatedApoapsisRadius + currentAltitudeGuess + planetaryRadius );
-    initialKeplerianState[ 0 ] = semiMajorAxis;
-    initialKeplerianState[ 1 ] = eccentricity;
-
-    // Propagate orbit to new condition and retrieve heating conditions
-    std::map< double, Eigen::VectorXd > heatingConditions =
-            statePropagationFunction( orbital_element_conversions::convertKeplerianToCartesianElements(
-                                          initialKeplerianState, planetaryGravitationalParameter ) ).second.second;
-
-    // Separate time and heat rate and find maximum heat rate
-    unsigned int i = 0;
-    Eigen::VectorXd historyOfDynamicPressures;
-    historyOfDynamicPressures.resize( heatingConditions.size( ) );
-    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = heatingConditions.begin( );
-          mapIterator != heatingConditions.end( ); mapIterator++, i++ )
-    {
-        historyOfDynamicPressures[ i ] = mapIterator->second[ 0 ];
-    }
-    double dynamicPressure = historyOfDynamicPressures.maxCoeff( );
-
-    // Return maximum value of dynamic pressure w.r.t. threshold value
-    return dynamicPressure - minimumDynamicPressure;
 }
 
 //! Function to be used as input to the root-finder to determine the magnitude of the apoapsis maneuver.
@@ -265,6 +142,167 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunc
 
     // Return acceleration and design matrix as pair
     return std::make_pair( expectedDensity, jacobianMatrix );
+}
+
+//! Altitude correction function for guidance system corridor estimator.
+double correctionFactorForCorridorBoundaries( const double altitudeGuess, const Eigen::Vector2d& linearLeastSquaresEstimate )
+{
+    return 1.0 / ( linearLeastSquaresEstimate[ 0 ] + linearLeastSquaresEstimate[ 1 ] * altitudeGuess );
+}
+
+//! Function to run the estimator for the specified corridor boundary.
+double CorridorEstimator::estimateCorridorBoundary(
+        const BoundaryType typeOfBoundaryToEstimate, const Eigen::Vector6d& initialEstimatedKeplerianState,
+        const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
+        std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction )
+{
+    // Set root-finder boundaries and compute altitude value
+    double estimatedAltitudeBound;
+    switch ( typeOfBoundaryToEstimate )
+    {
+    case lower_heating:
+        // Set boundaries
+        altitudeBisectionRootFinder_->resetBoundaries( boundariesForLowerAltitudeBasedOnHeating_.first,
+                                                       boundariesForLowerAltitudeBasedOnHeating_.second );
+
+        // Compute estimate via bisection root-finder
+        estimatedAltitudeBound = altitudeBisectionRootFinder_->execute(
+                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                        boost::bind( &CorridorEstimator::lowerAltitudeBisectionFunctionBasedOnHeatingConditions, this, _1,
+                                     initialEstimatedKeplerianState, statePropagationFunction ) ) );
+        break;
+    case lower_lifetime:
+        // Set boundaries
+        altitudeBisectionRootFinder_->resetBoundaries( boundariesForLowerAltitudeBasedOnLifetime_.first,
+                                                       boundariesForLowerAltitudeBasedOnLifetime_.second );
+
+        // Compute estimate via bisection root-finder
+        estimatedAltitudeBound = altitudeBisectionRootFinder_->execute(
+                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                        boost::bind( &CorridorEstimator::lowerAltitudeBisectionFunctionBasedOnLifetimeCondition, this, _1,
+                                     initialEstimatedKeplerianState, statePropagationFunction ) ) );
+        break;
+    case upper:
+        // Set boundaries
+        altitudeBisectionRootFinder_->resetBoundaries( boundariesForUpperAltitude_.first, boundariesForUpperAltitude_.second );
+
+        // Compute estimate via bisection root-finder
+        estimatedAltitudeBound = altitudeBisectionRootFinder_->execute(
+                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                        boost::bind( &CorridorEstimator::upperAltitudeBisectionFunction, this, _1,
+                                     initialEstimatedKeplerianState, statePropagationFunction ) ) );
+        break;
+    }
+
+    // Give output
+    return estimatedAltitudeBound;
+}
+
+//! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
+double CorridorEstimator::lowerAltitudeBisectionFunctionBasedOnHeatingConditions(
+        const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
+        const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
+        std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction )
+{
+    // Propagate orbit to new condition and retrieve heating conditions
+    std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > propagationResult =
+            propagateStateWithAltitudeGuess( currentAltitudeGuess, initialEstimatedKeplerianState, statePropagationFunction );
+    std::map< double, Eigen::VectorXd > trajectory = propagationResult.first;
+    std::map< double, Eigen::VectorXd > heatingConditions = propagationResult.second;
+
+    // Separate time and heat rate and find maximum heat rate
+    unsigned int i = 0;
+    std::vector< double > historyOfTimes;
+    Eigen::VectorXd historyOfHeatRates;
+    historyOfHeatRates.resize( heatingConditions.size( ) );
+    Eigen::VectorXd historyOfAltitudes;
+    historyOfAltitudes.resize( trajectory.size( ) );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = heatingConditions.begin( );
+          mapIterator != heatingConditions.end( ); mapIterator++, i++ )
+    {
+        historyOfTimes.push_back( mapIterator->first );
+        historyOfHeatRates[ i ] = mapIterator->second[ 1 ];
+        historyOfAltitudes[ i ] = trajectory[ mapIterator->first ].segment( 0, 3 ).norm( ) - planetaryRadius_;
+    }
+    double heatRate = historyOfHeatRates.maxCoeff( );
+
+    // Compute heat load by integrating heat flux
+    double heatLoad = numerical_quadrature::performTrapezoidalQuadrature(
+                historyOfTimes, utilities::convertEigenVectorToStlVector( historyOfHeatRates ) );
+
+    // Compute offsets w.r.t. maximum allowed heat rate and heat load
+    double offsetInHeatRate = heatRate - maximumHeatRate_;
+    double offsetInHeatLoad = heatLoad - maximumHeatLoad_;
+
+    // Extract and store actual periapsis
+    historyOfPeriapsisInformation_.push_back( std::make_pair( currentAltitudeGuess, historyOfAltitudes.minCoeff( ) ) );
+
+    // Return value to to indicate closeness to limiting value
+    return ( offsetInHeatRate > offsetInHeatLoad ) ? offsetInHeatRate : offsetInHeatLoad;
+}
+
+//! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
+double CorridorEstimator::lowerAltitudeBisectionFunctionBasedOnLifetimeCondition(
+        const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
+        const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
+        std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction )
+{
+    // Propagate orbit to new condition and retrieve heating conditions
+    std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > propagationResult =
+            propagateStateWithAltitudeGuess( currentAltitudeGuess, initialEstimatedKeplerianState, statePropagationFunction );
+    std::map< double, Eigen::VectorXd > trajectory = propagationResult.first;
+
+    // Extract history of altitudes
+    unsigned int i = 0;
+    Eigen::VectorXd historyOfAltitudes;
+    historyOfAltitudes.resize( trajectory.size( ) );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = trajectory.begin( );
+          mapIterator != trajectory.end( ); mapIterator++, i++ )
+    {
+        historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius_;
+    }
+
+    // Extract and store actual periapsis
+    historyOfPeriapsisInformation_.push_back( std::make_pair( currentAltitudeGuess, historyOfAltitudes.minCoeff( ) ) );
+
+    // Give propagation a score based on lifetime
+    double actualLifetime = ( trajectory.rbegin( )->first - trajectory.begin( )->first ) / physical_constants::JULIAN_DAY;
+
+    // Return value to to indicate closeness to limiting value
+    return actualLifetime - minimumLifetime_;
+}
+
+//! Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
+double CorridorEstimator::upperAltitudeBisectionFunction(
+        const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
+        const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
+        std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction )
+{
+    // Propagate orbit to new condition and retrieve heating conditions
+    std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > propagationResult =
+            propagateStateWithAltitudeGuess( currentAltitudeGuess, initialEstimatedKeplerianState, statePropagationFunction );
+    std::map< double, Eigen::VectorXd > trajectory = propagationResult.first;
+    std::map< double, Eigen::VectorXd > heatingConditions = propagationResult.second;
+
+    // Separate time and heat rate and find maximum heat rate
+    unsigned int i = 0;
+    Eigen::VectorXd historyOfDynamicPressures;
+    historyOfDynamicPressures.resize( heatingConditions.size( ) );
+    Eigen::VectorXd historyOfAltitudes;
+    historyOfAltitudes.resize( trajectory.size( ) );
+    for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = heatingConditions.begin( );
+          mapIterator != heatingConditions.end( ); mapIterator++, i++ )
+    {
+        historyOfDynamicPressures[ i ] = mapIterator->second[ 0 ];
+        historyOfAltitudes[ i ] = trajectory[ mapIterator->first ].segment( 0, 3 ).norm( ) - planetaryRadius_;
+    }
+    double dynamicPressure = historyOfDynamicPressures.maxCoeff( );
+
+    // Extract and store actual periapsis
+    historyOfPeriapsisInformation_.push_back( std::make_pair( currentAltitudeGuess, historyOfAltitudes.minCoeff( ) ) );
+
+    // Return maximum value of dynamic pressure w.r.t. threshold value
+    return dynamicPressure - minimumDynamicPressure_;
 }
 
 } // namespace system_models
