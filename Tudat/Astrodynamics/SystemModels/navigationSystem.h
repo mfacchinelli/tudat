@@ -69,6 +69,20 @@ public:
     //! Constructor.
     /*!
      *  Constructor for the navigation system of an aerobraking maneuver.
+     *  \param onboardBodyMap
+     *  \param onboardAccelerationModelMap
+     *  \param spacecraftName
+     *  \param planetName
+     *  \param navigationFilterSettings
+     *  \param selectedOnboardAtmosphereModel
+     *  \param atmosphericInterfaceAltitude
+     *  \param reducedAtmosphericInterfaceAltitude
+     *  \param periapseEstimatorConstant
+     *  \param numberOfRequiredAtmosphereSamplesForInitiation
+     *  \param frequencyOfDeepSpaceNetworkTracking
+     *  \param altimeterPointingDirectionInAltimeterFrame
+     *  \param altimeterFrame
+     *  \param altimeterAltitudeRange
      */
     NavigationSystem( const simulation_setup::NamedBodyMap& onboardBodyMap,
                       const basic_astrodynamics::AccelerationMap& onboardAccelerationModelMap,
@@ -268,7 +282,7 @@ public:
      *  reducing the accelerations to only the values that are measured below the atmospheric interface altitude. The
      *  post-atmosphere processes are carried out in the following order:
      *      - post-process accelerations: calibrate (if atmosphere estimator is not initialized) and remove accelerometer errors
-     *      - run PTE only if atmosphere estimator (AE) is initialized
+     *      - run PTE only if ... (TBD)
      *      - run AE to estimate atmospheric properties
      *  \param mapOfMeasuredAerodynamicAcceleration Map of time and measured aerodynamic acceleration as measured by the IMU, i.e.,
      *      before any errors have been removed.
@@ -762,6 +776,24 @@ public:
                 currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.rbegin( )->second;
         currentEstimatedNonGravitationalTranslationalAcceleration_ =
                 currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.rbegin( )->second;
+    }
+
+    //! Function to test the Periapse Time Estimator.
+    void testPeriapseTimeEstimator(
+            std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+            const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
+    {
+        runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                  vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+    }
+
+    //! Function to test the Atmosphere Estimator.
+    void testAtmosphereEstimator(
+            std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+            const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
+    {
+        runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
     }
 
     //! Integer denoting the current orbit counter.

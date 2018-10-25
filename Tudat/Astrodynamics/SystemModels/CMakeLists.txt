@@ -18,6 +18,7 @@ set(SYSTEMMODELS_HEADERS
   "${SRCROOT}${SYSTEMMODELSDIR}/navigationSystem.h"
   "${SRCROOT}${SYSTEMMODELSDIR}/onboardComputerModel.h"
   "${SRCROOT}${SYSTEMMODELSDIR}/vehicleSystems.h"
+  "${SRCROOT}${SYSTEMMODELSDIR}/UnitTests/generators.h"
 )
 
 set(SYSTEMMODELS_SOURCES
@@ -33,3 +34,19 @@ add_library(tudat_system_models STATIC ${SYSTEMMODELS_SOURCES} ${SYSTEMMODELS_HE
 setup_tudat_library_target(tudat_system_models "${SRCROOT}${SYSTEMMODELSDIR}")
 set_target_properties(tudat_system_models PROPERTIES LINKER_LANGUAGE CXX)
 
+# Add unit tests
+add_executable(test_InstrumentsModel "${SRCROOT}${SYSTEMMODELSDIR}/UnitTests/unitTestInstrumentsModel.cpp")
+setup_custom_test_program(test_InstrumentsModel "${SRCROOT}${SYSTEMMODELSDIR}")
+target_link_libraries(test_InstrumentsModel ${TUDAT_PROPAGATION_LIBRARIES} ${TUDAT_ESTIMATION_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(test_NavigationSystem "${SRCROOT}${SYSTEMMODELSDIR}/UnitTests/unitTestNavigationSystem.cpp")
+setup_custom_test_program(test_NavigationSystem "${SRCROOT}${SYSTEMMODELSDIR}")
+target_link_libraries(test_NavigationSystem ${TUDAT_PROPAGATION_LIBRARIES} ${TUDAT_ESTIMATION_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(test_GuidanceSystem "${SRCROOT}${SYSTEMMODELSDIR}/UnitTests/unitTestGuidanceSystem.cpp")
+setup_custom_test_program(test_GuidanceSystem "${SRCROOT}${SYSTEMMODELSDIR}")
+target_link_libraries(test_GuidanceSystem ${TUDAT_PROPAGATION_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(test_ControlSystem "${SRCROOT}${SYSTEMMODELSDIR}/UnitTests/unitTestControlSystem.cpp")
+setup_custom_test_program(test_ControlSystem "${SRCROOT}${SYSTEMMODELSDIR}")
+target_link_libraries(test_ControlSystem ${TUDAT_PROPAGATION_LIBRARIES} ${Boost_LIBRARIES})

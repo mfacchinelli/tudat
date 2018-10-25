@@ -66,6 +66,12 @@ public:
         deepSpaceNetworkAdded_ = false;
         genericRangingSystemAdded_ = false;
 
+        // Set initial values to NaN
+        currentTranslationalAcceleration_.setConstant( TUDAT_NAN );
+        currentRotationalVelocity_.setConstant( TUDAT_NAN );
+        currentAltitude_ = std::vector< Eigen::Vector3d >( );
+        currentPosition_.setConstant( TUDAT_NAN );
+
         // Get index of central body acceleration (which is not measured by the IMUs)
         sphericalHarmonicsGravityIndex_ = static_cast< unsigned int >( TUDAT_NAN );
         thirdBodyGravityIndex_ = static_cast< unsigned int >( TUDAT_NAN );

@@ -26,7 +26,6 @@ namespace tudat
 namespace simulation_setup
 {
 
-
 //! Class for providing settings for acceleration model.
 /*!
  *  Class for providing settings for acceleration model. This class is a functional (base) class for

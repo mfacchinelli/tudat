@@ -72,7 +72,7 @@ void NavigationSystem::createNavigationSystemObjects(
 
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );
-    atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 20.0;
+    atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 5.0;
     Eigen::Vector9d initialNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
 
     // Set initial translational state
@@ -299,10 +299,10 @@ void NavigationSystem::runPeriapseTimeEstimator(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
 
     input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "~/TudatResults/" );
+                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "PTE&AEResults/" );
     input_output::writeMatrixToFile(
                 utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "~/TudatResults/" );
+                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "PTE&AEResults/" );
 
     // Determine actual periapse time
     double estimatedActualPeriapseTime;
@@ -436,7 +436,7 @@ void NavigationSystem::runAtmosphereEstimator(
 
     input_output::writeMatrixToFile(
                 utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                "acceleration" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "~/TudatResults/" );
+                "acceleration" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "PTE&AEResults/" );
 
     // Convert estimated aerodynamic acceleration to estimated atmospheric density and compute altitude below atmospheric interface
     unsigned int i = 0;
@@ -470,9 +470,9 @@ void NavigationSystem::runAtmosphereEstimator(
                 utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowAtmosphericInterface );
 
         input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface,
-                                         "density" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "~/TudatResults/" );
+                                         "density" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "PTE&AEResults/" );
         input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface,
-                                         "altitude" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "~/TudatResults/" );
+                                         "altitude" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "PTE&AEResults/" );
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );
