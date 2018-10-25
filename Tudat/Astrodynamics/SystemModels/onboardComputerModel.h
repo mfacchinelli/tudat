@@ -54,9 +54,10 @@ public:
 
         // Create guidance system objects
         guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
-        guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
-                                                                   navigationSystem_, _1, _2, -1.0 ),
-                                                      navigationSystem_->getStandardGravitationalParameter( ), navigationSystem_->getRadius( ) );
+        guidanceSystem_->createGuidanceSystemObjects(
+                    boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
+                                 navigationSystem_, _1, _2, -1.0 ),
+                    navigationSystem_->getStandardGravitationalParameter( ), navigationSystem_->getRadius( ) );
     }
 
     //! Destructor.
@@ -94,7 +95,7 @@ public:
                 // Feed maneuver to the navigation system and update filter
                 performManeuverOnNextCall_ = false; // reset flag
                 navigationSystem_->runStateEstimator( currentExternalMeasurement,
-                                                      controlSystem_->getScheduledApoapsisManeuver( ) );
+                                                      controlSystem_->getScheduledApsisManeuver( ) );
             }
             else
             {
@@ -204,7 +205,7 @@ public:
                                                                 navigationSystem_->getStandardGravitationalParameter( ) );
 
                 // Feed maneuver to the control system
-                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ), false );
+                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
 
                 // Propagation is stopped to perform periapsis maneuver
                 isPropagationToBeStopped = true;

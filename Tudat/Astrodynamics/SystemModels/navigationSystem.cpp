@@ -406,7 +406,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
 
     // Update navigation system state estimates
     std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;
-//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState, currentNavigationFilterCovarianceMatrix );
+//    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState );
 
 //    // Correct history of Keplerian elements by removing error in true anomaly
 //    for ( std::map< double, Eigen::Vector6d >::iterator

@@ -57,7 +57,8 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
             historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
         }
         double predictedPeriapsisAltitude = historyOfAltitudes.minCoeff( );
-        std::cout << "Predicted periapsis altitude: " << predictedPeriapsisAltitude / 1.0e3 << " km" << std::endl;
+        std::cout << "Predicted periapsis altitude: " << predictedPeriapsisAltitude / 1.0e3 << " km" << std::endl
+                  << "Target periapsis altitude: " << targetPeriapsisAltitude_ / 1.0e3 << " km" << std::endl;
 
         // Save periapsis corridor altitudes to history
         historyOfEstimatedPeriapsisCorridorBoundaries_[ currentOrbitCounter_ ] = std::make_pair( TUDAT_NAN, TUDAT_NAN );
@@ -145,7 +146,7 @@ void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& curren
                         boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
                             boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState,
                                          std::get< 2 >( periapsisTargetingInformation_ ) + planetaryRadius,
-                                         transformationFromLocalToInertialFrame, periodReducedStatePropagationFunction_ ) ) );
+                                         transformationFromLocalToInertialFrame, periodReducedStatePropagationFunction_, true ) ) );
             std::cout << "Improved estimate: " << estimatedApoapsisManeuverMagnitude << " m/s" << std::endl
                       << "Ratio: " << estimatedApoapsisManeuverMagnitude / preliminaryApoapsisManeuverMagnitude << std::endl;
         }
@@ -188,18 +189,15 @@ void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
     // Create propagation termination settings based on period and lifetime to be used throughout the function
     double periodTerminationTime = currentTime + 2.0 / 3.0 *
             basic_astrodynamics::computeKeplerOrbitalPeriod( currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter );
-//    boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
-//            boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
-
-    std::vector< boost::shared_ptr< propagators::PropagationTerminationSettings > > terminationSettingsList;
-    terminationSettingsList.push_back( boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime ) );
-    terminationSettingsList.push_back( boost::make_shared< propagators::PropagationCPUTimeTerminationSettings >( 360.0 ) );
     boost::shared_ptr< propagators::PropagationTerminationSettings > periodTerminationSettings =
-            boost::make_shared< propagators::PropagationHybridTerminationSettings >( terminationSettingsList, true );
+            boost::make_shared< propagators::PropagationTimeTerminationSettings >( periodTerminationTime );
+
+    // Create reduced state propagation functions where termination settings are already set
+    periodReducedStatePropagationFunction_ = boost::bind( statePropagationFunction_, periodTerminationSettings, _1 );
 
     // Propagate state for two thirds of the orbit
     std::map< double, Eigen::VectorXd > nominalPropagatedState =
-            statePropagationFunction_( periodTerminationSettings, currentEstimatedCartesianState ).second.first;
+            periodReducedStatePropagationFunction_( currentEstimatedCartesianState ).second.first;
 
     // Retrieve periapsis altitude
     unsigned int i = 0;
@@ -211,7 +209,8 @@ void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
         historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
     }
     double predictedApoapsisAltitude = historyOfAltitudes.maxCoeff( );
-    std::cout << "Predicted apoapsis altitude: " << predictedApoapsisAltitude / 1.0e3 << " km" << std::endl;
+    std::cout << "Predicted apoapsis altitude: " << predictedApoapsisAltitude / 1.0e3 << " km" << std::endl
+              << "Target apoapsis altitude: " << targetApoapsisAltitude_ / 1.0e3 << " km" << std::endl;
 
     // Set apoapsis maneuver vector to zero
     scheduledApsisManeuver_.setZero( );
@@ -220,13 +219,40 @@ void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
     double differenceInApoapsisAltitude = targetApoapsisAltitude_ - predictedApoapsisAltitude;
 
     // Compute estimated maneuver in y-direction of local orbit frame
-    double estimatedPeriapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInApoapsisAltitude * std::sqrt(
+    double preliminaryPeriapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInApoapsisAltitude * std::sqrt(
                 ( 1.0 - currentEstimatedKeplerianState[ 1 ] ) / ( 1.0 + currentEstimatedKeplerianState[ 1 ] ) );
-    std::cout << "Magnitude: " << estimatedPeriapsisManeuverMagnitude << " m/s" << std::endl;
+    std::cout << "Preliminary magnitude: " << preliminaryPeriapsisManeuverMagnitude << " m/s" << std::endl;
 
     // Compute transformation from local to inertial frame
     Eigen::Matrix3d transformationFromLocalToInertialFrame =
             computeCurrentRotationFromLocalToInertialFrame( currentEstimatedCartesianState );
+
+    // Try using root-finder to improve estimate
+    double estimatedPeriapsisManeuverMagnitude;
+    try
+    {
+        // Set root-finder boundaries for the maneuver estimation
+        maneuverBisectionRootFinder_->resetBoundaries( 2.0 * preliminaryPeriapsisManeuverMagnitude,
+                                                       0.5 * preliminaryPeriapsisManeuverMagnitude );
+
+        // Set root-finder function as the heat rate and heat load calculator
+        estimatedPeriapsisManeuverMagnitude = maneuverBisectionRootFinder_->execute(
+                    boost::make_shared< basic_mathematics::FunctionProxy< double, double > >(
+                        boost::bind( &maneuverBisectionFunction, _1, currentEstimatedCartesianState, targetApoapsisAltitude_ + planetaryRadius,
+                                     transformationFromLocalToInertialFrame, periodReducedStatePropagationFunction_, false ) ) );
+        std::cout << "Improved estimate: " << estimatedPeriapsisManeuverMagnitude << " m/s" << std::endl
+                  << "Ratio: " << estimatedPeriapsisManeuverMagnitude / preliminaryPeriapsisManeuverMagnitude << std::endl;
+    }
+    catch ( std::runtime_error& caughtException )
+    {
+        // Inform user on error
+        std::cerr << "Error while computing improved estimate for periapsis maneuver. Caught this exception during root-finder "
+                     "operation: " << caughtException.what( ) << std::endl
+                  << "The preliminary magnitude will be used to carry out the maneuver." << std::endl;
+
+        // Take preliminary magnitude as maneuver magnitude
+        estimatedPeriapsisManeuverMagnitude = preliminaryPeriapsisManeuverMagnitude;
+    }
 
     // Add magnitude to maneuver vector and save to hisotry
     scheduledApsisManeuver_[ 1 ] = estimatedPeriapsisManeuverMagnitude;
