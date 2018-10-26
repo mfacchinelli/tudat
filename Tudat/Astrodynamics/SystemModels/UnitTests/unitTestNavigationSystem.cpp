@@ -260,14 +260,6 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
                     orbital_element_conversions::convertCartesianToKeplerianElements( finalState, standardGravitationalParameters ) -
                     orbital_element_conversions::convertCartesianToKeplerianElements( initialState, standardGravitationalParameters );
 
-            std::cout << "Previous: " << orbital_element_conversions::convertCartesianToKeplerianElements(
-                             initialState, standardGravitationalParameters ).transpose( ) << std::endl
-                      << "Current: " << orbital_element_conversions::convertCartesianToKeplerianElements< double >(
-                             numericalIntegrationInterpolator->interpolate( timeAtDAIA ),
-                             standardGravitationalParameters ).transpose( ) << std::endl
-                      << "Next: " << orbital_element_conversions::convertCartesianToKeplerianElements(
-                             finalState, standardGravitationalParameters ).transpose( ) << std::endl;
-
             // Check how close the estimates are
             std::cout << "Actual: ";
             const std::vector< unsigned int > indicesToCheck = { 0, 1 };
@@ -291,17 +283,6 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
 
 BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
 {
-    // Expected results
-    std::map< std::tuple< unsigned int, unsigned int, unsigned int >, std::pair< double, double > > expectedResults;
-    expectedResults[ { 0, 0, 0 } ] = { -0.765026547209958, 1.31583846986147 };
-    expectedResults[ { 0, 0, 1 } ] = { -0.740769780829461, 3.98142882969108 };
-    expectedResults[ { 0, 1, 0 } ] = { -0.7548723576166, 2.54764862007878 };
-    expectedResults[ { 0, 1, 1 } ] = { -0.799875652105309, 3.0534113745639 };
-    expectedResults[ { 2, 0, 0 } ] = { -0.761742398031845, 1.31617390007452 };
-    expectedResults[ { 2, 0, 1 } ] = { -0.731284595857299, 4.01316556176618 };
-    expectedResults[ { 2, 1, 0 } ] = { -0.737521490108276, 2.72903166215168 };
-    expectedResults[ { 2, 1, 1 } ] = { -0.784575862911139, 3.17126418088939 };
-
     // Loop over various atmosphere models
     for ( unsigned int atmosphereModel = testAtmospheres.first; atmosphereModel < testAtmospheres.second; atmosphereModel++ )
     {

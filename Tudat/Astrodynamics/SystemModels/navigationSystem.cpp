@@ -350,24 +350,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // note that this represents directly the error in estimated true anomaly, since the true anomaly at
     // periapsis is zero by definition
 
-    // Propagate state to apoapsis to see what will be the value of semi-major axis and eccentricity
-    boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
-            boost::make_shared< propagators::PropagationDependentVariableTerminationSettings >(
-                boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
-                    propagators::keplerian_state_dependent_variable, spacecraftName_, planetName_, 5 ),
-                mathematical_constants::PI, false, true,
-                boost::make_shared< root_finders::RootFinderSettings >( root_finders::bisection_root_finder, 0.001, 25 ) );
-
-    Eigen::Vector6d estimatedCartesianStateAtNextApoapsis =
-            propagateTranslationalStateWithCustomTerminationSettings( terminationSettings ).second.first.rbegin( )->second;
-    Eigen::Vector6d estimatedKeplerianStateAtNextApoapsis =
-            orbital_element_conversions::convertCartesianToKeplerianElements(
-                estimatedCartesianStateAtNextApoapsis, planetaryGravitationalParameter_ );
-
-    std::cout << "Previous: " << estimatedKeplerianStateAtPreviousApoapsis_.transpose( ) << std::endl
-              << "Current: " << currentEstimatedKeplerianState_.transpose( ) << std::endl
-              << "Next: " << estimatedKeplerianStateAtNextApoapsis.transpose( ) << std::endl;
-
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double estimatedChangeInVelocity = - periapseEstimatorConstant_ * numerical_quadrature::performExtendedSimpsonsQuadrature(
                 atmosphericNavigationRefreshStepSize_, vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -386,13 +368,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
     std::cout << "Estimated Change in Semi-major Axis: " <<
                  estimatedChangeInSemiMajorAxisDueToChangeInVelocity << " m" << std::endl;
 
-    // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
-    double estimatedChangeInSemiMajorAxisFromKeplerianStateHistory =
-            estimatedKeplerianStateAtNextApoapsis[ 0 ] - estimatedKeplerianStateAtPreviousApoapsis_[ 0 ];
-    double estimatedErrorInSemiMajorAxis = estimatedChangeInSemiMajorAxisFromKeplerianStateHistory -
-            estimatedChangeInSemiMajorAxisDueToChangeInVelocity;
-    std::cout << "Estimated Error in Semi-major Axis: " << estimatedErrorInSemiMajorAxis << " m" << std::endl;
-
     // Compute estimated change in eccentricity due to change in velocity
     // The same assumption as for the case above holds
     double estimatedChangeInEccentricityDueToChangeInVelocity = 2.0 * std::sqrt( estimatedKeplerianStateAtPreviousApoapsis_[ 0 ] *
@@ -401,13 +376,6 @@ void NavigationSystem::runPeriapseTimeEstimator(
     std::cout << "Estimated Change in Eccentricity: " <<
                  estimatedChangeInEccentricityDueToChangeInVelocity << std::endl;
 
-    // Get estimated chagne in semi-major axis from estimated Keplerian state and find estimated error in semi-major axis
-    double estimatedChangeInEccentricityFromKeplerianStateHistory =
-            estimatedKeplerianStateAtNextApoapsis[ 1 ] - estimatedKeplerianStateAtPreviousApoapsis_[ 1 ];
-    double estimatedErrorInEccentricity = estimatedChangeInEccentricityFromKeplerianStateHistory -
-            estimatedChangeInEccentricityDueToChangeInVelocity;
-    std::cout << "Estimated Error in Eccentricity: " << estimatedErrorInEccentricity << std::endl;
-
     // Store estimated change in Keplerian elements
     Eigen::Vector6d estimatedChangeInKeplerianState = Eigen::Vector6d::Zero( );
     estimatedChangeInKeplerianState[ 0 ] = estimatedChangeInSemiMajorAxisDueToChangeInVelocity;
@@ -415,19 +383,14 @@ void NavigationSystem::runPeriapseTimeEstimator(
     estimatedChangeInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
     historyOfEstimatedChangesInKeplerianState_[ currentOrbitCounter_ ] = estimatedChangeInKeplerianState;
 
-    // Combine errors to produce a vector of estimated error in Keplerian state
-    Eigen::Vector6d estimatedErrorInKeplerianState = Eigen::Vector6d::Zero( );
-    estimatedErrorInKeplerianState[ 0 ] = estimatedErrorInSemiMajorAxis;
-    estimatedErrorInKeplerianState[ 1 ] = estimatedErrorInEccentricity;
-    estimatedErrorInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
-    historyOfEstimatedErrorsInKeplerianState_[ currentOrbitCounter_ ] = estimatedErrorInKeplerianState;
-
-    // Compute updated estimate in Keplerian state at current time by removing the estimated error
-    Eigen::Vector6d updatedCurrentKeplerianState = currentEstimatedKeplerianState_;
-    updatedCurrentKeplerianState -= estimatedErrorInKeplerianState;
-    // the updated state is initially defined as the one with semi-major axis and eccentricity from the time before the
+    // Compute updated estimate in Keplerian state at current time by removing the estimated change in elements
+    Eigen::Vector6d updatedCurrentKeplerianState;
+    updatedCurrentKeplerianState.segment( 0, 2 ) = estimatedKeplerianStateAtPreviousApoapsis_.segment( 0, 2 );
+    updatedCurrentKeplerianState.segment( 3, 4 ) = currentEstimatedKeplerianState_.segment( 3, 4 );
+    updatedCurrentKeplerianState += estimatedChangeInKeplerianState;
+    // the updated state is initially defined as the one with semi-major axis and eccentricity from the apoapsis before the
     // atmospheric pass and inclination, right ascension of ascending node, argument of periapsis and true anomaly from the
-    // latest estimate; then the error in semi-major axis, eccentricity and true anomaly is subtracted
+    // latest estimate; then the change in semi-major axis, eccentricity and true anomaly is added
 
     // Update navigation system state estimates
     std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;

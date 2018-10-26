@@ -1215,9 +1215,6 @@ private:
     //! History of estimated changes in Keplerian state as computed by the Periapse Time Estimator for each orbit.
     std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedChangesInKeplerianState_;
 
-    //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
-    std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;
-
     //! Boolean denoting whether the atmosphere estimator has been initialized.
     /*!
      *  Boolean denoting whether the atmosphere estimator has been initialized. Note that the initialization is assumed to

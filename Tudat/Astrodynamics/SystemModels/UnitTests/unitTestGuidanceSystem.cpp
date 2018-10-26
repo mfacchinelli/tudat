@@ -31,6 +31,16 @@ namespace unit_tests
 
 BOOST_AUTO_TEST_SUITE( test_guidance_system )
 
+//BOOST_AUTO_TEST_CASE( testGuidancePhase )
+//{
+
+//}
+
+//BOOST_AUTO_TEST_CASE( testCorridorEstimator )
+//{
+
+//}
+
 BOOST_AUTO_TEST_SUITE_END( )
 
 }
