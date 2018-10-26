@@ -24,9 +24,10 @@ namespace aerodynamics
 {
 
 //! Function that is used to compute the net heat flux from a given heat input and wall temperature
-class EquilibriumTemperatureFunction: public basic_mathematics::Function<double,double>
+class EquilibriumTemperatureFunction: public basic_mathematics::Function< double, double >
 {
 public:
+
     //! Constructor.
     /*!
      * Constructor
@@ -42,7 +43,7 @@ public:
        adiabaticWallTemperature_( adiabaticWallTemperature ){ }
 
     //! Destructor.
-    ~EquilibriumTemperatureFunction(){}
+    ~EquilibriumTemperatureFunction( ){ }
 
     //! Compute net heat flux at given wall temperature
     /*!
@@ -52,22 +53,20 @@ public:
      */
     double evaluate( const double currentWallTemperature )
     {
-        return heatTransferFunction_( currentWallTemperature )
-                - wallEmissivity_ * electro_magnetism::computeBlackbodyRadiationIntensity( currentWallTemperature );
+        return heatTransferFunction_( currentWallTemperature ) -
+                wallEmissivity_ * electro_magnetism::computeBlackbodyRadiationIntensity( currentWallTemperature );
     }
 
     //! Compute first derivative of net heat flux at given wall temperature (FUNCTION NOT IMPLEMENTED)
     double computeDerivative( const unsigned int order, const double independentVariable )
     {
         throw std::runtime_error( "Error, derivative of heat flux not defined" );
-        return TUDAT_NAN;
     }
 
     //! Compute first derivative of net heat flux at given wall temperature (FUNCTION NOT IMPLEMENTED)
     double computeDefiniteIntegral( const unsigned int order, const double lowerBound, const double upperbound )
     {
         throw std::runtime_error( "Error, integrall of heat flux not defined" );
-        return TUDAT_NAN;
     }
 
     //! Function to retrieve the lower bound of the wall temperature.
@@ -82,6 +81,7 @@ public:
 protected:
 
 private:
+
     //! Function that returns the heat input as a function of wall temperature.
     std::function< double( const double ) > heatTransferFunction_;
 
@@ -90,6 +90,7 @@ private:
 
     //! Constant adiabatic wall temperature.
     double adiabaticWallTemperature_;
+
 };
 
 //! Function to compute the equilibrium wall temperature from the heat input and emmisivity

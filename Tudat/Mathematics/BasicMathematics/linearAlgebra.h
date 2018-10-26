@@ -15,9 +15,8 @@
 #define TUDAT_LINEAR_ALGEBRA_H
 
 #include <map>
-
-#include <functional>
 #include <vector>
+#include <functional>
 
 #include <Eigen/Core>
 #include <Eigen/SVD>
