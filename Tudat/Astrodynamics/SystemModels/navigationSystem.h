@@ -94,7 +94,8 @@ public:
                       const unsigned int frequencyOfDeepSpaceNetworkTracking,
                       const std::vector< Eigen::Vector3d >& altimeterPointingDirectionInAltimeterFrame = std::vector< Eigen::Vector3d >( ),
                       const reference_frames::AerodynamicsReferenceFrames altimeterFrame = reference_frames::inertial_frame,
-                      const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ) ) :
+                      const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ),
+                      const bool testing = false ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
         selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel ),
@@ -106,7 +107,7 @@ public:
         numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation ),
         frequencyOfDeepSpaceNetworkTracking_( frequencyOfDeepSpaceNetworkTracking ),
         altimeterPointingDirectionInAltimeterFrame_( altimeterPointingDirectionInAltimeterFrame ),
-        altimeterFrame_( altimeterFrame ), altimeterAltitudeRange_( altimeterAltitudeRange )
+        altimeterFrame_( altimeterFrame ), altimeterAltitudeRange_( altimeterAltitudeRange ), testing_( testing )
     {
         // Get indeces of accelerations of interest
         for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
@@ -216,7 +217,7 @@ public:
         if ( ( previousNavigationPhase_ == aided_navigation_phase ) && ( currentNavigationPhase_ == unaided_navigation_phase ) )
         {
             // Improve state estimate if passing from aided to unaided
-//            improveStateEstimateOnNavigationPhaseTransition( );
+            //            improveStateEstimateOnNavigationPhaseTransition( );
         }
         else if ( ( previousNavigationPhase_ == unaided_navigation_phase ) && ( currentNavigationPhase_ == aided_navigation_phase ) )
         {
@@ -314,8 +315,8 @@ public:
                 vectorOfMeasuredAerodynamicAccelerationBelowAtmosphericInterface.push_back(
                             mapOfMeasuredAerodynamicAcceleration.at( currentIterationTime ) );
 
-                // Modify the true anomaly such that it is negative where it is above PI radians (before estimated periapsis)
-                if ( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] >= PI )
+                // Modify the true anomaly such that it is negative above PI radians (before estimated periapsis)
+                if ( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] > PI )
                 {
                     mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ currentIterationTime ][ 5 ] -= 2.0 * PI;
                 }
@@ -337,7 +338,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-//            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
+            //            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -606,6 +607,12 @@ public:
         return historyOfEstimatedStates_;
     }
 
+    //! Function to retrive history of estimated changes in Keplerian elements due to aerodynamic acceleration.
+    std::map< unsigned int, Eigen::Vector6d > getHistoryOfEstimatedChangesInKeplerianElements( )
+    {
+        return historyOfEstimatedChangesInKeplerianState_;
+    }
+
     //! Function to retrieve history of estimated atmosphere parameters.
     std::map< unsigned int, Eigen::VectorXd > getHistoryOfEstimatedAtmosphereParameters( )
     {
@@ -641,6 +648,9 @@ public:
 
     //! Function to retireve the atmospheric interface radius of the body being orbited.
     double getAtmosphericInterfaceRadius( ) { return atmosphericInterfaceRadius_; }
+
+    //! Function to retireve the reduced atmospheric interface radius of the body being orbited.
+    double getReducedAtmosphericInterfaceRadius( ) { return reducedAtmosphericInterfaceRadius_; }
 
     //! Function to retireve the frequency (in days) with which Deep Space Network tracking has to be performed.
     unsigned int getFrequencyOfDeepSpaceNetworkTracking( ) { return frequencyOfDeepSpaceNetworkTracking_; }
@@ -720,9 +730,9 @@ public:
     //! Reset navigation filter integration step size.
     void resetNavigationRefreshStepSize( const double newNavigationRefreshStepSize )
     {
-        atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
         navigationRefreshStepSize_ = newNavigationRefreshStepSize;
         navigationFilter_->modifyFilteringStepSize( newNavigationRefreshStepSize );
+        atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
     }
 
     //! Function to clear history of estimated states and accelerations for the current orbit.
@@ -779,21 +789,69 @@ public:
     }
 
     //! Function to test the Periapse Time Estimator.
-    void testPeriapseTimeEstimator(
+    Eigen::Vector6d testPeriapseTimeEstimator(
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                  vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+        // Only run if testing
+        if ( testing_ )
+        {
+            using mathematical_constants::PI;
+
+            // Modify the true anomaly such that it is negative above PI radians (before estimated periapsis)
+            for ( std::map< double, Eigen::Vector6d >::iterator mapIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
+                  mapIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); mapIterator++ )
+            {
+                if ( mapIterator->second[ 5 ] > PI )
+                {
+                    mapIterator->second[ 5 ] -= 2.0 * PI;
+                }
+            }
+
+            // Run Periapse Time Estimator with inputs
+            runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                      vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+
+            // Return estimated change in Keplerian elements
+            return historyOfEstimatedChangesInKeplerianState_.rbegin( )->second;
+        }
+        else
+        {
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
+        }
     }
 
     //! Function to test the Atmosphere Estimator.
-    void testAtmosphereEstimator(
+    Eigen::VectorXd testAtmosphereEstimator(
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+        // Only run if testing
+        if ( testing_ )
+        {
+            using mathematical_constants::PI;
+
+            // Modify the true anomaly such that it is negative above PI radians (before estimated periapsis)
+            for ( std::map< double, Eigen::Vector6d >::iterator mapIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
+                  mapIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); mapIterator++ )
+            {
+                if ( mapIterator->second[ 5 ] > PI )
+                {
+                    mapIterator->second[ 5 ] -= 2.0 * PI;
+                }
+            }
+
+            // Run Atmosphere Estimator with inputs
+            runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                    vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+
+            // Return estimated atmosphere parameters
+            return historyOfEstimatedAtmosphereParameters_.rbegin( )->second;
+        }
+        else
+        {
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
+        }
     }
 
     //! Integer denoting the current orbit counter.
@@ -1046,6 +1104,9 @@ private:
     //! Pair denoting the lowest and highest operation altitudes of the altimeter.
     const std::pair< double, double > altimeterAltitudeRange_;
 
+    //! Boolean denoting whether the navigation system is being tested.
+    const bool testing_;
+
     //! Integer denoting the frequency with which state estimates need to be stored in history.
     unsigned int saveFrequency_;
 
@@ -1150,6 +1211,9 @@ private:
 
     //! Vector denoting the bias and scale errors of the accelerometer after calibration.
     Eigen::Vector3d estimatedAccelerometerErrors_;
+
+    //! History of estimated changes in Keplerian state as computed by the Periapse Time Estimator for each orbit.
+    std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedChangesInKeplerianState_;
 
     //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
     std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;

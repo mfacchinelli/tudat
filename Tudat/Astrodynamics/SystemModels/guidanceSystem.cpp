@@ -335,11 +335,9 @@ void GuidanceSystem::estimateCorridorBoundaries( const double currentTime,
     // Correct result for difference between Keplerian assumption and reality
     altitudeCorrectionFunction_ = corridorEstimator_->getPeriapsisAltitudeCorrectionFunction( );
     estimatedLowerAltitudeBound *= altitudeCorrectionFunction_( estimatedLowerAltitudeBound );
-    std::cout << "Lower alt corr: " << altitudeCorrectionFunction_( estimatedLowerAltitudeBound ) << std::endl;
     if ( useHeatAsLowerBoundaryThreshold ) // do not correct twice (if loaded from cache, correction has already been applied)
     {
         estimatedUpperAltitudeBound *= altitudeCorrectionFunction_( estimatedUpperAltitudeBound );
-        std::cout << "Upper alt corr: " << altitudeCorrectionFunction_( estimatedUpperAltitudeBound ) << std::endl;
     }
     std::cout << "Lower boundary: " << estimatedLowerAltitudeBound / 1.0e3 << " km" << std::endl
               << "Upper boundary: " << estimatedUpperAltitudeBound / 1.0e3 << " km" << std::endl;

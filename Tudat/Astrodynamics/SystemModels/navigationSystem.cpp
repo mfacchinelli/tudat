@@ -72,8 +72,20 @@ void NavigationSystem::createNavigationSystemObjects(
 
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );
-    atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 5.0;
     Eigen::Vector9d initialNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+
+    // Set atmospheric phase step size
+    double areaBisectionTimeRelativeTolerance;
+    if ( testing_ )
+    {
+        atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_;
+        areaBisectionTimeRelativeTolerance = 2.0 * atmosphericNavigationRefreshStepSize_ / currentTime_ / 5.0;
+    }
+    else
+    {
+        atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_ / 5.0;
+        areaBisectionTimeRelativeTolerance = 2.0 * atmosphericNavigationRefreshStepSize_ / currentTime_;
+    }
 
     // Set initial translational state
     setCurrentEstimatedCartesianState( initialNavigationFilterState.segment( cartesian_position_index, 6 ) );
@@ -88,8 +100,7 @@ void NavigationSystem::createNavigationSystemObjects(
     // Create root-finder object for bisection of aerodynamic acceleration curve
     // The values inserted are the tolerance in independent value (i.e., about twice the difference between
     // two time steps) and the maximum number of iterations (i.e., 25 iterations)
-    areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >(
-                2.0 * atmosphericNavigationRefreshStepSize_ / currentTime_, 25 );
+    areaBisectionRootFinder_ = boost::make_shared< root_finders::BisectionCore< double > >( areaBisectionTimeRelativeTolerance, 25 );
 
     // Create object of dependent variables to save
     std::vector< boost::shared_ptr< propagators::SingleDependentVariableSaveSettings > > dependentVariablesList;
@@ -298,11 +309,14 @@ void NavigationSystem::runPeriapseTimeEstimator(
     areaBisectionRootFinder_->resetBoundaries(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
 
-    input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                          "kepler_" + std::to_string( currentOrbitCounter_ ) + ".dat", "PTE&AEResults/" );
-    input_output::writeMatrixToFile(
-                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                "aero_" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "PTE&AEResults/" );
+    // If testing, store results so that they can be compared to MATLAB
+    if ( testing_ )
+    {
+        input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface, "kepler_est.dat", "PTE&AEResults/" );
+        input_output::writeMatrixToFile(
+                    utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
+                    "aero.dat", 16, "PTE&AEResults/" );
+    }
 
     // Determine actual periapse time
     double estimatedActualPeriapseTime;
@@ -333,7 +347,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
                 estimatedActualPeriapseTime );
     std::cout << "Estimated Error in True Anomaly: " <<
                  unit_conversions::convertRadiansToDegrees( estimatedErrorInTrueAnomaly ) << " deg" << std::endl;
-    // note that this represents directly the error in estimated true anomaly, since the true anomaly of
+    // note that this represents directly the error in estimated true anomaly, since the true anomaly at
     // periapsis is zero by definition
 
     // Propagate state to apoapsis to see what will be the value of semi-major axis and eccentricity
@@ -349,6 +363,10 @@ void NavigationSystem::runPeriapseTimeEstimator(
     Eigen::Vector6d estimatedKeplerianStateAtNextApoapsis =
             orbital_element_conversions::convertCartesianToKeplerianElements(
                 estimatedCartesianStateAtNextApoapsis, planetaryGravitationalParameter_ );
+
+    std::cout << "Previous: " << estimatedKeplerianStateAtPreviousApoapsis_.transpose( ) << std::endl
+              << "Current: " << currentEstimatedKeplerianState_.transpose( ) << std::endl
+              << "Next: " << estimatedKeplerianStateAtNextApoapsis.transpose( ) << std::endl;
 
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double estimatedChangeInVelocity = - periapseEstimatorConstant_ * numerical_quadrature::performExtendedSimpsonsQuadrature(
@@ -389,6 +407,13 @@ void NavigationSystem::runPeriapseTimeEstimator(
     double estimatedErrorInEccentricity = estimatedChangeInEccentricityFromKeplerianStateHistory -
             estimatedChangeInEccentricityDueToChangeInVelocity;
     std::cout << "Estimated Error in Eccentricity: " << estimatedErrorInEccentricity << std::endl;
+
+    // Store estimated change in Keplerian elements
+    Eigen::Vector6d estimatedChangeInKeplerianState = Eigen::Vector6d::Zero( );
+    estimatedChangeInKeplerianState[ 0 ] = estimatedChangeInSemiMajorAxisDueToChangeInVelocity;
+    estimatedChangeInKeplerianState[ 1 ] = estimatedChangeInEccentricityDueToChangeInVelocity;
+    estimatedChangeInKeplerianState[ 5 ] = estimatedErrorInTrueAnomaly;
+    historyOfEstimatedChangesInKeplerianState_[ currentOrbitCounter_ ] = estimatedChangeInKeplerianState;
 
     // Combine errors to produce a vector of estimated error in Keplerian state
     Eigen::Vector6d estimatedErrorInKeplerianState = Eigen::Vector6d::Zero( );
@@ -434,10 +459,6 @@ void NavigationSystem::runAtmosphereEstimator(
     std::vector< double > vectorOfEstimatedAtmosphericDensitiesBelowAtmosphericInterface;
     std::vector< double > vectorOfEstimatedAltitudesBelowAtmosphericInterface;
 
-    input_output::writeMatrixToFile(
-                utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                "acceleration" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "PTE&AEResults/" );
-
     // Convert estimated aerodynamic acceleration to estimated atmospheric density and compute altitude below atmospheric interface
     unsigned int i = 0;
     double currentRadialDistance;
@@ -469,10 +490,15 @@ void NavigationSystem::runAtmosphereEstimator(
         Eigen::VectorXd estimatedAltitudesBelowAtmosphericInterface =
                 utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowAtmosphericInterface );
 
-        input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface,
-                                         "density" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "PTE&AEResults/" );
-        input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface,
-                                         "altitude" + std::to_string( currentOrbitCounter_ ) + ".dat", 16, "PTE&AEResults/" );
+        // If testing, store results so that they can be compared to MATLAB
+        if ( testing_ )
+        {
+            input_output::writeMatrixToFile(
+                        utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
+                        "acceleration.dat", 16, "PTE&AEResults/" );
+            input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface, "density.dat", 16, "PTE&AEResults/" );
+            input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface, "altitude.dat", 16, "PTE&AEResults/" );
+        }
 
         // Find periapsis altitude
         double estimatedPeriapsisAltitude = estimatedAltitudesBelowAtmosphericInterface.minCoeff( );

@@ -207,8 +207,9 @@ public:
         spice_interface::loadStandardSpiceKernels( );
 
         // Simulation times
-        simulationStartEpoch_ = 1.0e3;
-        const double simulationEndEpoch = simulationStartEpoch_ + 1.0;
+        simulationStartEpoch_ = 7.0 * tudat::physical_constants::JULIAN_YEAR +
+                30.0 * 6.0 * tudat::physical_constants::JULIAN_DAY;
+        const double simulationEndEpoch = simulationStartEpoch_ + 1.4 * tudat::physical_constants::JULIAN_DAY;
 
         // Set body names
         spacecraftName_ = "Satellite";
@@ -323,7 +324,8 @@ public:
                     navigationFilterSettings, selectedOnboardAtmosphereModel_,
                     atmosphericInterfaceAltitude, reducedAtmosphericInterfaceAltitude,
                     periapseEstimatorConstant, numberOfRequiredAtmosphereSamplesForInitiation,
-                    frequencyOfDeepSpaceNetworkTracking );
+                    frequencyOfDeepSpaceNetworkTracking, std::vector< Eigen::Vector3d >( ), reference_frames::inertial_frame,
+                    std::make_pair( TUDAT_NAN, TUDAT_NAN ), true );
 
         // Complete navigation system
         navigationSystem_->createNavigationSystemObjects( 1, boost::lambda::constant( Eigen::Vector3d::Zero( ) ) );
@@ -387,14 +389,14 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     // Load Spice kernels.
     spice_interface::loadStandardSpiceKernels( );
 
-    // Set simulation time settings.
+    // Set simulation time settings
     const double simulationStartEpoch = 7.0 * tudat::physical_constants::JULIAN_YEAR +
             30.0 * 6.0 * tudat::physical_constants::JULIAN_DAY;
     double simulationEndEpoch = simulationStartEpoch;
     switch ( testCase )
     {
     case 0:
-        simulationEndEpoch += 1.5 * tudat::physical_constants::JULIAN_DAY;
+        simulationEndEpoch += 1.4 * tudat::physical_constants::JULIAN_DAY;
         break;
     case 1:
         simulationEndEpoch += 0.113 * tudat::physical_constants::JULIAN_DAY;
@@ -548,7 +550,7 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     // Dependent variables
     std::vector< boost::shared_ptr< SingleDependentVariableSaveSettings > > dependentVariables;
     dependentVariables.push_back( boost::make_shared< SingleAccelerationDependentVariableSaveSettings >(
-                    basic_astrodynamics::aerodynamic, "Satellite", "Mars", true ) );
+                    basic_astrodynamics::aerodynamic, "Satellite", "Mars", false ) );
     dependentVariables.push_back( boost::make_shared< SingleDependentVariableSaveSettings >(
                                       local_density_dependent_variable, "Satellite", "Mars" ) );
 
