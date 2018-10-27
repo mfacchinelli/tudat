@@ -83,6 +83,7 @@ public:
      *  \param altimeterPointingDirectionInAltimeterFrame
      *  \param altimeterFrame
      *  \param altimeterAltitudeRange
+     *  \param navigationTesting
      */
     NavigationSystem( const simulation_setup::NamedBodyMap& onboardBodyMap,
                       const basic_astrodynamics::AccelerationMap& onboardAccelerationModelMap,
@@ -95,7 +96,7 @@ public:
                       const std::vector< Eigen::Vector3d >& altimeterPointingDirectionInAltimeterFrame = std::vector< Eigen::Vector3d >( ),
                       const reference_frames::AerodynamicsReferenceFrames altimeterFrame = reference_frames::inertial_frame,
                       const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ),
-                      const bool testing = false ) :
+                      const bool navigationTesting = false ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
         selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel ),
@@ -107,8 +108,14 @@ public:
         numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation ),
         frequencyOfDeepSpaceNetworkTracking_( frequencyOfDeepSpaceNetworkTracking ),
         altimeterPointingDirectionInAltimeterFrame_( altimeterPointingDirectionInAltimeterFrame ),
-        altimeterFrame_( altimeterFrame ), altimeterAltitudeRange_( altimeterAltitudeRange ), testing_( testing )
+        altimeterFrame_( altimeterFrame ), altimeterAltitudeRange_( altimeterAltitudeRange ), navigationTesting_( navigationTesting )
     {
+        // Inform user
+        if ( navigationTesting_ )
+        {
+            std::cerr << "Warning in navigation system. Navigation system testing is active." << std::endl;
+        }
+
         // Get indeces of accelerations of interest
         for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
               accelerationMapConstantIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
@@ -793,8 +800,8 @@ public:
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        // Only run if testing
-        if ( testing_ )
+        // Only run if navigationTesting
+        if ( navigationTesting_ )
         {
             using mathematical_constants::PI;
 
@@ -817,7 +824,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
+            throw std::runtime_error( "Error in navigation system. This function can only be run while navigationTesting." );
         }
     }
 
@@ -826,8 +833,8 @@ public:
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        // Only run if testing
-        if ( testing_ )
+        // Only run if navigationTesting
+        if ( navigationTesting_ )
         {
             using mathematical_constants::PI;
 
@@ -850,7 +857,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
+            throw std::runtime_error( "Error in navigation system. This function can only be run while navigationTesting." );
         }
     }
 
@@ -1105,7 +1112,7 @@ private:
     const std::pair< double, double > altimeterAltitudeRange_;
 
     //! Boolean denoting whether the navigation system is being tested.
-    const bool testing_;
+    const bool navigationTesting_;
 
     //! Integer denoting the frequency with which state estimates need to be stored in history.
     unsigned int saveFrequency_;

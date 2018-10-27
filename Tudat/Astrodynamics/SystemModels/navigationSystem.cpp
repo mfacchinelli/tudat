@@ -76,7 +76,7 @@ void NavigationSystem::createNavigationSystemObjects(
 
     // Set atmospheric phase step size
     double areaBisectionTimeRelativeTolerance;
-    if ( testing_ )
+    if ( navigationTesting_ )
     {
         atmosphericNavigationRefreshStepSize_ = navigationRefreshStepSize_;
         areaBisectionTimeRelativeTolerance = 2.0 * atmosphericNavigationRefreshStepSize_ / currentTime_ / 5.0;
@@ -310,7 +310,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
                 vectorOfTimesBelowAtmosphericInterface.front( ), vectorOfTimesBelowAtmosphericInterface.back( ) );
 
     // If testing, store results so that they can be compared to MATLAB
-    if ( testing_ )
+    if ( navigationTesting_ )
     {
         input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface, "kepler_est.dat", "PTE&AEResults/" );
         input_output::writeMatrixToFile(
@@ -454,7 +454,7 @@ void NavigationSystem::runAtmosphereEstimator(
                 utilities::convertStlVectorToEigenVector( vectorOfEstimatedAltitudesBelowAtmosphericInterface );
 
         // If testing, store results so that they can be compared to MATLAB
-        if ( testing_ )
+        if ( navigationTesting_ )
         {
             input_output::writeMatrixToFile(
                         utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),

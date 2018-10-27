@@ -40,7 +40,8 @@ public:
         spice_interface::loadStandardSpiceKernels( );
 
         // Simulation times
-        const double simulationStartEpoch = 1.0e3;
+        const double simulationStartEpoch = 7.0 * tudat::physical_constants::JULIAN_YEAR +
+                30.0 * 6.0 * tudat::physical_constants::JULIAN_DAY;
         const double simulationEndEpoch = simulationStartEpoch + 1.0;
 
         // Set body names
@@ -83,7 +84,7 @@ public:
         // Define acceleration settings for simulation model
         std::map< std::string, std::vector< boost::shared_ptr< simulation_setup::AccelerationSettings > > > accelerationsOfSatellite;
         accelerationsOfSatellite[ planetName_ ].push_back(
-                    boost::make_shared< simulation_setup::SphericalHarmonicAccelerationSettings >( 4, 4 ) );
+                    boost::make_shared< simulation_setup::SphericalHarmonicAccelerationSettings >( 21, 21 ) );
         for ( unsigned int i = 0; i < bodiesToCreate.size( ); i++ )
         {
             if ( bodiesToCreate.at( i ) != planetName_ )
@@ -105,7 +106,7 @@ public:
         // Declare instrument model
         instrumentsModel_ = boost::make_shared< InstrumentsModel >( bodyMap_, accelerationModelMap_, spacecraftName_, planetName_ );
 
-        ///////////////////////////////////////////////  Create instrument model   ///////////////////////////////////////////////////
+        ///////////////////////////////////////////////  Create simulation dynamics   ////////////////////////////////////////////////
 
         // Set initial conditions
         Eigen::Vector6d initialSpacecraftKeplerianState;
@@ -214,9 +215,8 @@ public:
         // Set body names
         spacecraftName_ = "Satellite";
         planetName_ = "Mars";
-        std::vector< std::string > bodiesToCreate = { planetName_ };
 
-        ///////////////////////////////////////////////  Create body map   ///////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////  Create onboard body map   ///////////////////////////////////////////////////
 
         // Create body settings and give default values
         std::map< std::string, boost::shared_ptr< simulation_setup::BodySettings > > onboardBodySettings =
@@ -259,20 +259,20 @@ public:
         // Finalize body creation.
         setGlobalFrameBodyEphemerides( onboardBodyMap_, planetName_, "J2000" );
 
-        ///////////////////////////////////////////////  Create acceleration map   ///////////////////////////////////////////////////////
+        ///////////////////////////////////////////////  Create onboard acceleration map   ///////////////////////////////////////////
 
         // Define acceleration settings for simulation model
-        std::map< std::string, std::vector< boost::shared_ptr< simulation_setup::AccelerationSettings > > > accelerationsOfSatellite;
-        accelerationsOfSatellite[ planetName_ ].push_back(
+        std::map< std::string, std::vector< boost::shared_ptr< simulation_setup::AccelerationSettings > > > onboardAccelerationsOfSatellite;
+        onboardAccelerationsOfSatellite[ planetName_ ].push_back(
                     boost::make_shared< simulation_setup::SphericalHarmonicAccelerationSettings >( 4, 4 ) );
-        accelerationsOfSatellite[ planetName_ ].push_back(
+        onboardAccelerationsOfSatellite[ planetName_ ].push_back(
                     boost::make_shared< simulation_setup::AccelerationSettings >( basic_astrodynamics::aerodynamic ) );
 
         // Set accelerations settings
-        simulation_setup::SelectedAccelerationMap accelerationMap;
-        accelerationMap[ spacecraftName_ ] = accelerationsOfSatellite;
+        simulation_setup::SelectedAccelerationMap onboardAccelerationMap;
+        onboardAccelerationMap[ spacecraftName_ ] = onboardAccelerationsOfSatellite;
         onboardAccelerationModelMap_ = simulation_setup::createAccelerationModelsMap(
-                    onboardBodyMap_, accelerationMap, { spacecraftName_ }, { planetName_ } );
+                    onboardBodyMap_, onboardAccelerationMap, { spacecraftName_ }, { planetName_ } );
     }
 
     //! Function to generate a navigation system.
@@ -481,7 +481,7 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
 
     // Set aerodynamic coefficient and radiation pressure settings
     bodyMap[ "Satellite" ]->setAerodynamicCoefficientInterface(
-                    createAerodynamicCoefficientInterface( aerodynamicCoefficientSettings, "Satellite" ) );
+                createAerodynamicCoefficientInterface( aerodynamicCoefficientSettings, "Satellite" ) );
     bodyMap[ "Satellite" ]->setRadiationPressureInterface( "Sun", createRadiationPressureInterface(
                                                                radiationPressureSettings, "Satellite", bodyMap ) );
 
@@ -515,33 +515,33 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Set Keplerian elements for Satellite.
-    Eigen::Vector6d initialStateInKeplerianElements;
+    Eigen::Vector6d initialSpacecraftKeplerianState;
     switch ( testCase )
     {
     case 0:
     {
-        initialStateInKeplerianElements( semiMajorAxisIndex ) = 25946932.3;
-        initialStateInKeplerianElements( eccentricityIndex ) = 0.8651912;
+        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 25946932.3;
+        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.8651912;
         break;
     }
     case 1:
     {
-        initialStateInKeplerianElements( semiMajorAxisIndex ) = 4699198.5;
-        initialStateInKeplerianElements( eccentricityIndex ) = 0.2546816;
+        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 4699198.5;
+        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.2546816;
         break;
     }
     default:
         throw std::runtime_error( "Error. Only cases 0 and 1 are supported." );
     }
-    initialStateInKeplerianElements( inclinationIndex ) = unit_conversions::convertDegreesToRadians( 93.0 );
-    initialStateInKeplerianElements( argumentOfPeriapsisIndex ) = unit_conversions::convertDegreesToRadians( 158.7 );
-    initialStateInKeplerianElements( longitudeOfAscendingNodeIndex ) = unit_conversions::convertDegreesToRadians( 23.4 );
-    initialStateInKeplerianElements( trueAnomalyIndex ) = unit_conversions::convertDegreesToRadians( 180.0 );
+    initialSpacecraftKeplerianState( inclinationIndex ) = unit_conversions::convertDegreesToRadians( 93.0 );
+    initialSpacecraftKeplerianState( argumentOfPeriapsisIndex ) = unit_conversions::convertDegreesToRadians( 158.7 );
+    initialSpacecraftKeplerianState( longitudeOfAscendingNodeIndex ) = unit_conversions::convertDegreesToRadians( 23.4 );
+    initialSpacecraftKeplerianState( trueAnomalyIndex ) = unit_conversions::convertDegreesToRadians( 180.0 );
 
     // Convert to Cartesian coordinates
     double marsGravitationalParameter = bodyMap.at( "Mars" )->getGravityFieldModel( )->getGravitationalParameter( );
     const Eigen::Vector6d translationalInitialState = convertKeplerianToCartesianElements(
-                initialStateInKeplerianElements, marsGravitationalParameter );
+                initialSpacecraftKeplerianState, marsGravitationalParameter );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////             CREATE PROPAGATION SETTINGS            ////////////////////////////////////////////
@@ -550,7 +550,7 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     // Dependent variables
     std::vector< boost::shared_ptr< SingleDependentVariableSaveSettings > > dependentVariables;
     dependentVariables.push_back( boost::make_shared< SingleAccelerationDependentVariableSaveSettings >(
-                    basic_astrodynamics::aerodynamic, "Satellite", "Mars", false ) );
+                                      basic_astrodynamics::aerodynamic, "Satellite", "Mars", false ) );
     dependentVariables.push_back( boost::make_shared< SingleDependentVariableSaveSettings >(
                                       local_density_dependent_variable, "Satellite", "Mars" ) );
 
@@ -577,6 +577,379 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     // Give output
     return std::make_pair( numericalIntegrationResult, dependentVariableSolution );
 }
+
+//! Class to generate navigation system.
+class GuidanceSystemGenerator
+{
+public:
+
+    //! Constructor
+    GuidanceSystemGenerator(  )
+    {
+        // Load Spice kernels
+        spice_interface::loadStandardSpiceKernels( );
+
+        // Simulation times
+        simulationStartEpoch_ = 7.0 * tudat::physical_constants::JULIAN_YEAR +
+                30.0 * 6.0 * tudat::physical_constants::JULIAN_DAY;
+        const double simulationEndEpoch = simulationStartEpoch_ + 1.0;
+        currentTime_ = simulationStartEpoch_;
+
+        // Set body names
+        spacecraftName_ = "Satellite";
+        planetName_ = "Mars";
+        std::string sunBody = "Sun";
+        std::string thirdBody = "Earth";
+        std::vector< std::string > bodiesToCreate = { planetName_, sunBody, thirdBody };
+
+        ///////////////////////////////////////////////  Create body map   ///////////////////////////////////////////////////////////////
+
+        // Tabulated atmosphere settings
+        std::map< int, std::string > tabulatedAtmosphereFiles;
+        tabulatedAtmosphereFiles[ 0 ] = input_output::getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/density.dat";
+        tabulatedAtmosphereFiles[ 1 ] = input_output::getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/pressure.dat";
+        tabulatedAtmosphereFiles[ 2 ] = input_output::getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/temperature.dat";
+        tabulatedAtmosphereFiles[ 3 ] = input_output::getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/gasConstant.dat";
+        tabulatedAtmosphereFiles[ 4 ] = input_output::getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/specificHeatRatio.dat";
+        std::vector< aerodynamics::AtmosphereIndependentVariables > atmosphereIndependentVariables = {
+            aerodynamics::longitude_dependent_atmosphere, aerodynamics::latitude_dependent_atmosphere,
+            aerodynamics::altitude_dependent_atmosphere };
+        std::vector< aerodynamics::AtmosphereDependentVariables > atmosphereDependentVariables = {
+            aerodynamics::density_dependent_atmosphere, aerodynamics::pressure_dependent_atmosphere,
+            aerodynamics::temperature_dependent_atmosphere, aerodynamics::gas_constant_dependent_atmosphere,
+            aerodynamics::specific_heat_ratio_dependent_atmosphere };
+        std::vector< interpolators::BoundaryInterpolationType > boundaryConditions =
+                std::vector< interpolators::BoundaryInterpolationType >( 3, interpolators::use_boundary_value );
+
+        // Create body settings and give default values
+        std::map< std::string, boost::shared_ptr< simulation_setup::BodySettings > > bodySettings =
+                simulation_setup::getDefaultBodySettings( bodiesToCreate, simulationStartEpoch_ - 300.0, simulationEndEpoch + 300.0 );
+        for ( unsigned int i = 0; i < bodiesToCreate.size( ); i++ )
+        {
+            bodySettings[ bodiesToCreate.at( i ) ]->ephemerisSettings->resetFrameOrientation( "J2000" );
+            bodySettings[ bodiesToCreate.at( i ) ]->rotationModelSettings->resetOriginalFrame( "J2000" );
+        }
+        bodySettings[ thirdBody ]->gravityFieldSettings = boost::make_shared< simulation_setup::CentralGravityFieldSettings >( 0.0 );
+
+        // Give Mars a more detailed environment
+        bodySettings[ planetName_ ]->gravityFieldSettings =
+                boost::make_shared< simulation_setup::FromFileSphericalHarmonicsGravityFieldSettings >( simulation_setup::jgmro120d );
+        bodySettings[ planetName_ ]->atmosphereSettings = boost::make_shared< simulation_setup::TabulatedAtmosphereSettings >(
+                    tabulatedAtmosphereFiles, atmosphereIndependentVariables, atmosphereDependentVariables, boundaryConditions );
+
+        // Create body objects
+        bodyMap_ = createBodies( bodySettings );
+
+        // Create spacecraft object
+        const double spacecraftMass = 1000.0;
+        bodyMap_[ "Satellite" ] = boost::make_shared< simulation_setup::Body >( );
+        bodyMap_[ "Satellite" ]->setConstantBodyMass( spacecraftMass );
+
+        // Spacecraft parameters
+        const double referenceAreaAerodynamic = 37.5;
+        const double referenceAreaRadiation = 37.5;
+        const double radiationPressureCoefficient = 1.0;
+
+        // Aerodynamic coefficients from file
+        std::map< int, std::string > aerodynamicForceCoefficientFiles;
+        aerodynamicForceCoefficientFiles[ 0 ] = input_output::getTudatRootPath( ) + "External/MRODragCoefficients.txt";
+        aerodynamicForceCoefficientFiles[ 2 ] = input_output::getTudatRootPath( ) + "External/MROLiftCoefficients.txt";
+
+        // Create aerodynamic coefficient settings
+        boost::shared_ptr< simulation_setup::AerodynamicCoefficientSettings > aerodynamicCoefficientSettings =
+                simulation_setup::readTabulatedAerodynamicCoefficientsFromFiles(
+                    aerodynamicForceCoefficientFiles, referenceAreaAerodynamic,
+                    std::vector< aerodynamics::AerodynamicCoefficientsIndependentVariables >{
+                        aerodynamics::angle_of_attack_dependent, aerodynamics::altitude_dependent } );
+
+        // Constant radiation pressure variables
+        std::vector< std::string > occultingBodies;
+        occultingBodies.push_back( "Mars" );
+        boost::shared_ptr< simulation_setup::RadiationPressureInterfaceSettings > radiationPressureSettings =
+                boost::make_shared< simulation_setup::CannonBallRadiationPressureInterfaceSettings >(
+                    "Sun", referenceAreaRadiation, radiationPressureCoefficient, occultingBodies );
+
+        // Set aerodynamic coefficient and radiation pressure settings
+        bodyMap_[ "Satellite" ]->setAerodynamicCoefficientInterface(
+                    createAerodynamicCoefficientInterface( aerodynamicCoefficientSettings, "Satellite" ) );
+        bodyMap_[ "Satellite" ]->setRadiationPressureInterface( "Sun", createRadiationPressureInterface(
+                                                                    radiationPressureSettings, "Satellite", bodyMap_ ) );
+
+        // Finalize body creation.
+        setGlobalFrameBodyEphemerides( bodyMap_, "SSB", "J2000" );
+
+        ///////////////////////////////////////////////  Create acceleration map   ///////////////////////////////////////////////////////
+
+        // Define acceleration settings for simulation model
+        std::map< std::string, std::vector< boost::shared_ptr< simulation_setup::AccelerationSettings > > > accelerationsOfSatellite;
+        accelerationsOfSatellite[ planetName_ ].push_back(
+                    boost::make_shared< simulation_setup::SphericalHarmonicAccelerationSettings >( 21, 21 ) );
+        for ( unsigned int i = 0; i < bodiesToCreate.size( ); i++ )
+        {
+            if ( bodiesToCreate.at( i ) != planetName_ )
+            {
+                accelerationsOfSatellite[ bodiesToCreate.at( i ) ].push_back(
+                            boost::make_shared< simulation_setup::AccelerationSettings >( basic_astrodynamics::central_gravity ) );
+            }
+        }
+        accelerationsOfSatellite[ sunBody ].push_back(
+                    boost::make_shared< simulation_setup::AccelerationSettings >( basic_astrodynamics::cannon_ball_radiation_pressure ) );
+        accelerationsOfSatellite[ planetName_ ].push_back(
+                    boost::make_shared< simulation_setup::AccelerationSettings >( basic_astrodynamics::aerodynamic ) );
+
+        // Set accelerations settings
+        simulation_setup::SelectedAccelerationMap accelerationMap;
+        accelerationMap[ spacecraftName_ ] = accelerationsOfSatellite;
+        accelerationModelMap_ = simulation_setup::createAccelerationModelsMap( bodyMap_, accelerationMap, { spacecraftName_ }, { planetName_ } );
+
+        ///////////////////////////////////////////////  Create simulation dynamics   ////////////////////////////////////////////////
+
+        // Set initial conditions
+        Eigen::Vector6d initialSpacecraftKeplerianState;
+        initialSpacecraftKeplerianState[ 0 ] = 26021000.0;
+        initialSpacecraftKeplerianState[ 1 ] = 0.859882;
+        initialSpacecraftKeplerianState[ 2 ] = unit_conversions::convertDegreesToRadians( 93.0 );
+        initialSpacecraftKeplerianState[ 3 ] = unit_conversions::convertDegreesToRadians( 158.7 );
+        initialSpacecraftKeplerianState[ 4 ] = unit_conversions::convertDegreesToRadians( 43.6 );
+        initialSpacecraftKeplerianState[ 5 ] = unit_conversions::convertDegreesToRadians( 180.0 );
+        const Eigen::Vector6d initialSpacecraftCartesianState = orbital_element_conversions::convertKeplerianToCartesianElements(
+                    initialSpacecraftKeplerianState, bodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( ) );
+
+        // Create object of dependent variables to save
+        std::vector< boost::shared_ptr< propagators::SingleDependentVariableSaveSettings > > dependentVariablesList;
+        dependentVariablesList.push_back( boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
+                                              propagators::local_dynamic_pressure_dependent_variable, spacecraftName_, planetName_ ) );
+        dependentVariablesList.push_back( boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
+                                              propagators::local_aerodynamic_heat_rate_dependent_variable, spacecraftName_, planetName_ ) );
+
+        // Create integrator settings
+        integratorSettings_ = boost::make_shared< numerical_integrators::RungeKuttaVariableStepSizeSettingsScalarTolerances< > >(
+                    simulationStartEpoch_, 10.0, numerical_integrators::RungeKuttaCoefficients::rungeKuttaFehlberg78,
+                    1.0e-5, 100.0, 1.0e-15, 1.0e-15 );
+
+        // Create propagator settings
+        propagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< > >(
+                    std::vector< std::string >{ planetName_ }, accelerationModelMap_,
+                    std::vector< std::string >{ spacecraftName_ }, initialSpacecraftCartesianState,
+                    boost::make_shared< propagators::PropagationTimeTerminationSettings >( simulationEndEpoch ),
+                    propagators::unified_state_model_exponential_map,
+                    boost::make_shared< propagators::DependentVariableSaveSettings >( dependentVariablesList, false ) );
+
+        ///////////////////////////////////////////////  Create onboard body map   ///////////////////////////////////////////////////
+
+        // Create body settings and give default values
+        std::map< std::string, boost::shared_ptr< simulation_setup::BodySettings > > onboardBodySettings =
+                simulation_setup::getDefaultBodySettings( { planetName_ }, simulationStartEpoch_ - 300.0, simulationEndEpoch + 300.0 );
+        onboardBodySettings[ planetName_ ]->ephemerisSettings->resetFrameOrientation( "J2000" );
+        onboardBodySettings[ planetName_ ]->rotationModelSettings->resetOriginalFrame( "J2000" );
+
+        std::vector< double > vectorOfModelSpecificParameters = { 115.0e3, 2.424e-08, 6533.0 };
+        onboardBodySettings[ planetName_ ]->atmosphereSettings =
+                boost::make_shared< simulation_setup::CustomConstantTemperatureAtmosphereSettings >(
+                    aerodynamics::exponential_atmosphere_model, 215.0, 197.0, 1.3, vectorOfModelSpecificParameters );
+
+        // Create body objects
+        onboardBodyMap_ = createBodies( onboardBodySettings );
+
+        // Spacecraft parameters
+        Eigen::Vector3d onboardAerodynamicCoefficients = Eigen::Vector3d::Zero( );
+        onboardAerodynamicCoefficients[ 0 ] = 1.9;
+
+        // Create spacecraft object
+        onboardBodyMap_[ spacecraftName_ ] = boost::make_shared< simulation_setup::Body >( );
+        onboardBodyMap_[ spacecraftName_ ]->setConstantBodyMass( spacecraftMass );
+        onboardBodyMap_[ spacecraftName_ ]->setAerodynamicCoefficientInterface(
+                    createAerodynamicCoefficientInterface( boost::make_shared< simulation_setup::ConstantAerodynamicCoefficientSettings >(
+                                                               referenceAreaAerodynamic, onboardAerodynamicCoefficients, true, true ),
+                                                           spacecraftName_ ) );
+
+        // Finalize body creation.
+        setGlobalFrameBodyEphemerides( onboardBodyMap_, planetName_, "J2000" );
+
+        ///////////////////////////////////////////////  Create onboard acceleration map   ///////////////////////////////////////////
+
+        // Define acceleration settings for simulation model
+        std::map< std::string, std::vector< boost::shared_ptr< simulation_setup::AccelerationSettings > > > onboardAccelerationsOfSatellite;
+        onboardAccelerationsOfSatellite[ planetName_ ].push_back(
+                    boost::make_shared< simulation_setup::SphericalHarmonicAccelerationSettings >( 4, 4 ) );
+        onboardAccelerationsOfSatellite[ planetName_ ].push_back(
+                    boost::make_shared< simulation_setup::AccelerationSettings >( basic_astrodynamics::aerodynamic ) );
+
+        // Set accelerations settings
+        simulation_setup::SelectedAccelerationMap onboardAccelerationMap;
+        onboardAccelerationMap[ spacecraftName_ ] = onboardAccelerationsOfSatellite;
+        onboardAccelerationModelMap_ = simulation_setup::createAccelerationModelsMap(
+                    onboardBodyMap_, onboardAccelerationMap, { spacecraftName_ }, { planetName_ } );
+
+        ///////////////////////////////////////////////  Create onboard dynamics   ///////////////////////////////////////////////////
+
+        // Create object for propagation of spacecraft state with user-provided initial conditions
+        onboardIntegratorSettings_ = boost::make_shared< numerical_integrators::RungeKuttaVariableStepSizeSettingsScalarTolerances< double > >(
+                    0.0, 10.0, numerical_integrators::RungeKuttaCoefficients::rungeKuttaFehlberg56, 0.1, 100.0, 1.0e-12, 1.0e-12 );
+        onboardPropagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< double > >(
+                    std::vector< std::string >{ planetName_ }, onboardAccelerationModelMap_,
+                    std::vector< std::string >{ spacecraftName_ }, Eigen::Vector6d::Zero( ),
+                    0.0, propagators::unified_state_model_exponential_map,
+                    boost::make_shared< propagators::DependentVariableSaveSettings >( dependentVariablesList, false ) );
+    }
+
+    //! Function to generate a navigation system.
+    boost::shared_ptr< GuidanceSystem > createGuidanceSystem( const double targetPeriapsisAltitude,
+                                                              const double targetApoapsisAltitude,
+                                                              const double maximumAllowedHeatRate,
+                                                              const double maximumAllowedHeatLoad,
+                                                              const double minimumAllowedDynamicPressure,
+                                                              const double minimumAllowedLifetime )
+    {
+        // Create guidance system object
+        guidanceSystem_ = boost::make_shared< GuidanceSystem >( targetPeriapsisAltitude, targetApoapsisAltitude, maximumAllowedHeatRate,
+                                                                maximumAllowedHeatLoad, minimumAllowedDynamicPressure, minimumAllowedLifetime,
+                                                                true );
+
+        // Finalize guidance system creation
+        guidanceSystem_->setCurrentOrbitCounter( 0 );
+        guidanceSystem_->createGuidanceSystemObjects(
+                    boost::bind( &GuidanceSystemGenerator::propagateTranslationalStateWithCustomTerminationSettings, this, _1, _2, -1.0 ),
+                    onboardBodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( ),
+                    onboardBodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( ) );
+
+        // Give output
+        return guidanceSystem_;
+    }
+
+    //! Function to propagate state.
+    std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > >
+    propagateSpacecraftState( const double initialTime, const double finalTime, const Eigen::Vector6d& initialConditions )
+    {
+        // Set initial time
+        integratorSettings_->initialTime_ = initialTime;
+
+        // Set initial state
+        propagatorSettings_->resetInitialStates( initialConditions );
+
+        // Set propagation settings
+        propagatorSettings_->resetTerminationSettings(
+                    boost::make_shared< propagators::PropagationTimeTerminationSettings >( finalTime ) );
+
+        // Create dynamics simulator and propagate
+        bool wasPropagationSuccessful = true;
+        dynamicsSimulator_ = boost::make_shared< propagators::SingleArcDynamicsSimulator< > >(
+                    bodyMap_, integratorSettings_, propagatorSettings_ );
+        if ( dynamicsSimulator_->getPropagationTerminationReason( )->getPropagationTerminationReason( ) !=
+             propagators::termination_condition_reached )
+        {
+            wasPropagationSuccessful = false;
+        }
+
+        // Extract and give out results
+        return std::make_pair( wasPropagationSuccessful, std::make_pair( dynamicsSimulator_->getEquationsOfMotionNumericalSolution( ),
+                                                                         dynamicsSimulator_->getDependentVariableHistory( ) ) );
+    }
+
+    //! Get current time.
+    double getCurrentTime( ) { return currentTime_; }
+
+    //! Get standard gravitational parameter.
+    double getGravitationalParameter( )
+    {
+        return bodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( );
+    }
+
+    //! Get radius.
+    double getRadius( )
+    {
+        return bodyMap_.at( planetName_ )->getShapeModel( )->getAverageRadius( );
+    }
+
+    //! Set current time.
+    void setCurrentTime( const double currentTime ) { currentTime_ = currentTime; }
+
+private:
+
+    //! Function to propagate translational Cartesian state to specified termination settings.
+    std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > >
+    propagateTranslationalStateWithCustomTerminationSettings(
+            const boost::shared_ptr< propagators::PropagationTerminationSettings > propagationTerminationSettings,
+            const Eigen::Vector6d& initialTranslationalCartesianState,
+            const double initialTime = -1.0 )
+    {
+        // Set initial time
+        if ( static_cast< int >( initialTime ) == -1 )
+        {
+            onboardIntegratorSettings_->initialTime_ = currentTime_;
+        }
+        else
+        {
+            onboardIntegratorSettings_->initialTime_ = initialTime;
+        }
+
+        // Set initial state
+        onboardPropagatorSettings_->resetInitialStates( initialTranslationalCartesianState );
+
+        // Set propagation settings
+        onboardPropagatorSettings_->resetTerminationSettings( propagationTerminationSettings );
+
+        // Create dynamics simulator and propagate
+        bool wasPropagationSuccessful = true;
+        propagators::SingleArcDynamicsSimulator< > dynamicsSimulator(
+                    onboardBodyMap_, onboardIntegratorSettings_, onboardPropagatorSettings_ );
+        if ( dynamicsSimulator.getPropagationTerminationReason( )->getPropagationTerminationReason( ) !=
+             propagators::termination_condition_reached )
+        {
+            wasPropagationSuccessful = false;
+        }
+
+        // Retrieve results from onboard computer and systems
+        std::map< double, Eigen::VectorXd > translationalStateResult = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
+        std::map< double, Eigen::VectorXd > dependentVariablesResult = dynamicsSimulator.getDependentVariableHistory( );
+
+        // Give output
+        return std::make_pair( wasPropagationSuccessful, std::make_pair( translationalStateResult, dependentVariablesResult ) );
+    }
+
+    //! Simulation start epoch.
+    double simulationStartEpoch_;
+
+    //! Current time.
+    double currentTime_;
+
+    //! Name of spacecraft.
+    std::string spacecraftName_;
+
+    //! Name of planet.
+    std::string planetName_;
+
+    //! Body map pointer.
+    tudat::simulation_setup::NamedBodyMap bodyMap_;
+
+    //! Acceleration model map pointer.
+    tudat::basic_astrodynamics::AccelerationMap accelerationModelMap_;
+
+    //! Body map pointer.
+    tudat::simulation_setup::NamedBodyMap onboardBodyMap_;
+
+    //! Acceleration model map pointer.
+    tudat::basic_astrodynamics::AccelerationMap onboardAccelerationModelMap_;
+
+    //! Dynamics simulator pointer.
+    boost::shared_ptr< numerical_integrators::IntegratorSettings< > >  integratorSettings_;
+
+    //! Dynamics simulator pointer.
+    boost::shared_ptr< propagators::TranslationalStatePropagatorSettings< > > propagatorSettings_;
+
+    //! Pointer to integrator settings for onboard propagation.
+    boost::shared_ptr< numerical_integrators::IntegratorSettings< > > onboardIntegratorSettings_;
+
+    //! Pointer to propagator settings for onboard propagation.
+    boost::shared_ptr< propagators::TranslationalStatePropagatorSettings< > > onboardPropagatorSettings_;
+
+    //! Dynamics simulator pointer.
+    boost::shared_ptr< propagators::SingleArcDynamicsSimulator< > > dynamicsSimulator_;
+
+    //! Navigation system pointer.
+    boost::shared_ptr< GuidanceSystem > guidanceSystem_;
+
+};
 
 } // namespace system_models
 

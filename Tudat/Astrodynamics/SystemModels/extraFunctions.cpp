@@ -170,6 +170,7 @@ double CorridorEstimator::estimateCorridorBoundary(
     switch ( typeOfBoundaryToEstimate )
     {
     case lower_heating:
+    {
         // Set boundaries
         altitudeBisectionRootFinder_->resetBoundaries( boundariesForLowerAltitudeBasedOnHeating_.first,
                                                        boundariesForLowerAltitudeBasedOnHeating_.second );
@@ -180,7 +181,9 @@ double CorridorEstimator::estimateCorridorBoundary(
                         boost::bind( &CorridorEstimator::lowerAltitudeBisectionFunctionBasedOnHeatingConditions, this, _1,
                                      initialEstimatedKeplerianState, statePropagationFunction ) ) );
         break;
+    }
     case lower_lifetime:
+    {
         // Set boundaries
         altitudeBisectionRootFinder_->resetBoundaries( boundariesForLowerAltitudeBasedOnLifetime_.first,
                                                        boundariesForLowerAltitudeBasedOnLifetime_.second );
@@ -191,7 +194,9 @@ double CorridorEstimator::estimateCorridorBoundary(
                         boost::bind( &CorridorEstimator::lowerAltitudeBisectionFunctionBasedOnLifetimeCondition, this, _1,
                                      initialEstimatedKeplerianState, statePropagationFunction ) ) );
         break;
+    }
     case upper:
+    {
         // Set boundaries
         altitudeBisectionRootFinder_->resetBoundaries( boundariesForUpperAltitude_.first, boundariesForUpperAltitude_.second );
 
@@ -201,6 +206,7 @@ double CorridorEstimator::estimateCorridorBoundary(
                         boost::bind( &CorridorEstimator::upperAltitudeBisectionFunction, this, _1,
                                      initialEstimatedKeplerianState, statePropagationFunction ) ) );
         break;
+    }
     }
 
     // Give output
