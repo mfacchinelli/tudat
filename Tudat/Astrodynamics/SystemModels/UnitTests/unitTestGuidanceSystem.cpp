@@ -26,8 +26,8 @@ namespace unit_tests
 {
 
 // Set test conditions
-const std::pair< unsigned int, unsigned int > testConditions = { 1, 2 };
-const std::pair< unsigned int, unsigned int > testModes = { 0, 1 };
+const std::pair< unsigned int, unsigned int > testConditions = { 0, 3 };
+const std::pair< unsigned int, unsigned int > testModes = { 0, 2 };
 
 BOOST_AUTO_TEST_SUITE( test_guidance_system )
 
@@ -74,6 +74,13 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
         }
         case 1:
         {
+            initialKeplerianState( 0 ) = 6808709.3;
+            initialKeplerianState( 1 ) = 0.4861342;
+            pairOfAtmosphereInitiationIndicators = { 10.0, 7.0 };
+            break;
+        }
+        case 2:
+        {
             initialKeplerianState( 0 ) = 4699198.5;
             initialKeplerianState( 1 ) = 0.2546816;
             pairOfAtmosphereInitiationIndicators = { 10.0, 7.0 };
@@ -91,7 +98,7 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
 
         // Predict periapsis altitude with initial conditions
         unsigned int i = 0;
-        double finalTime = initialTime + 1.0 *
+        double finalTime = initialTime + 2.0 / 3.0 *
                 basic_astrodynamics::computeKeplerOrbitalPeriod( initialKeplerianState[ 0 ], planetaryGravitationalParameter );
         std::map< double, Eigen::VectorXd > trajectory = systemGenerator->propagateSpacecraftState( initialTime, finalTime,
                                                                                                     initialCartesianState ).second.first;
@@ -115,7 +122,7 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
 
             // Set estimated initial conditions
             Eigen::Vector6d estimatedCartesianState;
-            switch ( initialConditions )
+            switch ( navigationMode )
             {
             case 0:
             {
@@ -131,7 +138,7 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
                             statistics::normal_boost_distribution, { 0.0, 50.0 }, 1 );
                 boost::shared_ptr< statistics::RandomVariableGenerator< double > > velocityNoiseGenerator =
                         statistics::createBoostContinuousRandomVariableGenerator(
-                            statistics::normal_boost_distribution, { 0.0, 1.0 }, 2 );
+                            statistics::normal_boost_distribution, { 0.0, 0.1 }, 2 );
 
                 // Add noise to exact conditions
                 estimatedCartesianState = initialCartesianState;
@@ -162,6 +169,9 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
                 BOOST_CHECK_BITWISE_EQUAL( true, guidanceSystem->getIsAerobrakingPhaseActive( GuidanceSystem::walk_in_phase ) );
                 break;
             case 1:
+                BOOST_CHECK_BITWISE_EQUAL( true, guidanceSystem->getIsAerobrakingPhaseActive( GuidanceSystem::main_phase ) );
+                break;
+            case 2:
                 BOOST_CHECK_BITWISE_EQUAL( true, guidanceSystem->getIsAerobrakingPhaseActive( GuidanceSystem::walk_out_phase ) );
                 break;
             }

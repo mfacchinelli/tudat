@@ -31,7 +31,7 @@ namespace unit_tests
 
 // Set test conditions
 const std::pair< unsigned int, unsigned int > testAtmospheres = { 0, 3 };
-const std::pair< unsigned int, unsigned int > testConditions = { 0, 2 };
+const std::pair< unsigned int, unsigned int > testConditions = { 0, 3 };
 const std::pair< unsigned int, unsigned int > testModes = { 0, 2 };
 
 BOOST_AUTO_TEST_SUITE( test_navigation_system )
@@ -357,7 +357,7 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                                     statistics::normal_boost_distribution, { 0.0, 50.0 }, 1 );
                         boost::shared_ptr< statistics::RandomVariableGenerator< double > > velocityNoiseGenerator =
                                 statistics::createBoostContinuousRandomVariableGenerator(
-                                    statistics::normal_boost_distribution, { 0.0, 1.0 }, 2 );
+                                    statistics::normal_boost_distribution, { 0.0, 0.1 }, 2 );
 
                         // Loop over each numerical result
                         double currentTime = initialTime;
@@ -415,7 +415,7 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                                     statistics::normal_boost_distribution, { 0.0, 5.0 }, 1 );
                         boost::shared_ptr< statistics::RandomVariableGenerator< double > > velocityNoiseGenerator =
                                 statistics::createBoostContinuousRandomVariableGenerator(
-                                    statistics::normal_boost_distribution, { 0.0, 0.1 }, 2 );
+                                    statistics::normal_boost_distribution, { 0.0, 0.01 }, 2 );
 
                         // Linear offset function
                         std::function< double( const double, const double ) > offsetFunction =

@@ -361,7 +361,7 @@ private:
 
 //! Function to propagate state for one orbit in an aerobraking scenario.
 std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > propagateStateForAerobrakingScenario(
-        const unsigned int testCase )
+        const unsigned int initialConditions )
 {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////            USING STATEMENTS              //////////////////////////////////////////////////////
@@ -393,12 +393,15 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     const double simulationStartEpoch = 7.0 * tudat::physical_constants::JULIAN_YEAR +
             30.0 * 6.0 * tudat::physical_constants::JULIAN_DAY;
     double simulationEndEpoch = simulationStartEpoch;
-    switch ( testCase )
+    switch ( initialConditions )
     {
     case 0:
         simulationEndEpoch += 1.4 * tudat::physical_constants::JULIAN_DAY;
         break;
     case 1:
+        simulationEndEpoch += 0.18 * tudat::physical_constants::JULIAN_DAY;
+        break;
+    case 2:
         simulationEndEpoch += 0.113 * tudat::physical_constants::JULIAN_DAY;
         break;
     }
@@ -516,7 +519,7 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
 
     // Set Keplerian elements for Satellite.
     Eigen::Vector6d initialSpacecraftKeplerianState;
-    switch ( testCase )
+    switch ( initialConditions )
     {
     case 0:
     {
@@ -525,6 +528,12 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
         break;
     }
     case 1:
+    {
+        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 6808709.3;
+        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.4861342;
+        break;
+    }
+    case 2:
     {
         initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 4699198.5;
         initialSpacecraftKeplerianState( eccentricityIndex ) = 0.2546816;
@@ -725,7 +734,7 @@ public:
         // Create integrator settings
         integratorSettings_ = boost::make_shared< numerical_integrators::RungeKuttaVariableStepSizeSettingsScalarTolerances< > >(
                     simulationStartEpoch_, 10.0, numerical_integrators::RungeKuttaCoefficients::rungeKuttaFehlberg78,
-                    1.0e-5, 100.0, 1.0e-15, 1.0e-15 );
+                    1.0e-5, 1.0e5, 1.0e-15, 1.0e-15 );
 
         // Create propagator settings
         propagatorSettings_ = boost::make_shared< propagators::TranslationalStatePropagatorSettings< > >(
