@@ -91,7 +91,7 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
 
         // Predict periapsis altitude with initial conditions
         unsigned int i = 0;
-        double finalTime = initialTime + 2.0 / 3.0 *
+        double finalTime = initialTime + 1.0 *
                 basic_astrodynamics::computeKeplerOrbitalPeriod( initialKeplerianState[ 0 ], planetaryGravitationalParameter );
         std::map< double, Eigen::VectorXd > trajectory = systemGenerator->propagateSpacecraftState( initialTime, finalTime,
                                                                                                     initialCartesianState ).second.first;
@@ -103,7 +103,6 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
             historyOfAltitudes[ i ] = mapIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
         }
         double predictedPeriapsisAltitude = historyOfAltitudes.minCoeff( );
-        std::cout << "Predicted periapsis altitude: " << predictedPeriapsisAltitude << std::endl;
 
         // Loop over test modes
         for ( unsigned int navigationMode = testModes.first; navigationMode < testModes.second; navigationMode++ )
@@ -111,7 +110,8 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
             // Inform user
             std::cout << std::endl << "========================================================" << std::endl
                       << "Initial conditions: " << initialConditions << ". Test case: " << navigationMode << "." << std::endl
-                      << "========================================================" << std::endl;
+                      << "========================================================" << std::endl
+                      << "Predicted periapsis altitude: " << predictedPeriapsisAltitude << std::endl;
 
             // Set estimated initial conditions
             Eigen::Vector6d estimatedCartesianState;
