@@ -56,8 +56,10 @@ public:
 
         // Create guidance system objects
         guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
-        guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
-                                                                   navigationSystem_, _1, _2, -1.0 ) );
+        guidanceSystem_->createGuidanceSystemObjects(
+                    boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
+                                 navigationSystem_, _1, _2, -1.0 ),
+                    navigationSystem_->getStandardGravitationalParameter( ), navigationSystem_->getRadius( ) );
     }
 
     //! Destructor.
@@ -86,7 +88,7 @@ public:
             instrumentsModel_->updateInstruments( currentTime );
 
             // Extract measurements
-            Eigen::Vector3d currentExternalMeasurementVector = instrumentsModel_->getCurrentAccelerometerMeasurement( );
+            Eigen::Vector3d currentExternalMeasurement = instrumentsModel_->getCurrentAccelerometerMeasurement( );
 
             // Update filter to current time
             NavigationSystem::NavigationPhaseIndicator currentNavigationPhase = navigationSystem_->determineNavigationPhase( );
@@ -94,13 +96,13 @@ public:
             {
                 // Feed maneuver to the navigation system and update filter
                 performManeuverOnNextCall_ = false; // reset flag
-                navigationSystem_->runStateEstimator( currentExternalMeasurementVector,
-                                                      controlSystem_->getScheduledApoapsisManeuver( ) );
+                navigationSystem_->runStateEstimator( currentExternalMeasurement,
+                                                      controlSystem_->getScheduledApsisManeuver( ) );
             }
             else
             {
                 // Update filter only
-                navigationSystem_->runStateEstimator( currentExternalMeasurementVector );
+                navigationSystem_->runStateEstimator( currentExternalMeasurement );
             }
 
             // Check if it is time for a Deep Space Network update
@@ -120,8 +122,9 @@ public:
             std::pair< Eigen::Vector6d, Eigen::Vector6d > currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( );
             double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
 
-            // Check if stopping condition is met or if the post-atmospheric phase processes need to be carried out
-            if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ ) // check true anomaly
+            // Check which orbit phase the spacecraft is in (if any)
+            // Check true anomaly to see if apoapsis maneuvering phase
+            if ( ( currentEstimatedTrueAnomaly >= PI ) && !maneuveringPhaseComplete_ )
             {
                 // Inform user
                 std::cout << std::endl << "REACHED APOAPSIS. Preparing to perform maneuver." << std::endl;
@@ -140,9 +143,7 @@ public:
                 // Determine in which phase of aerobraking the spacecraft is and perform corridor estimation
                 guidanceSystem_->determineAerobrakingPhase( currentEstimatedState.second,
                                                             navigationSystem_->getAtmosphereInitiationIndicators( ) );
-                guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
-                                                       navigationSystem_->getRadius( ),
-                                                       navigationSystem_->getStandardGravitationalParameter( ) );
+                guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second );
 
                 // Check whether propagation needs to be stopped
                 // Propagation is stopped only if an apoapsis maneuver needs to be performed
@@ -161,12 +162,11 @@ public:
                     performManeuverOnNextCall_ = true;
 
                     // Run maneuver estimator
-                    guidanceSystem_->runManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
-                                                           navigationSystem_->getCurrentEstimatedMeanMotion( ),
-                                                           navigationSystem_->getRadius( ) );
+                    guidanceSystem_->runApoapsisManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
+                                                                   navigationSystem_->getCurrentEstimatedMeanMotion( ) );
 
                     // Feed maneuver to the control system
-                    controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApoapsisManeuver( ) );
+                    controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
                 }
                 else
                 {
@@ -185,8 +185,7 @@ public:
                 guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
 
                 // Renew random coefficients for perturbed atmosphere
-                std::cerr << "Atmosphere randomization is OFF." << std::endl;
-//                instrumentsModel_->randomizeAtmospherePerturbations( );
+                instrumentsModel_->randomizeAtmospherePerturbations( );
 
                 // Invert completion flags
                 maneuveringPhaseComplete_ = true;
@@ -196,9 +195,31 @@ public:
                 std::string orbitNumber = std::to_string( navigationSystem_->currentOrbitCounter_ - 1 );
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
+            // Check aerobraking phase and true anomaly to see if periapsis maneuvering phase
+            else if ( guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::termination_phase ) &&
+                      ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) && !atmosphericPhaseComplete_ )
+            {
+                // Inform user
+                std::cout << std::endl << "REACHED FINAL PERIAPSIS. Preparing to perform maneuver." << std::endl;
+
+                // Run periapsis maneuver estimator
+                guidanceSystem_->runPeriapsisManeuverEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
+                                                                navigationSystem_->getCurrentEstimatedMeanMotion( ) );
+
+                // Feed maneuver to the control system
+                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
+
+                // Propagation is stopped to perform periapsis maneuver
+                isPropagationToBeStopped = true;
+
+                // Invert completion flags
+                maneuveringPhaseComplete_ = false;
+                atmosphericPhaseComplete_ = true;
+            }
+            // Check DAIA and true anomaly to see if post-atmosphere processes phase
             else if ( ( ( ( currentNavigationPhase != NavigationSystem::aided_navigation_phase ) &&
                           ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::aided_navigation_phase ) ) &&
-                        ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) && !atmosphericPhaseComplete_ ) // check altitude
+                        ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) && !atmosphericPhaseComplete_ )
             {
                 // Inform user
                 std::cout << std::endl << "EXITED ATMOSPHERE. Running post-atmosphere processes." << std::endl;
@@ -264,19 +285,13 @@ public:
      */
     bool isAerobrakingComplete( const bool isCallInternal = false )
     {
-        // Define output variable
-        bool aerobrakingComplete;
-
         // Check if aerobraking is complete
-        std::cout << "Called dummy: " << dummyCallCounter_ << std::endl;
-        aerobrakingComplete = ( dummyCallCounter_ > ( 3 * 3 - 1 ) );
-        dummyCallCounter_++;
-//        aerobrakingComplete = guidanceSystem_->getIsAerobrakingComplete( );
+        bool aerobrakingComplete = guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::aerobraking_complete );
 
         // Inform user
         if ( aerobrakingComplete && !isCallInternal )
         {
-            std::string velocityChange = std::to_string( guidanceSystem_->getHistoryOfApoapsisManeuverMagnitudes( ).first );
+            std::string velocityChange = std::to_string( guidanceSystem_->getHistoryOfApsisManeuverMagnitudes( ).first );
             std::cout << std::endl << "~~~~~~~~~~~~~~ AEROBRAKING COMPLETE ~~~~~~~~~~~~~~" << std::endl << std::endl
                       << "Cumulative change in velocity: " << velocityChange << " m/s" << std::endl;
         }
@@ -286,8 +301,6 @@ public:
     }
 
 private:
-
-    unsigned int dummyCallCounter_ = 0;
 
     //! Function to run house keeping routines when new orbit is initiated.
     /*!

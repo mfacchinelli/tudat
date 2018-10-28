@@ -41,6 +41,7 @@ BOOST_AUTO_TEST_SUITE( test_tabulated_atmosphere )
 // Test 4: Test tabulated atmosphere at 1000 km altitude with table.
 // Test 5: Test if the atmosphere file can be read multiple times.
 // Test 6: Test if the position-independent functions work.
+// Test 7: Test if randomization of perturbations works.
 
 //! Check if the atmosphere is calculated correctly at sea level.
 // Values from (US Standard Atmosphere, 1976).
@@ -404,6 +405,42 @@ BOOST_AUTO_TEST_CASE( testTabulatedAtmosphereExtraVariables )
     const double altitude = 0.0;
     BOOST_CHECK_CLOSE_FRACTION( 8.0, tabulatedAtmosphere.getSpecificGasConstant( altitude ), tolerance );
     BOOST_CHECK_CLOSE_FRACTION( 1.7, tabulatedAtmosphere.getRatioOfSpecificHeats( altitude ), 1.0e-4 );
+}
+
+//! Test to see if random perturbations layers works
+// Values from Mars Climate Database Web Interface (http://www-mars.lmd.jussieu.fr/mcd_python/), avaraged over time.
+BOOST_AUTO_TEST_CASE( testRandomPerturbationsTabulatedAtmosphere )
+{
+    using namespace tudat::aerodynamics;
+    using namespace tudat::input_output;
+    using namespace tudat::interpolators;
+
+    // Tabulated atmosphere settings
+    std::map< int, std::string > tabulatedAtmosphereFiles;
+    tabulatedAtmosphereFiles[ 0 ] = getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/density.dat";
+    tabulatedAtmosphereFiles[ 1 ] = getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/pressure.dat";
+    tabulatedAtmosphereFiles[ 2 ] = getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/temperature.dat";
+    tabulatedAtmosphereFiles[ 3 ] = getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/gasConstant.dat";
+    tabulatedAtmosphereFiles[ 4 ] = getAtmosphereTablesPath( ) + "MCDMeanAtmosphereTimeAverage/specificHeatRatio.dat";
+    std::vector< AtmosphereIndependentVariables > atmosphereIndependentVariables = {
+        longitude_dependent_atmosphere, latitude_dependent_atmosphere, altitude_dependent_atmosphere };
+    std::vector< AtmosphereDependentVariables > atmosphereDependentVariables = {
+        density_dependent_atmosphere, pressure_dependent_atmosphere, temperature_dependent_atmosphere,
+        gas_constant_dependent_atmosphere, specific_heat_ratio_dependent_atmosphere };
+    TabulatedAtmosphere tabulatedAtmosphere(
+                tabulatedAtmosphereFiles, atmosphereIndependentVariables, atmosphereDependentVariables );
+
+    // Create random layer and print the coefficients every once in a while
+    for ( unsigned int i = 0; i < 151; i++ )
+    {
+        tabulatedAtmosphere.randomizeAtmospherePerturbations( );
+        if ( ( i % 3 ) == 0 )
+        {
+            std::pair< double, Eigen::Matrix< double, 9, 1 > > randomPerturbationsCoefficients =
+                    tabulatedAtmosphere.getRandomPerturbationsCoefficients( );
+            std::cout << randomPerturbationsCoefficients.first << " " << randomPerturbationsCoefficients.second.transpose( ) << std::endl;
+        }
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END( )

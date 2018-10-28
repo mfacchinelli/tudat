@@ -394,12 +394,13 @@ private:
                                                         const std::map< unsigned int, DependentVector >& sigmaPointEstimates )
     {
         // Loop over each sigma point
+        DependentVector currentVectorDifference;
         for ( sigmaPointConstantIterator_ = sigmaPointEstimates.begin( );
               sigmaPointConstantIterator_ != sigmaPointEstimates.end( ); sigmaPointConstantIterator_++ )
         {
+            currentVectorDifference = sigmaPointConstantIterator_->second - referenceVector;
             weightedAverageMatrix += covarianceEstimationWeights_.at( sigmaPointConstantIterator_->first ) *
-                    ( sigmaPointConstantIterator_->second - referenceVector ) *
-                    ( sigmaPointConstantIterator_->second - referenceVector ).transpose( );
+                    ( currentVectorDifference * currentVectorDifference.transpose( ) );
         }
     }
 

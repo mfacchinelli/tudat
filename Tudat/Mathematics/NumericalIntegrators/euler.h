@@ -22,6 +22,7 @@
 
 namespace tudat
 {
+
 namespace numerical_integrators
 {
 
@@ -114,8 +115,7 @@ public:
         lastIndependentVariable_ = currentIndependentVariable_;
         lastState_ = currentState_;
 
-        currentState_ += stepSize * this->stateDerivativeFunction_(
-                    currentIndependentVariable_, currentState_ );
+        currentState_ += stepSize * this->stateDerivativeFunction_( currentIndependentVariable_, currentState_ );
 
         stepSize_ = stepSize;
         currentIndependentVariable_ += stepSize_;
@@ -262,6 +262,7 @@ typedef boost::shared_ptr< EulerIntegratorXd > EulerIntegratorXdPointer;
 typedef boost::shared_ptr< EulerIntegratord > EulerIntegratordPointer;
 
 } // namespace numerical_integrators
+
 } // namespace tudat
 
 #endif // TUDAT_EULER_INTEGRATOR_H

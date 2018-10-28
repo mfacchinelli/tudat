@@ -188,6 +188,7 @@ private:
             }
         }
     }
+
     //! Function to explicitly use existing environment models to update current states of integrated bodies
     /*!
      * Function to explicitly use existing environment models to update current states of integrated
@@ -661,7 +662,6 @@ private:
     //! List of body objects, this list encompasses all environment object in the simulation.
     simulation_setup::NamedBodyMap bodyList_;
 
-
     //! list of identifiers for the numerically integrated states
     /*!
      * This map provides the list of identifiers for the numerically
@@ -684,7 +684,6 @@ private:
     //! Predefined state history iterator for computational efficiency.
     typename std::unordered_map< IntegratedStateType, Eigen::Matrix< StateScalarType, Eigen::Dynamic, 1 > >::const_iterator
     integratedStateIterator_;
-
 
 };
 

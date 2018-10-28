@@ -239,11 +239,7 @@ public:
         }
 
         // Give output
-        if ( ( randomPerturbationsCoefficients_.first == 0.0 ) && randomPerturbationsCoefficients_.second.isZero( ) )
-        {
-            return interpolatorForDensity_->interpolate( independentVariableData );
-        }
-        else
+        if ( randomPerturbationsActivated_ )
         {
             double nonConstantAltitude = altitude;
             if ( nonConstantAltitude > independentVariablesData_.at( 2 ).back( ) )
@@ -270,6 +266,10 @@ public:
             multiplicativeFactor = ( multiplicativeFactor < 0.5 ) ? 0.5 : multiplicativeFactor;
 
             return ( multiplicativeFactor * interpolatorForDensity_->interpolate( independentVariableData ) );
+        }
+        else
+        {
+            return interpolatorForDensity_->interpolate( independentVariableData );
         }
     }
 
@@ -497,6 +497,12 @@ public:
                                     getRatioOfSpecificHeats( altitude, longitude, latitude, time ) );
     }
 
+    //! Function to retrieve the random perturbation coefficients.
+    std::pair< double, Eigen::Matrix< double, 9, 1 > > getRandomPerturbationsCoefficients( )
+    {
+        return randomPerturbationsCoefficients_;
+    }
+
     //! Function to randomize the perturbation coefficients.
     /*!
      *  Function to randomize the perturbation coefficients. The perturbation coefficients are then used to compute a
@@ -504,18 +510,33 @@ public:
      */
     void randomizeAtmospherePerturbations( )
     {
-        // Give values to each coefficient
-        randomPerturbationsCoefficients_.first = randomUniformNumberGenerator_->getRandomVariableValue( );
-        for ( unsigned int i = 0; i < 9; i++ )
+        // Check if first randomization has already occurred
+        if ( randomPerturbationsActivated_ )
         {
-            randomPerturbationsCoefficients_.second[ i ] = randomGaussianNumberGenerator_->getRandomVariableValue( );
-            if ( i > 5 )
-            {
-                randomPerturbationsCoefficients_.second[ i ] *= 0.5 / 0.25;
-                randomPerturbationsCoefficients_.second[ i ] += 1.0;
-            }
+            // Retrieve random values and use them as random walk
+            std::pair< double, Eigen::Matrix< double, 9, 1 > > randomWalkAdditionToAtmospherePerturbations =
+                    generateRandomAtmospherePerturbationCoefficients( );
+
+            double randomWalkFraction = 0.05;
+            double randomSign = ( randomWalkAdditionToAtmospherePerturbations.second.segment( 0, 6 ).sum( ) >= 0 ) ? 1.0 : -1.0;
+
+            randomPerturbationsCoefficients_.first +=
+                    randomSign * randomWalkFraction * randomWalkAdditionToAtmospherePerturbations.first;
+            randomPerturbationsCoefficients_.second.segment( 0, 6 ).noalias( ) +=
+                    randomWalkFraction * randomWalkAdditionToAtmospherePerturbations.second.segment( 0, 6 );
+            randomPerturbationsCoefficients_.second.segment( 6, 3 ).noalias( ) +=
+                    randomSign * randomWalkFraction * randomWalkAdditionToAtmospherePerturbations.second.segment( 6, 3 );
         }
-        std::cout << randomPerturbationsCoefficients_.first << " " << randomPerturbationsCoefficients_.second.transpose( ) << std::endl;
+        else
+        {
+            // Retrieve random values and set them as initial values
+            randomPerturbationsActivated_ = true;
+            std::pair< double, Eigen::Matrix< double, 9, 1 > > randomAtmospherePerturbations =
+                    generateRandomAtmospherePerturbationCoefficients( );
+            randomPerturbationsCoefficients_.first = randomAtmospherePerturbations.first;
+            randomPerturbationsCoefficients_.second = randomAtmospherePerturbations.second;
+        }
+//        std::cout << randomPerturbationsCoefficients_.first << " " << randomPerturbationsCoefficients_.second.transpose( ) << std::endl;
     }
 
 private:
@@ -536,6 +557,26 @@ private:
      */
     template< unsigned int NumberOfIndependentVariables >
     void createMultiDimensionalAtmosphereInterpolators( );
+
+    //! Function to generate random atmosphere perturbations based on the hard-coded standard deviations.
+    std::pair< double, Eigen::Matrix< double, 9, 1 > > generateRandomAtmospherePerturbationCoefficients( )
+    {
+        // Retrieve random variables
+        double scalarPerturbation = randomUniformNumberGenerator_->getRandomVariableValue( );
+        Eigen::Matrix< double, 9, 1 > vectorPerturbation;
+        for ( unsigned int i = 0; i < 9; i++ )
+        {
+            vectorPerturbation[ i ] = randomGaussianNumberGenerator_->getRandomVariableValue( );
+            if ( i > 5 )
+            {
+                vectorPerturbation[ i ] *= 0.5 / 0.25;
+                vectorPerturbation[ i ] += 1.0;
+            }
+        }
+
+        // Give output
+        return std::make_pair( scalarPerturbation, vectorPerturbation );
+    }
 
     //! The file name of the atmosphere table.
     /*!
@@ -587,6 +628,9 @@ private:
      *          in case it is above the upper definition limit
      */
     std::vector< std::vector< std::pair< double, double > > > defaultExtrapolationValue_;
+
+    //! Boolean denoting whether random perturbations layer has been activated.
+    bool randomPerturbationsActivated_;
 
     //! Pair containing the coefficients for the randomized layer.
     /*!
