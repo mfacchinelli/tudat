@@ -110,7 +110,7 @@ public:
                 // Feed maneuver to the navigation system and update filter
                 performManeuverOnNextCall_ = false; // reset flag
                 navigationSystem_->runStateEstimator( currentExternalMeasurement, currentGyroscopeMeasurement,
-                                                      controlSystem_->getScheduledApoapsisManeuver( ) );
+                                                      controlSystem_->getScheduledApsisManeuver( ) );
             }
             else
             {
