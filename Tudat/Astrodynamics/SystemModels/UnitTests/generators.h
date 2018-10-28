@@ -467,13 +467,15 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     // Aerodynamic coefficients from file
     std::map< int, std::string > aerodynamicForceCoefficientFiles;
     aerodynamicForceCoefficientFiles[ 0 ] = getTudatRootPath( ) + "External/MRODragCoefficients.txt";
+    aerodynamicForceCoefficientFiles[ 1 ] = getTudatRootPath( ) + "External/MROSideCoefficients.txt";
     aerodynamicForceCoefficientFiles[ 2 ] = getTudatRootPath( ) + "External/MROLiftCoefficients.txt";
 
     // Create aerodynamic coefficient settings
     boost::shared_ptr< AerodynamicCoefficientSettings > aerodynamicCoefficientSettings =
             readTabulatedAerodynamicCoefficientsFromFiles(
                 aerodynamicForceCoefficientFiles, referenceAreaAerodynamic,
-                std::vector< AerodynamicCoefficientsIndependentVariables >{ angle_of_attack_dependent, altitude_dependent } );
+                std::vector< AerodynamicCoefficientsIndependentVariables >{ angle_of_attack_dependent, angle_of_sideslip_dependent,
+                                                                            altitude_dependent } );
 
     // Constant radiation pressure variables
     std::vector< std::string > occultingBodies;
@@ -662,6 +664,7 @@ public:
         // Aerodynamic coefficients from file
         std::map< int, std::string > aerodynamicForceCoefficientFiles;
         aerodynamicForceCoefficientFiles[ 0 ] = input_output::getTudatRootPath( ) + "External/MRODragCoefficients.txt";
+        aerodynamicForceCoefficientFiles[ 1 ] = input_output::getTudatRootPath( ) + "External/MROSideCoefficients.txt";
         aerodynamicForceCoefficientFiles[ 2 ] = input_output::getTudatRootPath( ) + "External/MROLiftCoefficients.txt";
 
         // Create aerodynamic coefficient settings
@@ -669,7 +672,7 @@ public:
                 simulation_setup::readTabulatedAerodynamicCoefficientsFromFiles(
                     aerodynamicForceCoefficientFiles, referenceAreaAerodynamic,
                     std::vector< aerodynamics::AerodynamicCoefficientsIndependentVariables >{
-                        aerodynamics::angle_of_attack_dependent, aerodynamics::altitude_dependent } );
+                        aerodynamics::angle_of_attack_dependent, aerodynamics::angle_of_sideslip_dependent, aerodynamics::altitude_dependent } );
 
         // Constant radiation pressure variables
         std::vector< std::string > occultingBodies;
