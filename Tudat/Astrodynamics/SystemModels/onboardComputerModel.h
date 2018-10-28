@@ -140,12 +140,17 @@ public:
             double currentEstimatedTrueAnomaly = currentEstimatedState.second[ 5 ];
 
             // Update attitude controller
-            controlSystem_->updateAttitudeController(
-                        navigationSystem_->getCurrentEstimatedRotationalState( ).segment( 0, 4 ),
+//            controlSystem_->updateAttitudeController(
+//                        navigationSystem_->getCurrentEstimatedRotationalState( ).segment( 0, 4 ),
+//                        removeErrorsFromInertialMeasurementUnitMeasurement(
+//                            instrumentsModel_->getCurrentGyroscopeMeasurement( ),
+//                            navigationSystem_->getCurrentNavigationFilterState( ).segment( NavigationSystem::gyroscope_bias_index, 3 ) ),
+//                        navigationSystem_->getNavigationRefreshStepSize( ) );
+            controlSystem_->updateAttitudeControllerLQR(
+                        navigationSystem_->getCurrentEstimatedAerodynamicAngles( ),
                         removeErrorsFromInertialMeasurementUnitMeasurement(
                             instrumentsModel_->getCurrentGyroscopeMeasurement( ),
-                            navigationSystem_->getCurrentNavigationFilterState( ).segment( NavigationSystem::gyroscope_bias_index, 3 ) ),
-                        navigationSystem_->getNavigationRefreshStepSize( ) );
+                            navigationSystem_->getCurrentNavigationFilterState( ).segment( NavigationSystem::gyroscope_bias_index, 3 ) ) );
 
             // Check which orbit phase the spacecraft is in (if any)
             // Check true anomaly to see if apoapsis maneuvering phase

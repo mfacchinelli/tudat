@@ -288,10 +288,9 @@ public:
                                  const boost::shared_ptr< AerodynamicCoefficientInterface >
                                  aerodynamicCoefficientInterface,
                                  const boost::shared_ptr< reference_frames::AerodynamicAngleCalculator >
-                                 aerodynamicAngleCalculator =
-            boost::shared_ptr< reference_frames::AerodynamicAngleCalculator >( ),
-                                 const boost::function< double( const std::string& )> controlSurfaceDeflectionFunction =
-            boost::function< double( const std::string& )>( ) );
+                                 aerodynamicAngleCalculator = boost::shared_ptr< reference_frames::AerodynamicAngleCalculator >( ),
+                                 const boost::function< double( const std::string& ) > controlSurfaceDeflectionFunction =
+            boost::function< double( const std::string& ) >( ) );
 
     //! Function to update all flight conditions.
     /*!

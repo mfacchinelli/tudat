@@ -67,7 +67,6 @@ boost::shared_ptr< aerodynamics::AtmosphericFlightConditions > createAtmospheric
                     " has no aerodynamic coefficients." );
     }
 
-
     // Create function to rotate state from intertial to body-fixed frame.
     boost::function< Eigen::Quaterniond( ) > rotationToFrameFunction =
             boost::bind( &Body::getCurrentRotationToLocalFrame, centralBody );
@@ -126,7 +125,7 @@ boost::shared_ptr< aerodynamics::AtmosphericFlightConditions > createAtmospheric
 }
 
 //! Function to create a flight conditions object
-boost::shared_ptr< aerodynamics::FlightConditions >  createFlightConditions(
+boost::shared_ptr< aerodynamics::FlightConditions > createFlightConditions(
         const boost::shared_ptr< Body > bodyWithFlightConditions,
         const boost::shared_ptr< Body > centralBody,
         const std::string& nameOfBodyUndergoingAcceleration,
@@ -173,7 +172,6 @@ boost::shared_ptr< aerodynamics::FlightConditions >  createFlightConditions(
                 centralBody->getShapeModel( ), aerodynamicAngleCalculator );
 
 }
-
 
 //! Function to set the angle of attack to trimmed conditions.
 boost::shared_ptr< aerodynamics::TrimOrientationCalculator > setTrimmedConditions(

@@ -56,6 +56,80 @@ Eigen::Vector4d calculateQuaternionDerivative( const Eigen::Vector4d& currentQua
     return conversionMatrix * currentQuaternionsToBaseFrame;
 }
 
+//! Function to update the attitude controller.
+void ControlSystem::updateAttitudeController( const Eigen::Vector4d& currentEstimatedQuaternion,
+                                              const Eigen::Vector3d& currentMeasuredRotationalVelocityVector,
+                                              const double navigationRefreshStepSize )
+{
+    // Determine commanded quaternion
+    Eigen::Vector4d currentCommandedQuaternion = ( isSignToBeFlipped_ ? -1.0 : 1.0 ) * currentOrbitCommandedQuaternionState_;
+
+    // Check if current quaternion signs match the previous time otherwise flip the sign
+    bool doesSignHistoryMatch = currentCommandedQuaternion.isApprox( -previousCommandedQuaternion_, 1.0e-3 );
+    if ( doesSignHistoryMatch )
+    {
+        currentCommandedQuaternion *= -1.0;
+    }
+    isSignToBeFlipped_ = isSignToBeFlipped_ || doesSignHistoryMatch;
+    previousCommandedQuaternion_ = currentCommandedQuaternion;
+
+    // Compute difference between current and commanded state
+    Eigen::Vector4d currentErrorInEstimatedQuaternion =
+            computeErrorInEstimatedQuaternion( currentEstimatedQuaternion, currentCommandedQuaternion );
+    historyOfQuaternionErrors_.push_back( currentErrorInEstimatedQuaternion.segment( 1, 3 ) );
+
+    // Compute difference between current and commanded derivative
+    Eigen::Vector4d currentErrorInEstimatedQuaternionDerivative =
+            computeErrorInEstimatedQuaternion( calculateQuaternionDerivative( currentEstimatedQuaternion,
+                                                                              currentMeasuredRotationalVelocityVector ),
+                                               currentCommandedQuaternion );
+
+    //        std::cout << "Current estimated quaternion: " <<
+    //                     currentEstimatedQuaternion.transpose( ) << std::endl
+    //                  << "Current estimated derivative: "  <<
+    //                     calculateQuaternionDerivative( currentEstimatedQuaternion,
+    //                                                    currentMeasuredRotationalVelocityVector ).transpose( ) << std::endl
+    //                  << "Commanded state: " << currentCommandedQuaternion.transpose( ) << std::endl
+    //                  << "Proportional: " <<
+    //                     proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternion.segment( 1, 3 ) ).transpose( ) << std::endl
+    //                  << "Integral: " <<
+    //                     integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
+    //                                                     navigationRefreshStepSize, historyOfQuaternionErrors_ ) ).transpose( ) << std::endl
+    //                  << "Derivative: " <<
+    //                     derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ).transpose( ) << std::endl;
+
+    // Compute control vector based on control gains and error
+    currentControlVector_ = - ( proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternion.segment( 1, 3 ) ) +
+                                integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
+                                                                navigationRefreshStepSize, historyOfQuaternionErrors_ ) ) +
+                                derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ) );
+    // only the imaginary part of the quaternion is used, since only three terms are needed to fully control the spacecraft
+    //        std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl << std::endl;
+    currentOrbitHistoryOfControlVectors_.push_back( currentControlVector_ );
+}
+
+//! Function to update the attitude controller.
+/*!
+ *  Function to update the attitude controller. The controller is based on the LQR (linear quadratic regulator).
+ *  \param currentEstimatedAerodynamicAngles Current estimated aerodynamic angles.
+ *  \param currentMeasuredRotationalVelocityVector Current measured rotational velocity vector.
+ */
+void ControlSystem::updateAttitudeControllerLQR( const Eigen::Vector3d& currentEstimatedAerodynamicAngles,
+                                                 const Eigen::Vector3d& currentMeasuredRotationalVelocityVector )
+{
+    // Declare gain matrix
+    Eigen::Matrix< double, 3, 6 > gainMatrix;
+    gainMatrix << 17748.022616, 0.006274, 0.071764, 0.000331, 30982.740363, 0.000000,
+            0.016256, 0.000000, 33454.593029, 0.000423, 57295.725477, 0.000000,
+            -0.099127, -0.000000, -28647.620658, -9549.296586, 0.000282, 0.070800;
+
+    // Compute control vector
+    Eigen::Vector6d inputVector;
+    inputVector.segment( 0, 3 ) = currentMeasuredRotationalVelocityVector;
+    inputVector.segment( 3, 3 ) = currentEstimatedAerodynamicAngles;
+    currentControlVector_ = gainMatrix * inputVector;
+}
+
 } // namespace system_models
 
 } // namespace tudat

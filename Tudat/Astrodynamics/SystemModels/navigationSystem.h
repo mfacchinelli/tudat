@@ -516,6 +516,26 @@ public:
         return currentEstimatedRotationalState_;
     }
 
+    //! Function to retireve the current estimated aerodynamic angles.
+    Eigen::Vector3d getCurrentEstimatedAerodynamicAngles( )
+    {
+        // Declare aerodynamic angles vector
+        Eigen::Vector3d currentEstimatedAerodynamicAngles;
+        currentEstimatedAerodynamicAngles[ 0 ] =
+                onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
+                    reference_frames::angle_of_attack );
+        currentEstimatedAerodynamicAngles[ 1 ] =
+                onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
+                    reference_frames::angle_of_sideslip );
+        currentEstimatedAerodynamicAngles[ 2 ] =
+                onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
+                    reference_frames::bank_angle );
+
+        // Give output
+        std::cout << currentEstimatedAerodynamicAngles.transpose( ) << std::endl;
+        return currentEstimatedAerodynamicAngles;
+    }
+
     //! Function to compute the current estimated mean motion.
     double getCurrentEstimatedMeanMotion( )
     {
