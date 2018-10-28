@@ -7,6 +7,9 @@
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
  *
+ *    References:
+ *      Facchinelli, M. (2018). Aerobraking Navigation, Guidance and Control.
+ *          Master Thesis, Delft University of Technology.
  */
 
 #ifndef TUDAT_GENERATORS_H
