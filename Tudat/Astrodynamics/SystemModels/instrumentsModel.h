@@ -66,6 +66,12 @@ public:
         deepSpaceNetworkAdded_ = false;
         genericRangingSystemAdded_ = false;
 
+        // Set initial values to NaN
+        currentTranslationalAcceleration_.setConstant( TUDAT_NAN );
+        currentRotationalVelocity_.setConstant( TUDAT_NAN );
+        currentAltitude_ = std::vector< Eigen::Vector3d >( );
+        currentPosition_.setConstant( TUDAT_NAN );
+
         // Get index of central body acceleration (which is not measured by the IMUs)
         sphericalHarmonicsGravityIndex_ = static_cast< unsigned int >( TUDAT_NAN );
         thirdBodyGravityIndex_ = static_cast< unsigned int >( TUDAT_NAN );
@@ -760,7 +766,7 @@ private:
     //! Function to retrieve current position of the spacecraft.
     void getCurrentPosition( const Eigen::Vector3d& biasVector, const Eigen::Matrix3d& scaleMisalignmentMatrix )
     {
-        // Iterate over all accelerations acting on body
+        // Retrieve position of the spacecraft w.r.t. the planet
         currentPosition_ = bodyMap_.at( spacecraftName_ )->getPosition( ) - bodyMap_.at( planetName_ )->getPosition( );
 
         // Add errors to acceleration value

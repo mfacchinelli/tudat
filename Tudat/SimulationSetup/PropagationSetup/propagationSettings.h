@@ -172,7 +172,6 @@ public:
     //! Virtual destructor.
     virtual ~SingleArcPropagatorSettings( ){ }
 
-
     //!Type of state being propagated
     IntegratedStateType getStateType( )
     {

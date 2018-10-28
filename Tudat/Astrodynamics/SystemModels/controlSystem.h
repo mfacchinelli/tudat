@@ -69,8 +69,9 @@ public:
                    const Eigen::Vector3d& derivativeGain ) :
         proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain )
     {
-        // Initialize variables
+        // Set values to their initial conditions
         currentControlVector_.setZero( );
+        scheduledApsisManeuver_.setZero( );
     }
 
     //! Destructor.
@@ -141,28 +142,16 @@ public:
     }
 
     //! Function to update the orbit controller with the scheduled apoapsis maneuver, computed by the guidance system.
-    void updateOrbitController( const Eigen::Vector3d& scheduledApsisManeuver,
-                                const bool isManeuverToBePerformedAtApoapsis = true )
+    void updateOrbitController( const Eigen::Vector3d& scheduledApsisManeuver )
     {
-        // Set apoapsis maneuver magnitude and direction
-        if ( isManeuverToBePerformedAtApoapsis )
-        {
-            scheduledApoapsisManeuver_ = scheduledApsisManeuver;
-        }
-        else
-        {
-            scheduledPeriapsisManeuver_ = scheduledApsisManeuver;
-        }
+        scheduledApsisManeuver_ = scheduledApsisManeuver;
     }
 
     //! Function to retireve current control vector for attitude.
     Eigen::Vector3d getCurrentAttitudeControlVector( ) { return currentControlVector_; }
 
     //! Function to retirieve the apoapsis maneuver.
-    Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApoapsisManeuver_; }
-
-    //! Function to retirieve the periapsis maneuver.
-    Eigen::Vector3d getScheduledPeriapsisManeuver( ) { return scheduledPeriapsisManeuver_; }
+    Eigen::Vector3d getScheduledApsisManeuver( ) { return scheduledApsisManeuver_; }
 
     //! Function to retrieve history of commanded quaternions.
     std::map< unsigned int, Eigen::Vector4d > getHistoryOfCommandedQuaternions( ) { return historyOfCommandedQuaternionStates_; }
@@ -270,11 +259,8 @@ private:
     //! Vector denoting the current quaternion attitude correction.
     Eigen::Vector3d currentControlVector_;
 
-    //! Vector denoting the velocity change scheduled to be applied at apoapsis.
-    Eigen::Vector3d scheduledApoapsisManeuver_;
-
-    //! Vector denoting the velocity change scheduled to be applied at periapsis.
-    Eigen::Vector3d scheduledPeriapsisManeuver_;
+    //! Vector denoting the velocity change scheduled to be applied at apo- or periapsis.
+    Eigen::Vector3d scheduledApsisManeuver_;
 
     //! History of commanded quaternion states.
     std::map< unsigned int, Eigen::Vector4d > historyOfCommandedQuaternionStates_;
