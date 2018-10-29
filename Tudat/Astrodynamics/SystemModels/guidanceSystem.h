@@ -395,13 +395,11 @@ public:
      *  runCorridorEstimator function (i.e., periodReducedStatePropagationFunction_), said function needs to be run before this one.
      *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
      *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
-     *  \param currentEstimatedMeanMotion Double denoting the current estimated mean motion.
      *  \param improveEstimateWithBisection Boolean denoting whether the maneuver estimate should be improved by using a
      *      bisection root-finder algorithm.
      */
     void runApoapsisManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
                                        const Eigen::Vector6d& currentEstimatedKeplerianState,
-                                       const double currentEstimatedMeanMotion,
                                        const bool improveEstimateWithBisection = true );
 
     //! Function to run periapsis maneuver estimator (ME).
@@ -410,12 +408,10 @@ public:
      *  \param currentTime Double denoting the current time.
      *  \param currentEstimatedCartesianState Vector denoting the current estimated translational Cartesian elements.
      *  \param currentEstimatedKeplerianState Vector denoting the current estimated translational Keplerian elements.
-     *  \param currentEstimatedMeanMotion Double denoting the current estimated mean motion.
      */
     void runPeriapsisManeuverEstimator( const double currentTime,
                                         const Eigen::Vector6d& currentEstimatedCartesianState,
-                                        const Eigen::Vector6d& currentEstimatedKeplerianState,
-                                        const double currentEstimatedMeanMotion );
+                                        const Eigen::Vector6d& currentEstimatedKeplerianState );
 
     //! Function to set the value of the current orbit counter.
     void setCurrentOrbitCounter( const unsigned int currentOrbitCounter )
@@ -472,6 +468,36 @@ public:
 
         // Give output
         return std::make_pair( cumulativeManeuverMagnitude, historyOfApsisManeuverMagnitudes_ );
+    }
+
+    //! Function to compute the rotation from local to intertial frame.
+    Eigen::Matrix3d testComputeCurrentRotationFromLocalToInertialFrame( const Eigen::Vector6d& currentEstimatedCartesianState )
+    {
+        // Only run if testing
+        if ( guidanceTesting_ )
+        {
+            return computeCurrentRotationFromLocalToInertialFrame( currentEstimatedCartesianState );
+        }
+        else
+        {
+            throw std::runtime_error( "Error in guidance system. This function can only be run while testing." );
+        }
+    }
+
+    //! Function to test the Atmosphere Estimator.
+    void testSetPeriapsisAltitudeTargetingInformation( std::pair< double, double >& pairOfPeriapsisAltitudeTargetingInformation )
+    {
+        // Only run if testing
+        if ( guidanceTesting_ )
+        {
+            // Set values of periapsis altitude targeting information
+            std::get< 1 >( periapsisTargetingInformation_ ) = pairOfPeriapsisAltitudeTargetingInformation.first;
+            std::get< 2 >( periapsisTargetingInformation_ ) = pairOfPeriapsisAltitudeTargetingInformation.second;
+        }
+        else
+        {
+            throw std::runtime_error( "Error in guidance system. This function can only be run while testing." );
+        }
     }
 
 private:

@@ -312,10 +312,10 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // If testing, store results so that they can be compared to MATLAB
     if ( navigationTesting_ )
     {
-        input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface, "kepler_est.dat", "PTE&AEResults/" );
+        input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface, "nsKepler_est.dat", "TestingResults/" );
         input_output::writeMatrixToFile(
                     utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                    "aero.dat", 16, "PTE&AEResults/" );
+                    "nsAero.dat", 16, "TestingResults/" );
     }
 
     // Determine actual periapse time
@@ -458,9 +458,9 @@ void NavigationSystem::runAtmosphereEstimator(
         {
             input_output::writeMatrixToFile(
                         utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                        "acceleration.dat", 16, "PTE&AEResults/" );
-            input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface, "density.dat", 16, "PTE&AEResults/" );
-            input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface, "altitude.dat", 16, "PTE&AEResults/" );
+                        "nsAcceleration.dat", 16, "TestingResults/" );
+            input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface, "nsDensity.dat", 16, "TestingResults/" );
+            input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface, "nsAltitude.dat", 16, "TestingResults/" );
         }
 
         // Find periapsis altitude

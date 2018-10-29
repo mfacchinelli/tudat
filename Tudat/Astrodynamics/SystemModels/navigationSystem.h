@@ -804,7 +804,7 @@ public:
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        // Only run if navigationTesting
+        // Only run if testing
         if ( navigationTesting_ )
         {
             using mathematical_constants::PI;
@@ -828,7 +828,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error in navigation system. This function can only be run while navigationTesting." );
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
         }
     }
 
@@ -837,7 +837,7 @@ public:
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        // Only run if navigationTesting
+        // Only run if testing
         if ( navigationTesting_ )
         {
             using mathematical_constants::PI;
@@ -861,7 +861,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error in navigation system. This function can only be run while navigationTesting." );
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
         }
     }
 

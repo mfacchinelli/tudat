@@ -500,7 +500,8 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                             vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back( aerodynamicAcceleration.at( i ) );
                         }
                     }
-                    input_output::writeDataMapToTextFile( mapOfActualKeplerianStatesBelowAtmosphericInterface, "kepler_act.dat", "PTE&AEResults/" );
+                    input_output::writeDataMapToTextFile( mapOfActualKeplerianStatesBelowAtmosphericInterface,
+                                                          "nsKepler_act.dat", "TestingResults/" );
 
                     // Run periapse time estimator based on current data
                     Eigen::VectorXd estimatedAtmosphereParameters =

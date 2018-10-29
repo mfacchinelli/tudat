@@ -158,8 +158,7 @@ public:
                     performManeuverOnNextCall_ = true;
 
                     // Run maneuver estimator
-                    guidanceSystem_->runApoapsisManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
-                                                                   navigationSystem_->getCurrentEstimatedMeanMotion( ) );
+                    guidanceSystem_->runApoapsisManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second );
 
                     // Feed maneuver to the control system
                     controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
@@ -199,8 +198,7 @@ public:
                 std::cout << std::endl << "REACHED FINAL PERIAPSIS. Preparing to perform maneuver." << std::endl;
 
                 // Run periapsis maneuver estimator
-                guidanceSystem_->runPeriapsisManeuverEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
-                                                                navigationSystem_->getCurrentEstimatedMeanMotion( ) );
+                guidanceSystem_->runPeriapsisManeuverEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second );
 
                 // Feed maneuver to the control system
                 controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
