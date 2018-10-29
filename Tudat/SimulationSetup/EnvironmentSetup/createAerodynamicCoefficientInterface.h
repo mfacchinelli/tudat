@@ -794,7 +794,7 @@ public:
      * Function to return values of force coefficients in table.
      * \return Values of force coefficients in table.
      */
-    std::map< double, Eigen::Vector3d >  getForceCoefficients( )
+    std::map< double, Eigen::Vector3d > getForceCoefficients( )
     {
         return forceCoefficients_;
     }
@@ -804,7 +804,7 @@ public:
      * Function to return values of moment coefficients in table.
      * \return Values of moment coefficients in table.
      */
-    std::map< double, Eigen::Vector3d >  getMomentCoefficients( )
+    std::map< double, Eigen::Vector3d > getMomentCoefficients( )
     {
         return momentCoefficients_;
     }
@@ -816,6 +816,113 @@ private:
 
     //! Values of moment coefficients at independent variables defined  by independentVariables_.
     std::map< double, Eigen::Vector3d > momentCoefficients_;
+
+};
+
+//! AerodynamicCoefficientSettings for defining a custom aerodynamic coefficients
+class CustomAerodynamicCoefficientSettings: public AerodynamicCoefficientSettings
+{
+public:
+
+    //! Constructor.
+    /*!
+     *  Constructor.
+     *  \param constantForceCoefficient Constant force coefficients.
+     *  \param constantMomentCoefficient Constant moment coefficients.
+     *  \param referenceLength Reference length with which aerodynamic moments
+     *  (about x- and z- axes) are non-dimensionalized.
+     *  \param referenceArea Reference area with which aerodynamic forces and moments are
+     *  non-dimensionalized.
+     *  \param lateralReferenceLength Reference length with which aerodynamic moments
+     *  (about y-axis) is non-dimensionalized.
+     *  \param momentReferencePoint Point w.r.t. aerodynamic moment is calculated.
+     *  \param independentVariableName Identifiers the of physical meaning of the
+     *  independent variable of the aerodynamic coefficients.
+     *  \param areCoefficientsInAerodynamicFrame Boolean to define whether the aerodynamic
+     *  coefficients are defined in the aerodynamic frame (drag, side, lift force) or in the body
+     *  frame (typically denoted as Cx, Cy, Cz).
+     *  \param areCoefficientsInNegativeAxisDirection Boolean to define whether the aerodynamic
+     *  coefficients are positiver along tyhe positive axes of the body or aerodynamic frame
+     *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
+     *  coefficients are typically defined in negative direction.
+     *  \param interpolatorSettings Pointer to an interpolator settings object, where the
+     *  conditions for interpolation are saved.
+     */
+    CustomAerodynamicCoefficientSettings(
+            const double referenceLength,
+            const double referenceArea,
+            const double lateralReferenceLength,
+            const Eigen::Vector3d& momentReferencePoint,
+            const std::vector< aerodynamics::AerodynamicCoefficientsIndependentVariables > independentVariableName,
+            const Eigen::Vector3d& constantForceCoefficient,
+            const Eigen::Vector3d& constantMomentCoefficient = Eigen::Vector3d::Zero( ),
+            const bool areCoefficientsInAerodynamicFrame = true,
+            const bool areCoefficientsInNegativeAxisDirection = true,
+            const boost::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings = NULL ) :
+        AerodynamicCoefficientSettings(
+            custom_aerodynamic_coefficients, referenceLength, referenceArea,
+            lateralReferenceLength, momentReferencePoint, independentVariableName,
+            areCoefficientsInAerodynamicFrame, areCoefficientsInNegativeAxisDirection, interpolatorSettings ),
+        constantForceCoefficient_( constantForceCoefficient ),
+        constantMomentCoefficient_( constantMomentCoefficient )
+    { }
+
+    //! Constructor.
+    /*!
+     *  Constructor, omitting all moment coefficient data.
+     *  \param referenceArea Reference area with which aerodynamic forces and moments are
+     *  non-dimensionalized.
+     *  \param independentVariableName Identifiers the of physical meaning of the
+     *  independent variable of the aerodynamic coefficients.
+     *  \param constantForceCoefficient Constant force coefficients.
+     *  \param areCoefficientsInAerodynamicFrame Boolean to define whether the aerodynamic
+     *  coefficients are defined in the aerodynamic frame (drag, side, lift force) or in the body
+     *  frame (typically denoted as Cx, Cy, Cz).
+     *  \param areCoefficientsInNegativeAxisDirection Boolean to define whether the aerodynamic
+     *  coefficients are positiver along tyhe positive axes of the body or aerodynamic frame
+     *  (see areCoefficientsInAerodynamicFrame). Note that for (drag, side, lift force), the
+     *  coefficients are typically defined in negative direction.
+     */
+    CustomAerodynamicCoefficientSettings(
+            const double referenceArea,
+            const std::vector< aerodynamics::AerodynamicCoefficientsIndependentVariables > independentVariableName,
+            const Eigen::Vector3d& constantForceCoefficient,
+            const bool areCoefficientsInAerodynamicFrame = true,
+            const bool areCoefficientsInNegativeAxisDirection = true ) :
+        AerodynamicCoefficientSettings(
+            custom_aerodynamic_coefficients, TUDAT_NAN, referenceArea,
+            TUDAT_NAN, Eigen::Vector3d::Zero( ), independentVariableName,
+            areCoefficientsInAerodynamicFrame, areCoefficientsInNegativeAxisDirection, NULL ),
+        constantForceCoefficient_( constantForceCoefficient ),
+        constantMomentCoefficient_( Eigen::Vector3d::Zero( ) ){ }
+
+    //! Function to return constant force coefficients.
+    /*!
+     *  Function to return constant force coefficients.
+     *  \return Cnstant force coefficients.
+     */
+    Eigen::Vector3d getConstantForceCoefficient( )
+    {
+        return  constantForceCoefficient_;
+    }
+
+    //! Function to return constant moment coefficients.
+    /*!
+     *  Function to return constant moment coefficients.
+     *  \return Cnstant force coefficients.
+     */
+    Eigen::Vector3d getConstantMomentCoefficient( )
+    {
+        return constantMomentCoefficient_;
+    }
+
+private:
+
+    //! Constant moment coefficients.
+    Eigen::Vector3d constantForceCoefficient_;
+
+    //! Constant force coefficients.
+    Eigen::Vector3d constantMomentCoefficient_;
 
 };
 

@@ -168,7 +168,7 @@ public:
     void updateFullCurrentCoefficients(
             const std::vector< double >& independentVariables,
             const std::map< std::string, std::vector< double > >& controlSurfaceIndependentVariables =
-            std::map< std::string, std::vector< double > > ( ) )
+            std::map< std::string, std::vector< double > >( ) )
     {
         updateCurrentCoefficients( independentVariables );
 

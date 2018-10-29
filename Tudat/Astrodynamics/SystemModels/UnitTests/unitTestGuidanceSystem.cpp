@@ -244,6 +244,11 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
 
 //}
 
+//BOOST_AUTO_TEST_CASE( testPeriapsisSensitivity )
+//{
+
+//}
+
 BOOST_AUTO_TEST_SUITE_END( )
 
 }

@@ -260,7 +260,6 @@ Eigen::Quaterniond AerodynamicAngleCalculator::getRotationQuaternionBetweenFrame
                 case static_cast< int >( vertical_frame ):
                     if( isTargetFrameUp )
                     {
-
                         rotationToFrame =
                                 getLocalVerticalFrameToTrajectoryTransformationQuaternion(
                                     currentAerodynamicAngles_.at( flight_path_angle ),

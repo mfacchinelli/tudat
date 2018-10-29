@@ -229,7 +229,7 @@ public:
      * Function to get the function returning the quaternion that rotates from the corotating to the inertial frame.
      * \return Function returning the quaternion that rotates from the corotating to the inertial frame.
      */
-    boost::function< Eigen::Quaterniond( ) >  getRotationFromCorotatingToInertialFrame(  )
+    boost::function< Eigen::Quaterniond( ) > getRotationFromCorotatingToInertialFrame(  )
     {
         return rotationFromCorotatingToInertialFrame_;
     }

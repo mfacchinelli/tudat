@@ -220,6 +220,20 @@ std::vector< boost::shared_ptr< T > > dynamicCastSVectorToTVector( const std::ve
     return castVector;
 }
 
+//! Function to cast vector contents.
+template< typename S, typename T >
+std::vector< T > castSVectorToTVector( const std::vector< S >& originalVector )
+{
+    std::vector< T > castVector;
+
+    // Iterate over all entries and perform dynamic cast for each entry.
+    for( unsigned int i = 0; i < originalVector.size( ); i++ )
+    {
+        castVector.push_back( static_cast< T >( originalVector.at( i ) ) );
+    }
+    return castVector;
+}
+
 //! Function to concatenate matrix values of map.
 template< typename KeyType, typename ScalarType, int NumberOfRows, int NumberOfColumns = 1 >
 Eigen::Matrix< ScalarType, Eigen::Dynamic, NumberOfColumns > createConcatenatedEigenMatrixFromMapValues(
