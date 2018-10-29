@@ -520,16 +520,19 @@ public:
     Eigen::Vector3d getCurrentEstimatedAerodynamicAngles( )
     {
         // Declare aerodynamic angles vector
+        Eigen::Matrix3d currentRotationFromBodyToTrajectoryFrame =
+                linear_algebra::convertVectorToQuaternionFormat( currentEstimatedRotationalState_.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
+                onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator(
+                    )->getRotationQuaternionBetweenFrames( reference_frames::trajectory_frame,
+                                                           reference_frames::inertial_frame ).toRotationMatrix( );
+
+        // Compute associated Euler angles and set as orientation angles
+        Eigen::Vector3d eulerAngles = reference_frames::get132EulerAnglesFromRotationMatrix(
+                    currentRotationFromBodyToTrajectoryFrame );
         Eigen::Vector3d currentEstimatedAerodynamicAngles;
-        currentEstimatedAerodynamicAngles[ 0 ] =
-                onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
-                    reference_frames::angle_of_attack );
-        currentEstimatedAerodynamicAngles[ 1 ] =
-                onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
-                    reference_frames::angle_of_sideslip );
-        currentEstimatedAerodynamicAngles[ 2 ] =
-                onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
-                    reference_frames::bank_angle );
+        currentEstimatedAerodynamicAngles[ 0 ] = -eulerAngles[ 2 ];
+        currentEstimatedAerodynamicAngles[ 1 ] = eulerAngles[ 1 ];
+        currentEstimatedAerodynamicAngles[ 2 ] = eulerAngles[ 0 ];
 
         // Give output
         std::cout << currentEstimatedAerodynamicAngles.transpose( ) << std::endl;
@@ -875,7 +878,7 @@ public:
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        // Only run if navigationTesting
+        // Only run if testing
         if ( navigationTesting_ )
         {
             using mathematical_constants::PI;
@@ -899,7 +902,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error in navigation system. This function can only be run while navigationTesting." );
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
         }
     }
 
@@ -908,7 +911,7 @@ public:
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        // Only run if navigationTesting
+        // Only run if testing
         if ( navigationTesting_ )
         {
             using mathematical_constants::PI;
@@ -932,7 +935,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error in navigation system. This function can only be run while navigationTesting." );
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
         }
     }
 
