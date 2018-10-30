@@ -228,7 +228,7 @@ public:
         if ( ( previousNavigationPhase_ == aided_navigation_phase ) && ( currentNavigationPhase_ == unaided_navigation_phase ) )
         {
             // Improve state estimate if passing from aided to unaided
-            //            improveStateEstimateOnNavigationPhaseTransition( );
+//            improveStateEstimateOnNavigationPhaseTransition( );
         }
         else if ( ( previousNavigationPhase_ == unaided_navigation_phase ) && ( currentNavigationPhase_ == aided_navigation_phase ) )
         {
@@ -349,7 +349,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            //            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
+//            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );

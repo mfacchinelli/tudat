@@ -535,7 +535,7 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     case 1:
     {
         initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 6808709.3;
-        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.4861342;
+        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.4841342;
         break;
     }
     case 2:
