@@ -384,9 +384,8 @@ void NavigationSystem::runPeriapseTimeEstimator(
     historyOfEstimatedChangesInKeplerianState_[ currentOrbitCounter_ ] = estimatedChangeInKeplerianState;
 
     // Compute updated estimate in Keplerian state at current time by removing the estimated change in elements
-    Eigen::Vector6d updatedCurrentKeplerianState;
+    Eigen::Vector6d updatedCurrentKeplerianState = currentEstimatedKeplerianState_;
     updatedCurrentKeplerianState.segment( 0, 2 ) = estimatedKeplerianStateAtPreviousApoapsis_.segment( 0, 2 );
-    updatedCurrentKeplerianState.segment( 3, 4 ) = currentEstimatedKeplerianState_.segment( 3, 4 );
     updatedCurrentKeplerianState += estimatedChangeInKeplerianState;
     // the updated state is initially defined as the one with semi-major axis and eccentricity from the apoapsis before the
     // atmospheric pass and inclination, right ascension of ascending node, argument of periapsis and true anomaly from the

@@ -534,22 +534,22 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     }
     case 1:
     {
-        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 6808709.3;
-        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.4841342;
+        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 5.29046e+06;
+        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.337791;
         break;
     }
     case 2:
     {
-        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 4699198.5;
-        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.2546816;
+        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 4.70078e+06;
+        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.254259;
         break;
     }
     default:
         throw std::runtime_error( "Error. Only cases 0 and 1 are supported." );
     }
     initialSpacecraftKeplerianState( inclinationIndex ) = unit_conversions::convertDegreesToRadians( 93.0 );
-    initialSpacecraftKeplerianState( argumentOfPeriapsisIndex ) = unit_conversions::convertDegreesToRadians( 158.7 );
-    initialSpacecraftKeplerianState( longitudeOfAscendingNodeIndex ) = unit_conversions::convertDegreesToRadians( 23.4 );
+    initialSpacecraftKeplerianState( longitudeOfAscendingNodeIndex ) = unit_conversions::convertDegreesToRadians( 158.7 );
+    initialSpacecraftKeplerianState( argumentOfPeriapsisIndex ) = unit_conversions::convertDegreesToRadians( 43.6 );
     initialSpacecraftKeplerianState( trueAnomalyIndex ) = unit_conversions::convertDegreesToRadians( 180.0 );
 
     // Convert to Cartesian coordinates
@@ -723,10 +723,10 @@ public:
         Eigen::Vector6d initialSpacecraftKeplerianState;
         initialSpacecraftKeplerianState[ 0 ] = 26021000.0;
         initialSpacecraftKeplerianState[ 1 ] = 0.859882;
-        initialSpacecraftKeplerianState[ 2 ] = unit_conversions::convertDegreesToRadians( 93.0 );
-        initialSpacecraftKeplerianState[ 3 ] = unit_conversions::convertDegreesToRadians( 158.7 );
-        initialSpacecraftKeplerianState[ 4 ] = unit_conversions::convertDegreesToRadians( 43.6 );
-        initialSpacecraftKeplerianState[ 5 ] = unit_conversions::convertDegreesToRadians( 180.0 );
+        initialSpacecraftKeplerianState( 2 ) = unit_conversions::convertDegreesToRadians( 93.0 );
+        initialSpacecraftKeplerianState( 4 ) = unit_conversions::convertDegreesToRadians( 158.7 );
+        initialSpacecraftKeplerianState( 3 ) = unit_conversions::convertDegreesToRadians( 43.6 );
+        initialSpacecraftKeplerianState( 5 ) = unit_conversions::convertDegreesToRadians( 180.0 );
         const Eigen::Vector6d initialSpacecraftCartesianState = orbital_element_conversions::convertKeplerianToCartesianElements(
                     initialSpacecraftKeplerianState, bodyMap_.at( planetName_ )->getGravityFieldModel( )->getGravitationalParameter( ) );
 
