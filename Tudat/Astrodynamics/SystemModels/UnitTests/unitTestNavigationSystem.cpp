@@ -6,6 +6,10 @@
  *    under the terms of the Modified BSD license. You should have received
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
+ *
+ *    References:
+ *      Facchinelli, M. (2018). Aerobraking Navigation, Guidance and Control.
+ *          Master Thesis, Delft University of Technology.
  */
 
 #define BOOST_TEST_MAIN
@@ -496,7 +500,8 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                             vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back( aerodynamicAcceleration.at( i ) );
                         }
                     }
-                    input_output::writeDataMapToTextFile( mapOfActualKeplerianStatesBelowAtmosphericInterface, "kepler_act.dat", "PTE&AEResults/" );
+                    input_output::writeDataMapToTextFile( mapOfActualKeplerianStatesBelowAtmosphericInterface,
+                                                          "nsKepler_act.dat", "TestingResults/" );
 
                     // Run periapse time estimator based on current data
                     Eigen::VectorXd estimatedAtmosphereParameters =

@@ -6,6 +6,10 @@
  *    under the terms of the Modified BSD license. You should have received
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
+ *
+ *    References:
+ *      Facchinelli, M. (2018). Aerobraking Navigation, Guidance and Control.
+ *          Master Thesis, Delft University of Technology.
  */
 
 #ifndef TUDAT_NAVIGATION_SYSTEM_H
@@ -229,7 +233,7 @@ public:
         if ( ( previousNavigationPhase_ == aided_navigation_phase ) && ( currentNavigationPhase_ == unaided_navigation_phase ) )
         {
             // Improve state estimate if passing from aided to unaided
-            //            improveStateEstimateOnNavigationPhaseTransition( );
+//            improveStateEstimateOnNavigationPhaseTransition( );
         }
         else if ( ( previousNavigationPhase_ == unaided_navigation_phase ) && ( currentNavigationPhase_ == aided_navigation_phase ) )
         {
@@ -357,7 +361,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            //            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
+//            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -808,7 +812,7 @@ public:
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        // Only run if navigationTesting
+        // Only run if testing
         if ( navigationTesting_ )
         {
             using mathematical_constants::PI;
@@ -832,7 +836,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error in navigation system. This function can only be run while navigationTesting." );
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
         }
     }
 
@@ -841,7 +845,7 @@ public:
             std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
             const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
     {
-        // Only run if navigationTesting
+        // Only run if testing
         if ( navigationTesting_ )
         {
             using mathematical_constants::PI;
@@ -865,7 +869,7 @@ public:
         }
         else
         {
-            throw std::runtime_error( "Error in navigation system. This function can only be run while navigationTesting." );
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
         }
     }
 

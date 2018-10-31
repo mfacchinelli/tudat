@@ -7,6 +7,9 @@
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
  *
+ *    References:
+ *      Facchinelli, M. (2018). Aerobraking Navigation, Guidance and Control.
+ *          Master Thesis, Delft University of Technology.
  */
 
 #ifndef TUDAT_GENERATORS_H
@@ -531,8 +534,8 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     }
     case 1:
     {
-        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 6808709.3;
-        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.4861342;
+        initialSpacecraftKeplerianState( semiMajorAxisIndex ) = 5287404.0;
+        initialSpacecraftKeplerianState( eccentricityIndex ) = 0.3385648;
         break;
     }
     case 2:
