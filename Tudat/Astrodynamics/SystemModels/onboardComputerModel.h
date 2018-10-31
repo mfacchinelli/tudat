@@ -188,7 +188,8 @@ public:
                 guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
 
                 // Renew random coefficients for perturbed atmosphere
-                instrumentsModel_->randomizeAtmospherePerturbations( );
+                std::cerr << "Atmosphere randomization is OFF." << std::endl;
+//                instrumentsModel_->randomizeAtmospherePerturbations( );
 
                 // Invert completion flags
                 maneuveringPhaseComplete_ = true;
