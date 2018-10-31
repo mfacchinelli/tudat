@@ -217,8 +217,7 @@ public:
                 atmosphericPhaseComplete_ = true;
             }
             // Check DAIA and true anomaly to see if post-atmosphere processes phase
-            else if ( ( ( ( currentNavigationPhase != NavigationSystem::aided_navigation_phase ) &&
-                          ( navigationSystem_->getPreviousNavigationPhaseIndicator( ) == NavigationSystem::aided_navigation_phase ) ) &&
+            else if ( ( navigationSystem_->getIsSpacecraftAboveDynamicAtmosphericInterfaceAltitude( ) &&
                         ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) ) && !atmosphericPhaseComplete_ )
             {
                 // Inform user

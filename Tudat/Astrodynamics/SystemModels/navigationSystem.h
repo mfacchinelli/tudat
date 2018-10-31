@@ -234,9 +234,9 @@ public:
         else if ( ( previousNavigationPhase_ == unaided_navigation_phase ) && ( currentNavigationPhase_ == aided_navigation_phase ) )
         {
             // Reset covariance matrix if passing from unaided to aided
-            Eigen::Vector9d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
-            Eigen::Matrix9d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-            currentNavigationFilterCovarianceMatrix = Eigen::Matrix9d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
+            Eigen::Vector10d currentNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
+            Eigen::Matrix10d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
+            currentNavigationFilterCovarianceMatrix = Eigen::Matrix10d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
             navigationFilter_->modifyCurrentStateAndCovarianceEstimates( currentNavigationFilterState,
                                                                          currentNavigationFilterCovarianceMatrix );
         }
@@ -357,7 +357,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-//            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
+            //            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
@@ -403,7 +403,7 @@ public:
 
         // Reset navigation filter (including covariance)
         Eigen::Matrix10d currentNavigationFilterCovarianceMatrix = navigationFilter_->getCurrentCovarianceEstimate( );
-        currentNavigationFilterCovarianceMatrix = Eigen::Matrix9d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
+        currentNavigationFilterCovarianceMatrix = Eigen::Matrix10d( currentNavigationFilterCovarianceMatrix.diagonal( ).asDiagonal( ) );
         setCurrentEstimatedKeplerianState( propagatedStateBasedOnTrackingInKeplerianElements, currentNavigationFilterCovarianceMatrix );
     }
 
@@ -472,7 +472,7 @@ public:
     double getCurrentTime( ) { return currentTime_; }
 
     //! Function to retireve the current state estimated by the navigation filter.
-    Eigen::Vector9d getCurrentNavigationFilterState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
+    Eigen::Vector10d getCurrentNavigationFilterState( ) { return navigationFilter_->getCurrentStateEstimate( ); }
 
     //! Function to retrieve the history of estimated states directly from the navigation filter.
     std::map< double, Eigen::VectorXd > getHistoryOfEstimatedStatesFromNavigationFilter( )
@@ -1131,12 +1131,6 @@ private:
 
     //! Boolean denoting whether the navigation system is being tested.
     const bool navigationTesting_;
-
-    //! Integer denoting the frequency with which state estimates need to be stored in history.
-    unsigned int saveFrequency_;
-
-    //! Integer denoting the current save index.
-    unsigned int saveIndex_;
 
     //! Integer denoting the frequency with which state estimates need to be stored in history.
     unsigned int saveFrequency_;

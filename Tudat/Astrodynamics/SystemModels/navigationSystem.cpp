@@ -68,7 +68,7 @@ void NavigationSystem::createNavigationSystemObjects( const unsigned int saveFre
 
     // Retrieve navigation filter step size and estimated state
     navigationRefreshStepSize_ = navigationFilter_->getFilteringStepSize( );
-    Eigen::Vector10d initialNavigationFilterState.segment = navigationFilter_->getCurrentStateEstimate( );
+    Eigen::Vector10d initialNavigationFilterState = navigationFilter_->getCurrentStateEstimate( );
     
     // Set atmospheric phase step size
     double areaBisectionTimeRelativeTolerance;
@@ -623,11 +623,11 @@ Eigen::Vector3d NavigationSystem::onboardMeasurementModel(
     Eigen::Vector3d currentMeasurementVector;
 
     // Add terms due to accelerometer bias error
-    currentMeasurementVector = currentEstimatedState.segment( 6, 3 );
+    currentMeasurementVector = currentNavigationFilterState.segment( 6, 3 );
 
     // Add terms due to aerodynamic acceleration
     currentMeasurementVector += getCurrentEstimatedNonGravitationalTranslationalAcceleration(
-                currentEstimatedState.segment( cartesian_position_index, 6 ), currentEstimatedState[ drag_coefficient_index ] );
+                currentNavigationFilterState.segment( cartesian_position_index, 6 ), currentNavigationFilterState[ drag_coefficient_index ] );
 
     // Give output
     return currentMeasurementVector;
