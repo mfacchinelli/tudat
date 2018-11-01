@@ -6,6 +6,10 @@
  *    under the terms of the Modified BSD license. You should have received
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
+ *
+ *    References:
+ *      Facchinelli, M. (2018). Aerobraking Navigation, Guidance and Control.
+ *          Master Thesis, Delft University of Technology.
  */
 
 #ifndef TUDAT_GNC_EXTRA_FUNCTIONS_H
@@ -13,15 +17,16 @@
 
 #include <map>
 #include <tuple>
+#include <vector>
 #include <iostream>
 
 #include <boost/function.hpp>
 
 #include "Tudat/Basics/basicTypedefs.h"
-
-//! Typedefs and using statements to simplify code.
-namespace Eigen { typedef Eigen::Matrix< double, 12, 1 > Vector12d; typedef Eigen::Matrix< double, 5, 5 > Matrix5d;
-                  typedef Eigen::Matrix< double, 12, 12 > Matrix12d; }
+#include "Tudat/Astrodynamics/BasicAstrodynamics/astrodynamicsFunctions.h"
+#include "Tudat/Astrodynamics/BasicAstrodynamics/orbitalElementConversions.h"
+#include "Tudat/Mathematics/BasicMathematics/leastSquaresEstimation.h"
+#include "Tudat/Mathematics/RootFinders/bisection.h"
 
 namespace tudat
 {
@@ -50,61 +55,6 @@ double areaBisectionFunction( const double currentTimeGuess, const double consta
                               const Eigen::VectorXd& onboardTime,
                               const std::vector< double >& estimatedAerodynamicAccelerationMagnitude );
 
-//! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
-/*!
- *  Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor. This function
- *  uses the maximum allowed heat rate and load as constraints.
- *  \param currentAltitudeGuess
- *  \param initialEstimatedKeplerianState
- *  \param planetaryRadius
- *  \param planetaryGravitationalParameter
- *  \param maximumHeatRate
- *  \param maximumHeatLoad
- *  \param statePropagationFunction
- *  \return
- */
-double lowerAltitudeBisectionFunctionBasedOnHeatingConditions(
-        const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
-        const double planetaryRadius, const double planetaryGravitationalParameter,
-        const double maximumHeatRate, const double maximumHeatLoad,
-        const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-        std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction );
-
-//! Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor.
-/*!
- *  Function to be used as input to the root-finder to determine the lower altitude bound for the periapsis corridor. This function
- *  uses the minimum allowed lifetime as constraint.
- *  \param currentAltitudeGuess
- *  \param initialEstimatedKeplerianState
- *  \param planetaryRadius
- *  \param planetaryGravitationalParameter
- *  \param minimumLifetime
- *  \param statePropagationFunction
- *  \return
- */
-double lowerAltitudeBisectionFunctionBasedOnLifetimeCondition(
-        const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
-        const double planetaryRadius, const double planetaryGravitationalParameter, const double minimumLifetime,
-        const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-        std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction );
-
-//! Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
-/*!
- *  Function to be used as input to the root-finder to determine the upper altitude bound for the periapsis corridor.
- *  \param currentAltitudeGuess
- *  \param initialEstimatedKeplerianState
- *  \param planetaryRadius
- *  \param planetaryGravitationalParameter
- *  \param minimumDynamicPressure
- *  \param statePropagationFunction
- *  \return
- */
-double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const Eigen::Vector6d& initialEstimatedKeplerianState,
-                                       const double planetaryRadius, const double planetaryGravitationalParameter,
-                                       const double minimumDynamicPressure,
-                                       const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-                                       std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction );
-
 //! Function to be used as input to the root-finder to determine the magnitude of the apoapsis maneuver.
 /*!
  *  Function to be used as input to the root-finder to determine the magnitude of the apoapsis maneuver.
@@ -118,7 +68,8 @@ double upperAltitudeBisectionFunction( const double currentAltitudeGuess, const 
 double maneuverBisectionFunction( const double currentMagnitudeGuess, const Eigen::Vector6d& initialEstimatedCartesianState,
                                   const double targetPeriapsisRadius, const Eigen::Matrix3d& transformationFromLocalToInertialFrame,
                                   const boost::function< std::pair< bool, std::pair< std::map< double, Eigen::VectorXd >,
-                                  std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction );
+                                  std::map< double, Eigen::VectorXd > > >( const Eigen::Vector6d& ) >& statePropagationFunction,
+                                  const bool apoapsisMaenuverEstimation = true );
 
 //! Function to be used as input to the non-linear least squares process to determine the accelerometer errors.
 /*!
@@ -133,10 +84,27 @@ std::pair< Eigen::VectorXd, Eigen::MatrixXd > accelerometerErrorEstimationFuncti
 
 //! Function to be used as input to the non-linear least squares process to determine the atmosphere parameters of the
 //! three-term atmosphere model.
+/*!
+ *  Function to be used as input to the non-linear least squares process to determine the atmosphere parameters of the
+ *  three-term atmosphere model.
+ *  \param currentParameterEstimate
+ *  \param vectorOfEstimatedAltitudesBelowAtmosphericInterface
+ *  \param referenceAltitude
+ *  \return
+ */
 std::pair< Eigen::VectorXd, Eigen::MatrixXd > threeModelParametersEstimationFunction(
         const Eigen::Vector5d& currentParameterEstimate,
         const Eigen::VectorXd& vectorOfEstimatedAltitudesBelowAtmosphericInterface,
         const double referenceAltitude );
+
+//! Altitude correction function for guidance system corridor estimator.
+/*!
+ *  Altitude correction function for guidance system corridor estimator.
+ *  \param periapsisCorridorAltitude Double denoting the value of the periapsis corridor altitude.
+ *  \param linearLeastSquaresEstimate Vector denoting the estimated weights of the linear least squares process.
+ *  \return Altitude corrected for the difference between Kepler and perturbed orbit.
+ */
+double correctionFactorForCorridorBoundaries( const double periapsisCorridorAltitude, const Eigen::Vector2d& linearLeastSquaresEstimate );
 
 } // namespace system_models
 

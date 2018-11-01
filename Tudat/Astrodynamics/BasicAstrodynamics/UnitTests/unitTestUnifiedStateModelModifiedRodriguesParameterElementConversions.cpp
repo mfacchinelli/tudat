@@ -28,10 +28,9 @@
 
 namespace tudat
 {
+
 namespace unit_tests
 {
-
-
 
 //! Test the functionality of the time conversion functions.
 BOOST_AUTO_TEST_SUITE( test_USM6_Element_Conversions )
@@ -89,9 +88,6 @@ BOOST_AUTO_TEST_CASE( testconvertKeplerianToUnifiedStateModelModifiedRodriguesPa
 
     }
 
-
-
-
     // Case 2: Hyperbolic retrograde orbit.
     {
         // Modify Keplerian elements [m,-,rad,rad,rad,rad], i.e. overwrite them.
@@ -120,7 +116,6 @@ BOOST_AUTO_TEST_CASE( testconvertKeplerianToUnifiedStateModelModifiedRodriguesPa
                                            computedUnifiedStateModelElements, tolerance );
 
     }
-
 
     // Case 3: Parabolic retrograde orbit.
     {
@@ -283,7 +278,6 @@ BOOST_AUTO_TEST_CASE( testconvertKeplerianToUnifiedStateModelModifiedRodriguesPa
     }
 }
 
-
 //! Unit test for the conversion of unified state model elements to Keplerian elements
 BOOST_AUTO_TEST_CASE( testconvertUnifiedStateModelModifiedRodriguesParametersToKeplerianElements )
 {
@@ -314,8 +308,6 @@ BOOST_AUTO_TEST_CASE( testconvertUnifiedStateModelModifiedRodriguesParametersToK
 
     // Declaring computed output vector.
     Eigen::Vector6d computedKeplerianElements = Eigen::VectorXd::Zero( 6 );
-
-
 
     // Case 1: Elliptical prograde orbit (default case).
     {
@@ -474,7 +466,9 @@ BOOST_AUTO_TEST_CASE( testconvertUnifiedStateModelModifiedRodriguesParametersToK
                                            computedKeplerianElements, tolerance );
     }
 }
+
 BOOST_AUTO_TEST_SUITE_END( )
 
 } // end namespace unit_tests
+
 } // end namespace tudat

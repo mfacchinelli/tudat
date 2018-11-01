@@ -6,6 +6,10 @@
  *    under the terms of the Modified BSD license. You should have received
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
+ *
+ *    References:
+ *      Facchinelli, M. (2018). Aerobraking Navigation, Guidance and Control.
+ *          Master Thesis, Delft University of Technology.
  */
 
 #ifndef TUDAT_NAVIGATION_SYSTEM_H
@@ -69,6 +73,21 @@ public:
     //! Constructor.
     /*!
      *  Constructor for the navigation system of an aerobraking maneuver.
+     *  \param onboardBodyMap
+     *  \param onboardAccelerationModelMap
+     *  \param spacecraftName
+     *  \param planetName
+     *  \param navigationFilterSettings
+     *  \param selectedOnboardAtmosphereModel
+     *  \param atmosphericInterfaceAltitude
+     *  \param reducedAtmosphericInterfaceAltitude
+     *  \param periapseEstimatorConstant
+     *  \param numberOfRequiredAtmosphereSamplesForInitiation
+     *  \param frequencyOfDeepSpaceNetworkTracking
+     *  \param altimeterPointingDirectionInAltimeterFrame
+     *  \param altimeterFrame
+     *  \param altimeterAltitudeRange
+     *  \param navigationTesting
      */
     NavigationSystem( const simulation_setup::NamedBodyMap& onboardBodyMap,
                       const basic_astrodynamics::AccelerationMap& onboardAccelerationModelMap,
@@ -80,7 +99,8 @@ public:
                       const unsigned int frequencyOfDeepSpaceNetworkTracking,
                       const std::vector< Eigen::Vector3d >& altimeterPointingDirectionInAltimeterFrame = std::vector< Eigen::Vector3d >( ),
                       const reference_frames::AerodynamicsReferenceFrames altimeterFrame = reference_frames::inertial_frame,
-                      const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ) ) :
+                      const std::pair< double, double > altimeterAltitudeRange = std::make_pair( TUDAT_NAN, TUDAT_NAN ),
+                      const bool navigationTesting = false ) :
         onboardBodyMap_( onboardBodyMap ), onboardAccelerationModelMap_( onboardAccelerationModelMap ),
         spacecraftName_( spacecraftName ), planetName_( planetName ), navigationFilterSettings_( navigationFilterSettings ),
         selectedOnboardAtmosphereModel_( selectedOnboardAtmosphereModel ),
@@ -92,8 +112,14 @@ public:
         numberOfRequiredAtmosphereSamplesForInitiation_( numberOfRequiredAtmosphereSamplesForInitiation ),
         frequencyOfDeepSpaceNetworkTracking_( frequencyOfDeepSpaceNetworkTracking ),
         altimeterPointingDirectionInAltimeterFrame_( altimeterPointingDirectionInAltimeterFrame ),
-        altimeterFrame_( altimeterFrame ), altimeterAltitudeRange_( altimeterAltitudeRange )
+        altimeterFrame_( altimeterFrame ), altimeterAltitudeRange_( altimeterAltitudeRange ), navigationTesting_( navigationTesting )
     {
+        // Inform user
+        if ( navigationTesting_ )
+        {
+            std::cerr << "Warning in navigation system. Navigation system testing is active." << std::endl;
+        }
+
         // Get indeces of accelerations of interest
         for ( accelerationMapConstantIterator_ = onboardAccelerationModelMap_.at( spacecraftName_ ).begin( );
               accelerationMapConstantIterator_ != onboardAccelerationModelMap_.at( spacecraftName_ ).end( );
@@ -202,7 +228,7 @@ public:
      *  reducing the accelerations to only the values that are measured below the atmospheric interface altitude. The
      *  post-atmosphere processes are carried out in the following order:
      *      - post-process accelerations: calibrate (if atmosphere estimator is not initialized) and remove accelerometer errors
-     *      - run PTE only if atmosphere estimator (AE) is initialized
+     *      - run PTE only if ... (TBD)
      *      - run AE to estimate atmospheric properties
      *  \param mapOfMeasuredAerodynamicAcceleration Map of time and measured aerodynamic acceleration as measured by the IMU, i.e.,
      *      before any errors have been removed.
@@ -356,17 +382,20 @@ public:
         double currentEstimatedApoapsisAltitude = currentEstimatedKeplerianState_[ 0 ] *
                 ( 1.0 + currentEstimatedKeplerianState_[ 1 ] ) - planetaryRadius_;
 
-        // Compute initial first order apoapsis altitudes
-        Eigen::Vector6d initialEstimatedKeplerianState = historyOfEstimatedStates_.begin( )->second.second;
-        double initialEstimatedApoapsisAltitude = initialEstimatedKeplerianState[ 0 ] *
-                ( 1.0 + initialEstimatedKeplerianState[ 1 ] ) - planetaryRadius_;
-
         // Compute current DAIA
-        double currentDynamicAtmosphericInterfaceAltitude = 0.275 * currentEstimatedApoapsisAltitude +
-                0.01 * ( initialEstimatedApoapsisAltitude - currentEstimatedApoapsisAltitude );
+        double currentPercentageValue = 0.5 * ( 1 + ( 1 - currentEstimatedKeplerianState_[ 0 ] /
+                                                historyOfEstimatedStates_.begin( )->second.second[ 0 ] ) );
+        double currentDynamicAtmosphericInterfaceAltitude =
+                currentPercentageValue * ( currentEstimatedKeplerianState_[ 0 ] - planetaryRadius_ );
+        if ( currentDynamicAtmosphericInterfaceAltitude > currentEstimatedApoapsisAltitude )
+        {
+            std::cerr << "Warning in navigation system. Current value of DAIA is larger than the estimated osculating "
+                         "apoapsis altitude. DAIA: " << currentDynamicAtmosphericInterfaceAltitude / 1.0e3
+                      << " km. Apoapsis altitude: " << currentEstimatedApoapsisAltitude / 1.0e3 << " km." << std::endl;
+        }
 
         // Compute current altitude
-        double currentEstimatedAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( );
+        double currentEstimatedAltitude = currentEstimatedCartesianState_.segment( 0, 3 ).norm( ) - planetaryRadius_;
 
         // Output whether the altitude is above DAIA
         return ( currentEstimatedAltitude > currentDynamicAtmosphericInterfaceAltitude );
@@ -466,6 +495,12 @@ public:
         return historyOfEstimatedStates_;
     }
 
+    //! Function to retrive history of estimated changes in Keplerian elements due to aerodynamic acceleration.
+    std::map< unsigned int, Eigen::Vector6d > getHistoryOfEstimatedChangesInKeplerianElements( )
+    {
+        return historyOfEstimatedChangesInKeplerianState_;
+    }
+
     //! Function to retrieve history of estimated atmosphere parameters.
     std::map< unsigned int, Eigen::VectorXd > getHistoryOfEstimatedAtmosphereParameters( )
     {
@@ -501,6 +536,9 @@ public:
 
     //! Function to retireve the atmospheric interface radius of the body being orbited.
     double getAtmosphericInterfaceRadius( ) { return atmosphericInterfaceRadius_; }
+
+    //! Function to retireve the reduced atmospheric interface radius of the body being orbited.
+    double getReducedAtmosphericInterfaceRadius( ) { return reducedAtmosphericInterfaceRadius_; }
 
     //! Function to retireve the frequency (in days) with which Deep Space Network tracking has to be performed.
     unsigned int getFrequencyOfDeepSpaceNetworkTracking( ) { return frequencyOfDeepSpaceNetworkTracking_; }
@@ -580,9 +618,9 @@ public:
     //! Reset navigation filter integration step size.
     void resetNavigationRefreshStepSize( const double newNavigationRefreshStepSize )
     {
-        atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
         navigationRefreshStepSize_ = newNavigationRefreshStepSize;
         navigationFilter_->modifyFilteringStepSize( newNavigationRefreshStepSize );
+        atmosphericNavigationRefreshStepSize_ = std::min( navigationRefreshStepSize_, newNavigationRefreshStepSize );
     }
 
     //! Function to clear history of estimated states and accelerations for the current orbit.
@@ -636,6 +674,72 @@ public:
                 currentOrbitHistoryOfEstimatedGravitationalTranslationalAccelerations_.rbegin( )->second;
         currentEstimatedNonGravitationalTranslationalAcceleration_ =
                 currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.rbegin( )->second;
+    }
+
+    //! Function to test the Periapse Time Estimator.
+    Eigen::Vector6d testPeriapseTimeEstimator(
+            std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+            const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
+    {
+        // Only run if testing
+        if ( navigationTesting_ )
+        {
+            using mathematical_constants::PI;
+
+            // Modify the true anomaly such that it is negative above PI radians (before estimated periapsis)
+            for ( std::map< double, Eigen::Vector6d >::iterator mapIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
+                  mapIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); mapIterator++ )
+            {
+                if ( mapIterator->second[ 5 ] > PI )
+                {
+                    mapIterator->second[ 5 ] -= 2.0 * PI;
+                }
+            }
+
+            // Run Periapse Time Estimator with inputs
+            runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                      vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+
+            // Return estimated change in Keplerian elements
+            return historyOfEstimatedChangesInKeplerianState_.rbegin( )->second;
+        }
+        else
+        {
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
+        }
+    }
+
+    //! Function to test the Atmosphere Estimator.
+    Eigen::VectorXd testAtmosphereEstimator(
+            std::map< double, Eigen::Vector6d >& mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+            const std::vector< double >& vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface )
+    {
+        // Only run if testing
+        if ( navigationTesting_ )
+        {
+            using mathematical_constants::PI;
+
+            // Modify the true anomaly such that it is negative above PI radians (before estimated periapsis)
+            for ( std::map< double, Eigen::Vector6d >::iterator mapIterator = mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.begin( );
+                  mapIterator != mapOfEstimatedKeplerianStatesBelowAtmosphericInterface.end( ); mapIterator++ )
+            {
+                if ( mapIterator->second[ 5 ] > PI )
+                {
+                    mapIterator->second[ 5 ] -= 2.0 * PI;
+                }
+            }
+
+            // Run Atmosphere Estimator with inputs
+            runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+                                    vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+
+            // Return estimated atmosphere parameters
+            return historyOfEstimatedAtmosphereParameters_.rbegin( )->second;
+        }
+        else
+        {
+            throw std::runtime_error( "Error in navigation system. This function can only be run while testing." );
+        }
     }
 
     //! Integer denoting the current orbit counter.
@@ -888,6 +992,9 @@ private:
     //! Pair denoting the lowest and highest operation altitudes of the altimeter.
     const std::pair< double, double > altimeterAltitudeRange_;
 
+    //! Boolean denoting whether the navigation system is being tested.
+    const bool navigationTesting_;
+
     //! Integer denoting the frequency with which state estimates need to be stored in history.
     unsigned int saveFrequency_;
 
@@ -993,8 +1100,8 @@ private:
     //! Vector denoting the bias and scale errors of the accelerometer after calibration.
     Eigen::Vector3d estimatedAccelerometerErrors_;
 
-    //! History of estimated errors in Keplerian state as computed by the Periapse Time Estimator for each orbit.
-    std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedErrorsInKeplerianState_;
+    //! History of estimated changes in Keplerian state as computed by the Periapse Time Estimator for each orbit.
+    std::map< unsigned int, Eigen::Vector6d > historyOfEstimatedChangesInKeplerianState_;
 
     //! Boolean denoting whether the atmosphere estimator has been initialized.
     /*!

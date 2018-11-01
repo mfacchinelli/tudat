@@ -6,6 +6,10 @@
  *    under the terms of the Modified BSD license. You should have received
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
+ *
+ *    References:
+ *      Facchinelli, M. (2018). Aerobraking Navigation, Guidance and Control.
+ *          Master Thesis, Delft University of Technology.
  */
 
 #ifndef TUDAT_CONTROL_SYSTEM_H
@@ -44,34 +48,25 @@ public:
     ControlSystem( const Eigen::Vector3d& proportionalGain, const Eigen::Vector3d& integralGain,
                    const Eigen::Vector3d& derivativeGain ) :
         proportionalGain_( proportionalGain ), integralGain_( integralGain ), derivativeGain_( derivativeGain )
-    { }
+    {
+        // Set values to their initial conditions
+        scheduledApsisManeuver_.setZero( );
+    }
 
     //! Destructor.
     ~ControlSystem( ) { }
 
     //! Function to update the orbit controller with the scheduled apoapsis maneuver, computed by the guidance system.
-    void updateOrbitController( const Eigen::Vector3d& scheduledApsisManeuver,
-                                const bool isManeuverToBePerformedAtApoapsis = true )
+    void updateOrbitController( const Eigen::Vector3d& scheduledApsisManeuver )
     {
-        // Set apoapsis maneuver magnitude and direction
-        if ( isManeuverToBePerformedAtApoapsis )
-        {
-            scheduledApoapsisManeuver_ = scheduledApsisManeuver;
-        }
-        else
-        {
-            scheduledPeriapsisManeuver_ = scheduledApsisManeuver;
-        }
+        scheduledApsisManeuver_ = scheduledApsisManeuver;
     }
 
     //! Function to retireve current control vector for attitude.
     Eigen::Vector3d getCurrentAttitudeControlVector( ) { return Eigen::Vector3d::Zero( ); }
 
     //! Function to retirieve the apoapsis maneuver.
-    Eigen::Vector3d getScheduledApoapsisManeuver( ) { return scheduledApoapsisManeuver_; }
-
-    //! Function to retirieve the periapsis maneuver.
-    Eigen::Vector3d getScheduledPeriapsisManeuver( ) { return scheduledPeriapsisManeuver_; }
+    Eigen::Vector3d getScheduledApsisManeuver( ) { return scheduledApsisManeuver_; }
 
     //! Clear history of control vectors for the current orbit.
     void clearCurrentOrbitControlHistory( ) { }
@@ -98,11 +93,8 @@ private:
     //! Double denoting the derivative gain for the PID attitude controller.
     const Eigen::Vector3d derivativeGain_;
 
-    //! Vector denoting the velocity change scheduled to be applied at apoapsis.
-    Eigen::Vector3d scheduledApoapsisManeuver_;
-
-    //! Vector denoting the velocity change scheduled to be applied at periapsis.
-    Eigen::Vector3d scheduledPeriapsisManeuver_;
+    //! Vector denoting the velocity change scheduled to be applied at apo- or periapsis.
+    Eigen::Vector3d scheduledApsisManeuver_;
 
 };
 

@@ -16,6 +16,7 @@
 #define TUDAT_TRAPEZOIDAL_INTEGRATOR_H
 
 #include <vector>
+#include <iostream>
 
 #include <boost/shared_ptr.hpp>
 
@@ -91,7 +92,7 @@ DependentVariableType performExtendedSimpsonsQuadrature(
         // Loop over each time step and return result
         for( unsigned int i = 0 ; i < numberOfVariables; i++ )
         {
-            integral += vectorOfWeights[ i ] * dependentVariables[ i ];
+            integral += vectorOfWeights[ i ] * dependentVariables.at( i );
         }
     }
     else if ( numberOfVariables != 1 )
@@ -100,7 +101,7 @@ DependentVariableType performExtendedSimpsonsQuadrature(
         for( unsigned int i = 0 ; i < ( numberOfVariables - 1 ); i++ )
         {
             integral += constantIndependentVariableStep * (
-                        dependentVariables[ i + 1 ] + dependentVariables[ i ] ) / 2.0 ;
+                        dependentVariables.at( i + 1 ) + dependentVariables.at( i ) ) / 2.0 ;
         }
     }
     else

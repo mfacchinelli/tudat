@@ -6,6 +6,10 @@
  *    under the terms of the Modified BSD license. You should have received
  *    a copy of the license with this file. If not, please or visit:
  *    http://tudat.tudelft.nl/LICENSE.
+ *
+ *    References:
+ *      Facchinelli, M. (2018). Aerobraking Navigation, Guidance and Control.
+ *          Master Thesis, Delft University of Technology.
  */
 
 #ifndef TUDAT_ONBOARD_COMPUTER_MODEL_H
@@ -54,8 +58,10 @@ public:
 
         // Create guidance system objects
         guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
-        guidanceSystem_->createGuidanceSystemObjects( boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
-                                                                   navigationSystem_, _1, _2, -1.0 ) );
+        guidanceSystem_->createGuidanceSystemObjects(
+                    boost::bind( &NavigationSystem::propagateTranslationalStateWithCustomTerminationSettings,
+                                 navigationSystem_, _1, _2, -1.0 ),
+                    navigationSystem_->getStandardGravitationalParameter( ), navigationSystem_->getRadius( ) );
     }
 
     //! Destructor.
@@ -129,11 +135,8 @@ public:
 
                 // Determine in which phase of aerobraking the spacecraft is and perform corridor estimation
                 guidanceSystem_->determineAerobrakingPhase( currentEstimatedState.second,
-                                                            navigationSystem_->getAtmosphereInitiationIndicators( ),
-                                                            navigationSystem_->getRadius( ) );
-                guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
-                                                       navigationSystem_->getRadius( ),
-                                                       navigationSystem_->getStandardGravitationalParameter( ) );
+                                                            navigationSystem_->getAtmosphereInitiationIndicators( ) );
+                guidanceSystem_->runCorridorEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second );
 
                 // Check whether propagation needs to be stopped
                 // Propagation is stopped only if an apoapsis maneuver needs to be performed
@@ -146,9 +149,7 @@ public:
                     performManeuverOnNextCall_ = true;
 
                     // Run maneuver estimator
-                    guidanceSystem_->runApoapsisManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
-                                                                   navigationSystem_->getCurrentEstimatedMeanMotion( ),
-                                                                   navigationSystem_->getRadius( ) );
+                    guidanceSystem_->runApoapsisManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second );
 
                     // Feed maneuver to the control system
                     controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
@@ -181,20 +182,17 @@ public:
                 std::cout << std::endl << "-------------- ORBIT " << orbitNumber << " COMPLETED --------------" << std::endl;
             }
             // Check aerobraking phase and true anomaly to see if periapsis maneuvering phase
-            else if ( guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::periapsis_raise_phase ) &&
+            else if ( guidanceSystem_->getIsAerobrakingPhaseActive( GuidanceSystem::termination_phase ) &&
                       ( currentEstimatedTrueAnomaly < ( 0.95 * PI ) ) && !atmosphericPhaseComplete_ )
             {
                 // Inform user
                 std::cout << std::endl << "REACHED FINAL PERIAPSIS. Preparing to perform maneuver." << std::endl;
 
                 // Run periapsis maneuver estimator
-                guidanceSystem_->runPeriapsisManeuverEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
-                                                                navigationSystem_->getCurrentEstimatedMeanMotion( ),
-                                                                navigationSystem_->getRadius( ),
-                                                                navigationSystem_->getStandardGravitationalParameter( ) );
+                guidanceSystem_->runPeriapsisManeuverEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second );
 
                 // Feed maneuver to the control system
-                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ), false );
+                controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
 
                 // Propagation is stopped to perform periapsis maneuver
                 isPropagationToBeStopped = true;
