@@ -134,12 +134,12 @@ public:
                 std::cout << std::endl << "REACHED APOAPSIS. Preparing to perform maneuver." << std::endl;
 
                 // Process Deep Space Network tracking data
-                if ( deepSpaceNetworkTrackingInformation_.first )
-                {
-                    deepSpaceNetworkTrackingInformation_.first = false;
-                    navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
-                    currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
-                }
+//                if ( deepSpaceNetworkTrackingInformation_.first )
+//                {
+//                    deepSpaceNetworkTrackingInformation_.first = false;
+//                    navigationSystem_->processDeepSpaceNetworkTracking( instrumentsModel_->getCurrentDeepSpaceNetworkMeasurement( ) );
+//                    currentEstimatedState = navigationSystem_->getCurrentEstimatedTranslationalState( ); // overwrite current state
+//                }
 
                 // Store new value of apoapsis Keplerian state
                 navigationSystem_->setEstimatedApoapsisKeplerianState( );

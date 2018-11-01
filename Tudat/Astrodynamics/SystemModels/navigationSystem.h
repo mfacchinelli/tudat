@@ -205,14 +205,14 @@ public:
         }
 
         // Set and give current navigation phase
-        if ( propagators::IMAN_ANALYSIS_INDEX != 0 )
+//        if ( propagators::IMAN_ANALYSIS_INDEX != 0 )
         {
             currentNavigationPhase_ = aided_navigation_phase;
         }
-        else
-        {
-            currentNavigationPhase_ = detectedNavigationPhase;
-        }
+//        else
+//        {
+//            currentNavigationPhase_ = detectedNavigationPhase;
+//        }
         return currentNavigationPhase_;
     }
 
@@ -362,10 +362,10 @@ public:
 
             // Run periapse time estimator if ... (TBD)
 //            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
-            {
-                runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
-                                          vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-            }
+//            {
+//                runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
+//                                          vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
+//            }
 
             // Run atmosphere estimator with processed results
             runAtmosphereEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
@@ -764,7 +764,7 @@ public:
         currentOrbitHistoryOfEstimatedNonGravitationalTranslationalAccelerations_.clear( );
 
         // Empty filter estimates
-        navigationFilter_->clearFilterHistory( );
+//        navigationFilter_->clearFilterHistory( );
     }
 
     //! Function to revert to the previous time step.
