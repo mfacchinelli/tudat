@@ -116,6 +116,7 @@ protected:
 
     //! Name of frame origin for which inertial state is computed by this class
     std::string baseFrameId_;
+
 };
 
 //! Class used for the determination of the inertial state of a Body's ephemeris origin
@@ -142,7 +143,6 @@ public:
 
     //! Destructor
     ~BaseStateInterfaceImplementation( ){ }
-
 
 protected:
 
@@ -201,6 +201,7 @@ private:
 
     //! Value (1 or -1) by which to multiply the state returned by stateFunction_.
     int stateMultiplier_;
+
 };
 
 //! Body class representing the properties of a celestial body (natural or artificial).

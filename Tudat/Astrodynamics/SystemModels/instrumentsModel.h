@@ -12,8 +12,8 @@
  *          Master Thesis, Delft University of Technology.
  */
 
-#ifndef TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H
-#define TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H
+#ifndef TUDAT_INSTRUMENTS_MODEL_H
+#define TUDAT_INSTRUMENTS_MODEL_H
 
 #include <cmath>
 #include <Eigen/Core>
@@ -1080,4 +1080,4 @@ private:
 
 } // namespace tudat
 
-#endif // TUDAT_NAVIGATION_INSTRUMENTS_MODEL_H
+#endif // TUDAT_INSTRUMENTS_MODEL_H

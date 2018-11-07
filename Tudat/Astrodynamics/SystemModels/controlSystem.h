@@ -41,9 +41,9 @@ public:
     //! Constructor.
     /*!
      *  Constructor.
-     *  \param proportionalGain
-     *  \param integralGain
-     *  \param derivativeGain
+     *  \param proportionalGain Vector denoting the proportional gain for each of the imaginary quaternion elements.
+     *  \param integralGain Vector denoting the integral gain for each of the imaginary quaternion elements.
+     *  \param derivativeGain Vector denoting the derivative gain for each of the imaginary quaternion elements.
      */
     ControlSystem( const Eigen::Vector3d& proportionalGain, const Eigen::Vector3d& integralGain,
                    const Eigen::Vector3d& derivativeGain ) :

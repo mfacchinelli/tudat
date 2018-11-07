@@ -148,8 +148,7 @@ public:
         }
 
         // Update current coefficients.
-        Eigen::Vector6d currentCoefficients = coefficientFunction_(
-                    independentVariables );
+        Eigen::Vector6d currentCoefficients = coefficientFunction_( independentVariables );
         currentForceCoefficients_ = currentCoefficients.segment( 0, 3 );
         currentMomentCoefficients_ = currentCoefficients.segment( 3, 3 );
     }
@@ -161,8 +160,7 @@ public:
      * \param constantCoefficients New force and moment coefficients (in that order) expressed in the same frame as existing
      * coefficients.
      */
-    void resetConstantCoefficients(
-            const Eigen::Vector6d& constantCoefficients )
+    void resetConstantCoefficients( const Eigen::Vector6d& constantCoefficients )
     {
         if( numberOfIndependentVariables_ != 0 )
         {
