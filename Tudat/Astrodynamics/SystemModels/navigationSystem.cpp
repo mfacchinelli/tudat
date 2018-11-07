@@ -566,19 +566,18 @@ void NavigationSystem::runAtmosphereEstimator(
                 numberOfSamplesForMovingAverage = numberOfRequiredAtmosphereSamplesForInitiation_;
             }
 
-            std::cerr << "Moving average is OFF." << std::endl;
-//            // Compute moving average
-//            unsigned int i = 0;
-//            for ( std::map< unsigned int, Eigen::VectorXd >::const_reverse_iterator
-//                  mapIterator = historyOfEstimatedAtmosphereParameters_.rbegin( );
-//                  mapIterator != historyOfEstimatedAtmosphereParameters_.rend( ); mapIterator++, i++ )
-//            {
-//                if ( ( i != 0 ) && ( i < numberOfSamplesForMovingAverage ) )
-//                {
-//                    modelSpecificParameters += mapIterator->second;
-//                }
-//            }
-//            modelSpecificParameters /= numberOfSamplesForMovingAverage;
+            // Compute moving average
+            unsigned int i = 0;
+            for ( std::map< unsigned int, Eigen::VectorXd >::const_reverse_iterator
+                  mapIterator = historyOfEstimatedAtmosphereParameters_.rbegin( );
+                  mapIterator != historyOfEstimatedAtmosphereParameters_.rend( ); mapIterator++, i++ )
+            {
+                if ( ( i != 0 ) && ( i < numberOfSamplesForMovingAverage ) )
+                {
+                    modelSpecificParameters += mapIterator->second;
+                }
+            }
+            modelSpecificParameters /= numberOfSamplesForMovingAverage;
         }
         vectorOfModelSpecificParameters = utilities::convertEigenVectorToStlVector( modelSpecificParameters );
         std::cout << "Averaged atmosphere values: " << modelSpecificParameters.transpose( ) << std::endl;
