@@ -117,7 +117,7 @@ readTabulatedAtmosphere( const std::map< int, std::string >& fileNames )
                 atmosphereArrays[ i ].resize( sizeVector );
 
                 std::fill( atmosphereArrays[ i ].data( ),
-                           atmosphereArrays[ i ].data() + atmosphereArrays[ i ].num_elements( ), 0.0 );
+                           atmosphereArrays[ i ].data( ) + atmosphereArrays[ i ].num_elements( ), 0.0 );
             }
         }
     }

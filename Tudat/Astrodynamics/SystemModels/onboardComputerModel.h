@@ -186,8 +186,7 @@ public:
                     performManeuverOnNextCall_ = true;
 
                     // Run maneuver estimator
-                    guidanceSystem_->runApoapsisManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second,
-                                                                   navigationSystem_->getCurrentEstimatedMeanMotion( ) );
+                    guidanceSystem_->runApoapsisManeuverEstimator( currentEstimatedState.first, currentEstimatedState.second );
 
                     // Feed maneuver to the control system
                     controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );
@@ -230,8 +229,7 @@ public:
                 controlSystem_->setCommandedQuaternionBasedOnPeriapsisConditions( currentEstimatedState.first );
 
                 // Run periapsis maneuver estimator
-                guidanceSystem_->runPeriapsisManeuverEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second,
-                                                                navigationSystem_->getCurrentEstimatedMeanMotion( ) );
+                guidanceSystem_->runPeriapsisManeuverEstimator( currentTime, currentEstimatedState.first, currentEstimatedState.second );
 
                 // Feed maneuver to the control system
                 controlSystem_->updateOrbitController( guidanceSystem_->getScheduledApsisManeuver( ) );

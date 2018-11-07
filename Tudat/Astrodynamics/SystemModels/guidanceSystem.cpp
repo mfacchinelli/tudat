@@ -264,7 +264,6 @@ void GuidanceSystem::runCorridorEstimator( const double currentTime,
 //! Function to run apoapsis maneuver estimator (ME).
 void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& currentEstimatedCartesianState,
                                                    const Eigen::Vector6d& currentEstimatedKeplerianState,
-                                                   const double currentEstimatedMeanMotion,
                                                    const bool improveEstimateWithBisection )
 {
     // Inform user
@@ -277,6 +276,8 @@ void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& curren
     double differenceInPeriapsisAltitude = std::get< 2 >( periapsisTargetingInformation_ ) - std::get< 1 >( periapsisTargetingInformation_ );
 
     // Compute estimated maneuver in y-direction of local orbit frame
+    double currentEstimatedMeanMotion = basic_astrodynamics::computeKeplerMeanMotion(
+                currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter_ );
     double preliminaryApoapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInPeriapsisAltitude * std::sqrt(
                 ( 1.0 + currentEstimatedKeplerianState[ 1 ] ) / ( 1.0 - currentEstimatedKeplerianState[ 1 ] ) );
     std::cout << "Preliminary magnitude: " << preliminaryApoapsisManeuverMagnitude << " m/s" << std::endl;
@@ -335,8 +336,7 @@ void GuidanceSystem::runApoapsisManeuverEstimator( const Eigen::Vector6d& curren
 //! Function to run periapsis maneuver estimator (ME).
 void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
                                                     const Eigen::Vector6d& currentEstimatedCartesianState,
-                                                    const Eigen::Vector6d& currentEstimatedKeplerianState,
-                                                    const double currentEstimatedMeanMotion )
+                                                    const Eigen::Vector6d& currentEstimatedKeplerianState )
 {
     // Inform user
     std::cout << std::endl << "Estimating Periapsis Maneuver." << std::endl;
@@ -374,6 +374,8 @@ void GuidanceSystem::runPeriapsisManeuverEstimator( const double currentTime,
     double differenceInApoapsisAltitude = targetApoapsisAltitude_ - predictedApoapsisAltitude;
 
     // Compute estimated maneuver in y-direction of local orbit frame
+    double currentEstimatedMeanMotion = basic_astrodynamics::computeKeplerMeanMotion(
+                currentEstimatedKeplerianState[ 0 ], planetaryGravitationalParameter_ );
     double preliminaryPeriapsisManeuverMagnitude = 0.25 * currentEstimatedMeanMotion * differenceInApoapsisAltitude * std::sqrt(
                 ( 1.0 - currentEstimatedKeplerianState[ 1 ] ) / ( 1.0 + currentEstimatedKeplerianState[ 1 ] ) );
     std::cout << "Preliminary magnitude: " << preliminaryPeriapsisManeuverMagnitude << " m/s" << std::endl;

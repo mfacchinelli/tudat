@@ -375,7 +375,7 @@ public:
             }
 
             // Run periapse time estimator if ... (TBD)
-            //            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
+//            if ( historyOfEstimatedAtmosphereParameters_.size( ) > 0 )
             {
                 runPeriapseTimeEstimator( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface,
                                           vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );

@@ -36,7 +36,13 @@ namespace unit_tests
 // Set test conditions
 const std::pair< unsigned int, unsigned int > testAtmospheres = { 0, 3 };
 const std::pair< unsigned int, unsigned int > testConditions = { 0, 3 };
-const std::pair< unsigned int, unsigned int > testModes = { 0, 2 };
+const std::pair< unsigned int, unsigned int > testModes = { 0, 1 };
+
+// Linear offset function
+double offsetFunctionWrapper( const double initialTime, const double time, const double acceleration )
+{
+    return ( 5.0e-2 + 1e1 * acceleration ) * ( time - initialTime );
+}
 
 BOOST_AUTO_TEST_SUITE( test_navigation_system )
 
@@ -134,17 +140,17 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
                     dependentVariables[ currentTime ] = dependentVariableInterpolator->interpolate( currentTime );
 
                     // Add random noise
-                    for ( unsigned int i = 0; i < 6; i++ )
-                    {
-                        if ( i < 3 )
-                        {
-                            estimatedResults[ currentTime ][ i ] += positionNoiseGenerator->getRandomVariableValue( );
-                        }
-                        else
-                        {
-                            estimatedResults[ currentTime ][ i ] += velocityNoiseGenerator->getRandomVariableValue( );
-                        }
-                    }
+//                    for ( unsigned int i = 0; i < 6; i++ )
+//                    {
+//                        if ( i < 3 )
+//                        {
+//                            estimatedResults[ currentTime ][ i ] += positionNoiseGenerator->getRandomVariableValue( );
+//                        }
+//                        else
+//                        {
+//                            estimatedResults[ currentTime ][ i ] += velocityNoiseGenerator->getRandomVariableValue( );
+//                        }
+//                    }
 
                     // Set state in navigation system
                     navigationSystem->setCurrentEstimatedCartesianState( estimatedResults[ currentTime ] );
@@ -176,15 +182,12 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
                 // Generate noise distributions
                 boost::shared_ptr< statistics::RandomVariableGenerator< double > > positionNoiseGenerator =
                         statistics::createBoostContinuousRandomVariableGenerator(
-                            statistics::normal_boost_distribution, { 0.0, 5.0 }, 1 );
+                            statistics::normal_boost_distribution, { 0.0, 0.5 }, 1 );
                 boost::shared_ptr< statistics::RandomVariableGenerator< double > > velocityNoiseGenerator =
                         statistics::createBoostContinuousRandomVariableGenerator(
-                            statistics::normal_boost_distribution, { 0.0, 0.1 }, 2 );
-
-                // Linear offset function
-                std::function< double( const double, const double ) > offsetFunction =
-                        [ = ]( const double time, const double acceleration ){
-                    return ( 1.0e-2 + 2.5e1 * acceleration ) * ( time - initialTime ); };
+                            statistics::normal_boost_distribution, { 0.0, 0.001 }, 2 );
+                boost::function< double( const double, const double ) > offsetFunction =
+                        boost::bind( &offsetFunctionWrapper, initialTime, _1, _2 );
 
                 // Loop over each numerical result
                 double currentTime = initialTime;
@@ -416,15 +419,12 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                         // Generate noise distributions
                         boost::shared_ptr< statistics::RandomVariableGenerator< double > > positionNoiseGenerator =
                                 statistics::createBoostContinuousRandomVariableGenerator(
-                                    statistics::normal_boost_distribution, { 0.0, 5.0 }, 1 );
+                                    statistics::normal_boost_distribution, { 0.0, 0.5 }, 1 );
                         boost::shared_ptr< statistics::RandomVariableGenerator< double > > velocityNoiseGenerator =
                                 statistics::createBoostContinuousRandomVariableGenerator(
-                                    statistics::normal_boost_distribution, { 0.0, 0.01 }, 2 );
-
-                        // Linear offset function
-                        std::function< double( const double, const double ) > offsetFunction =
-                                [ = ]( const double time, const double acceleration ){
-                            return ( 1.0e-2 + 2.5e1 * acceleration ) * ( time - initialTime ); };
+                                    statistics::normal_boost_distribution, { 0.0, 0.001 }, 2 );
+                        boost::function< double( const double, const double ) > offsetFunction =
+                                boost::bind( &offsetFunctionWrapper, initialTime, _1, _2 );
 
                         // Loop over each numerical result
                         double currentTime = initialTime;
@@ -500,7 +500,8 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                             vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back( aerodynamicAcceleration.at( i ) );
                         }
                     }
-                    input_output::writeDataMapToTextFile( mapOfActualKeplerianStatesBelowAtmosphericInterface, "kepler_act.dat", "PTE&AEResults/" );
+                    input_output::writeDataMapToTextFile( mapOfActualKeplerianStatesBelowAtmosphericInterface,
+                                                          "nsKepler_act.dat", "TestingResults/" );
 
                     // Run periapse time estimator based on current data
                     Eigen::VectorXd estimatedAtmosphereParameters =
@@ -513,19 +514,47 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                                 static_cast< aerodynamics::AvailableConstantTemperatureAtmosphereModels >( atmosphereModel ),
                                 215.0, 197.0, 1.3, utilities::convertEigenVectorToStlVector( estimatedAtmosphereParameters ) );
 
-                    // Check that resulting atmospheres are similar around the periapsis area
+                    // Loop over conditions and extract density
                     i = 0;
+                    double currentDensity;
+                    double estimatedDensity;
                     double currentRadialDistance;
+                    std::vector< double > errorValues;
+                    std::vector< double > altitudeValues;
+                    std::map< double, Eigen::Vector3d > densityValues;
                     for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = numericalResults.begin( );
                           mapIterator != numericalResults.end( ); mapIterator++, i++ )
                     {
                         currentRadialDistance = mapIterator->second.segment( 0, 3 ).norm( );
                         if ( currentRadialDistance <= navigationSystem->getReducedAtmosphericInterfaceRadius( ) )
                         {
-                            BOOST_CHECK_CLOSE_FRACTION( dependentVariables[ mapIterator->first ][ 3 ],
-                                    onboardAtmosphereModel->getDensity( currentRadialDistance - navigationSystem->getRadius( ) ), 0.3 );
+                            currentDensity = dependentVariables[ mapIterator->first ][ 3 ];
+                            estimatedDensity = onboardAtmosphereModel->getDensity( currentRadialDistance - navigationSystem->getRadius( ) );
+                            densityValues[ mapIterator->first ] =
+                                    ( Eigen::VectorXd( 3 ) << currentRadialDistance - navigationSystem->getRadius( ),
+                                      currentDensity, estimatedDensity ).finished( );
+                            errorValues.push_back( ( estimatedDensity - currentDensity ) / currentDensity );
+                            altitudeValues.push_back( currentRadialDistance - navigationSystem->getRadius( ) );
                         }
                     }
+                    if ( ( ( atmosphereModel == 0 ) && ( initialConditions == 2 ) && ( navigationMode == 0 ) ) ||
+                         ( ( atmosphereModel == 2 ) && ( initialConditions == 2 ) && ( navigationMode == 0 ) ) )
+                    {
+                        input_output::writeDataMapToTextFile( densityValues, "nsAeDensity_" + std::to_string( atmosphereModel ) + ".dat",
+                                                              "TestingResults/" );
+                    }
+
+                    Eigen::VectorXd::Index indexMaximum;
+                    Eigen::VectorXd::Index indexMinumum;
+                    double maximumError = utilities::convertStlVectorToEigenVector( errorValues ).maxCoeff( &indexMaximum );
+                    double minimumError = utilities::convertStlVectorToEigenVector( errorValues ).minCoeff( &indexMinumum );
+                    Eigen::VectorXd altitudeValuesX = utilities::convertStlVectorToEigenVector( altitudeValues );
+
+                    // Check that resulting atmospheres are similar around the periapsis area
+                    BOOST_CHECK_LE( maximumError, 0.15 );
+                    BOOST_CHECK_GE( minimumError, -0.15 );
+                    std::cout << "Max. error: " << maximumError << " at " << altitudeValuesX[ indexMaximum ] / 1.0e3 << " km" << std::endl
+                              << "Min. error: " << minimumError << " at " << altitudeValuesX[ indexMinumum ] / 1.0e3 << " km" << std::endl;
                 }
             }
         }

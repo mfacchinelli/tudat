@@ -326,10 +326,10 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // If testing, store results so that they can be compared to MATLAB
     if ( navigationTesting_ )
     {
-        input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface, "kepler_est.dat", "PTE&AEResults/" );
+        input_output::writeDataMapToTextFile( mapOfEstimatedKeplerianStatesBelowAtmosphericInterface, "nsKepler_est.dat", "TestingResults/" );
         input_output::writeMatrixToFile(
                     utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                    "aero.dat", 16, "PTE&AEResults/" );
+                    "nsAero.dat", 16, "TestingResults/" );
     }
 
     // Determine actual periapse time
@@ -398,9 +398,8 @@ void NavigationSystem::runPeriapseTimeEstimator(
     historyOfEstimatedChangesInKeplerianState_[ currentOrbitCounter_ ] = estimatedChangeInKeplerianState;
 
     // Compute updated estimate in Keplerian state at current time by removing the estimated change in elements
-    Eigen::Vector6d updatedCurrentKeplerianState;
+    Eigen::Vector6d updatedCurrentKeplerianState = currentEstimatedKeplerianState_;
     updatedCurrentKeplerianState.segment( 0, 2 ) = estimatedKeplerianStateAtPreviousApoapsis_.segment( 0, 2 );
-    updatedCurrentKeplerianState.segment( 3, 4 ) = currentEstimatedKeplerianState_.segment( 3, 4 );
     updatedCurrentKeplerianState += estimatedChangeInKeplerianState;
     // the updated state is initially defined as the one with semi-major axis and eccentricity from the apoapsis before the
     // atmospheric pass and inclination, right ascension of ascending node, argument of periapsis and true anomaly from the
@@ -472,9 +471,9 @@ void NavigationSystem::runAtmosphereEstimator(
         {
             input_output::writeMatrixToFile(
                         utilities::convertStlVectorToEigenVector( vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface ),
-                        "acceleration.dat", 16, "PTE&AEResults/" );
-            input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface, "density.dat", 16, "PTE&AEResults/" );
-            input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface, "altitude.dat", 16, "PTE&AEResults/" );
+                        "nsAcceleration.dat", 16, "TestingResults/" );
+            input_output::writeMatrixToFile( estimatedAtmosphericDensitiesBelowAtmosphericInterface, "nsDensity.dat", 16, "TestingResults/" );
+            input_output::writeMatrixToFile( estimatedAltitudesBelowAtmosphericInterface, "nsAltitude.dat", 16, "TestingResults/" );
         }
 
         // Find periapsis altitude
