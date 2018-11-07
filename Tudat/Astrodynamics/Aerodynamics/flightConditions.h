@@ -628,13 +628,11 @@ private:
     //! Function returning control surface deflection, with input the control surface identifier.
     boost::function< double( const std::string& ) > controlSurfaceDeflectionFunction_;
 
-
     //! List of custom functions for aerodynamic coefficient dependencies.
     std::map< AerodynamicCoefficientsIndependentVariables, boost::function< double( ) > > customCoefficientDependencies_;
 
     //! Boolean setting whether latitude and longitude are to be updated by updateConditions().
     bool updateLatitudeAndLongitudeForAtmosphere_;
-
 
     //! Current list of independent variables of the aerodynamic coefficient interface
     std::vector< double > aerodynamicCoefficientIndependentVariables_;
@@ -642,6 +640,7 @@ private:
     //! List of independent variables of the control surface aerodynamic coefficient interface, with map key
     //! control surface identifiers.
     std::map< std::string, std::vector< double > > controlSurfaceAerodynamicCoefficientIndependentVariables_;
+
 };
 
 } // namespace aerodynamics
