@@ -129,8 +129,6 @@ Eigen::Matrix< StateScalarType, 6, 1 > transformRelativeStateToFrame(
                 rotationMatrixToFrameDerivativeFunction( ) );
 }
 
-
-
 //! Transform a state (Cartesian position and velocity) from one frame to another.
 /*!
  *  Transform a state (Cartesian position and velocity) from one frame to another, taking into

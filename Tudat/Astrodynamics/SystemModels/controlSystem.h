@@ -101,6 +101,7 @@ public:
     //! Function to update the attitude controller.
     /*!
      *  Function to update the attitude controller. The controller is based on the LQR (linear quadratic regulator).
+     *  \param currentEstimatedTranslationalState Current estimated translational Cartesian state.
      *  \param currentEstimatedAerodynamicAngles Current estimated aerodynamic angles.
      *  \param currentMeasuredRotationalVelocityVector Current measured rotational velocity vector.
      */
@@ -134,7 +135,7 @@ public:
     //! Function to set the commanded quaternion based on periapsis conditions.
     void setCommandedQuaternionBasedOnPeriapsisConditions( const Eigen::Vector6d& estimatedTranslationalStateAtPeriapsis )
     {
-        currentOrbitCommandedQuaternionState_ = computeCurrentCommandedQuaternion( estimatedTranslationalStateAtPeriapsis );
+        currentOrbitCommandedQuaternionState_ = computeCurrentOrbitCommandedQuaternion( estimatedTranslationalStateAtPeriapsis );
     }
 
     //! Clear history of control vectors for the current orbit.
@@ -156,9 +157,9 @@ public:
 
 private:
 
-    //! Function to compute the current commanded quaternion to base frame.
+    //! Function to compute the commanded quaternion to base frame for the current orbit.
     /*!
-     *  Function to compute the current commanded quaternion to base frame. The body-fixed frame is assumed to correspond
+     *  Function to compute the commanded quaternion to base frame for the current orbit. The body-fixed frame is assumed to correspond
      *  to the trajectory frame. Thus, the direction cosine matrix (DCM) describing the rotation from trajectory to inertial
      *  frame can be found and taken as full rotation from body-fixed to inertial. The DCM is found by using the velocity and
      *  radial distance vector. The airspeed (unit) vector corresponds directly to the x-axis of the trajectory frame, whereas
@@ -170,7 +171,7 @@ private:
      *  \return Quaternion representing the estimated rotation from trajectory to inertial frame. Thus the commanded
      *      quaternion corresponds to a state with zero angle of attack, angle of side-slip and bank angle.
      */
-    Eigen::Vector4d computeCurrentCommandedQuaternion( const Eigen::Vector6d& estimatedTranslationalStateAtPeriapsis )
+    Eigen::Vector4d computeCurrentOrbitCommandedQuaternion( const Eigen::Vector6d& estimatedTranslationalStateAtPeriapsis )
     {
         // Declare eventual ouptut vector
         Eigen::Vector4d commandedQuaternion;
@@ -181,7 +182,7 @@ private:
         // Find the trajectory x-axis unit vector
         Eigen::Vector3d currentRadialVector = estimatedTranslationalStateAtPeriapsis.segment( 0, 3 );
         Eigen::Vector3d xUnitVector = ( estimatedTranslationalStateAtPeriapsis.segment( 3, 3 ) -
-                                        7.07763225880808e-05 * Eigen::Vector3d::UnitZ( ).cross( currentRadialVector ) ).normalized( );
+                                        9.5428235339854e-06 * Eigen::Vector3d::UnitZ( ).cross( currentRadialVector ) ).normalized( );
         transformationFromInertialToTrajectoryFrame.col( 0 ) = xUnitVector;
 
         // Find trajectory z-axis unit vector

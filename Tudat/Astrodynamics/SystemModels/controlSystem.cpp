@@ -104,7 +104,7 @@ void ControlSystem::updateAttitudeController( const Eigen::Vector4d& currentEsti
                                                                 navigationRefreshStepSize, historyOfQuaternionErrors_ ) ) +
                                 derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ) );
     // only the imaginary part of the quaternion is used, since only three terms are needed to fully control the spacecraft
-    //        std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl << std::endl;
+//    std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl << std::endl;
     currentOrbitHistoryOfControlVectors_.push_back( currentControlVector_ );
 }
 
@@ -119,15 +119,16 @@ void ControlSystem::updateAttitudeControllerLQR( const Eigen::Vector3d& currentE
 {
     // Declare gain matrix
     Eigen::Matrix< double, 3, 6 > gainMatrix;
-    gainMatrix << 17748.022616, 0.006274, 0.071764, 0.000331, 30982.740363, 0.000000,
-            0.016256, 0.000000, 33454.593029, 0.000423, 57295.725477, 0.000000,
-            -0.099127, -0.000000, -28647.620658, -9549.296586, 0.000282, 0.070800;
+    gainMatrix << 2286.736461, 0.000000, 0.000000, 0.000000, 1860.175245, -0.000000,
+            0.000000, -0.000000, 2639.026680, 0.000000, 1260.507149, 0.000000,
+            0.000000, -0.000000, 630.253575, 420.169050, -0.000000, -0.000000;
 
     // Compute control vector
     Eigen::Vector6d inputVector;
     inputVector.segment( 0, 3 ) = currentMeasuredRotationalVelocityVector;
     inputVector.segment( 3, 3 ) = currentEstimatedAerodynamicAngles;
-    currentControlVector_ = gainMatrix * inputVector;
+    currentControlVector_ = gainMatrix * inputVector / 1.0e5;
+    std::cout << currentControlVector_.transpose( ) << std::endl;
 }
 
 } // namespace system_models

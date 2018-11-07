@@ -208,12 +208,6 @@ public:
                 // Update and save attitude measurement
                 starTrackerOrientationFunction_( );
                 currentOrbitHistoryOfStarTrackerMeasurements_[ currentTime_ ] = currentQuaternionToBaseFrame_;
-                std::cout << bodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
-                                 reference_frames::angle_of_attack ) << " "
-                          << bodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
-                                 reference_frames::angle_of_sideslip ) << " "
-                          << bodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator( )->getAerodynamicAngle(
-                                 reference_frames::bank_angle ) << std::endl;
             }
 
             // Update altimeter

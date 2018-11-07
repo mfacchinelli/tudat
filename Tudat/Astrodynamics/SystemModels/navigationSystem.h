@@ -521,10 +521,12 @@ public:
     {
         // Declare aerodynamic angles vector
         Eigen::Matrix3d currentRotationFromBodyToTrajectoryFrame =
-                linear_algebra::convertVectorToQuaternionFormat( currentEstimatedRotationalState_.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
+                linear_algebra::convertVectorToQuaternionFormat(
+                    currentEstimatedRotationalState_.segment( 0, 4 ) ).toRotationMatrix( ).transpose( ) *
                 onboardBodyMap_.at( spacecraftName_ )->getFlightConditions( )->getAerodynamicAngleCalculator(
                     )->getRotationQuaternionBetweenFrames( reference_frames::trajectory_frame,
                                                            reference_frames::inertial_frame ).toRotationMatrix( );
+        currentRotationFromBodyToTrajectoryFrame.transposeInPlace( );
 
         // Compute associated Euler angles and set as orientation angles
         Eigen::Vector3d eulerAngles = reference_frames::get132EulerAnglesFromRotationMatrix(
@@ -535,7 +537,6 @@ public:
         currentEstimatedAerodynamicAngles[ 2 ] = eulerAngles[ 0 ];
 
         // Give output
-        std::cout << currentEstimatedAerodynamicAngles.transpose( ) << std::endl;
         return currentEstimatedAerodynamicAngles;
     }
 

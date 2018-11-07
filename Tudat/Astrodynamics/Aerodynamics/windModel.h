@@ -35,7 +35,7 @@ public:
     WindModel( ){ }
 
     //! Destructor.
-    virtual  ~WindModel( ){ }
+    virtual ~WindModel( ){ }
 
     //! Function (pure virtual) to retrieve wind velocity vector in body-fixed, body-centered frame of body with atmosphere
     /*!
@@ -51,6 +51,7 @@ public:
             const double currentLongitude,
             const double currentLatitude,
             const double currentTime ) = 0;
+
 };
 
 //! Class for computing the wind velocity vector from a custom, user-defined function.

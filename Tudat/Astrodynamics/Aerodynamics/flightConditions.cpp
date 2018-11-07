@@ -27,8 +27,8 @@ namespace aerodynamics
 
 //! Constructor, sets objects and functions from which relevant environment and state variables are retrieved.
 FlightConditions::FlightConditions( const boost::shared_ptr< basic_astrodynamics::BodyShapeModel > shapeModel,
-                  const boost::shared_ptr< reference_frames::AerodynamicAngleCalculator >
-                  aerodynamicAngleCalculator ):
+                                    const boost::shared_ptr< reference_frames::AerodynamicAngleCalculator >
+                                    aerodynamicAngleCalculator ):
     shapeModel_( shapeModel ),
     aerodynamicAngleCalculator_( aerodynamicAngleCalculator ),
     currentTime_( TUDAT_NAN )
@@ -88,7 +88,7 @@ AtmosphericFlightConditions::AtmosphericFlightConditions(
     }
     isLatitudeAndLongitudeSet_ = 0;
 
-    if( updateLatitudeAndLongitudeForAtmosphere_ && aerodynamicAngleCalculator_== NULL )
+    if( updateLatitudeAndLongitudeForAtmosphere_ && aerodynamicAngleCalculator_ == NULL )
     {
         throw std::runtime_error( "Error when making flight conditions, angles are to be updated, but no calculator is set" );
     }
@@ -154,35 +154,43 @@ double AtmosphericFlightConditions::getAerodynamicCoefficientIndependentVariable
     double currentIndependentVariable;
     switch( independentVariableType )
     {
-    //Calculate Mach number if needed.
+    // Calculate Mach number if needed.
     case mach_number_dependent:
+    {
         currentIndependentVariable = getCurrentMachNumber( );
         break;
-        //Get angle of attack if needed.
+    }
+    // Get angle of attack if needed.
     case angle_of_attack_dependent:
-        if( aerodynamicAngleCalculator_== NULL )
+    {
+        if( aerodynamicAngleCalculator_ == NULL )
         {
             throw std::runtime_error( "Error, aerodynamic angle calculator is null, but require angle of attack" );
         }
         currentIndependentVariable = aerodynamicAngleCalculator_->getAerodynamicAngle(
                     reference_frames::angle_of_attack );
         break;
-        //Get angle of sideslip if needed.
+    }
+    // Get angle of sideslip if needed.
     case angle_of_sideslip_dependent:
-        if( aerodynamicAngleCalculator_== NULL )
+    {
+        if( aerodynamicAngleCalculator_ == NULL )
         {
             throw std::runtime_error( "Error, aerodynamic angle calculator is null, but require angle of sideslip" );
         }
         currentIndependentVariable = aerodynamicAngleCalculator_->getAerodynamicAngle(
                     reference_frames::angle_of_sideslip );
         break;
+    }
     case altitude_dependent:
-        if( aerodynamicAngleCalculator_== NULL )
+    {
+        if( aerodynamicAngleCalculator_ == NULL )
         {
             throw std::runtime_error( "Error, aerodynamic angle calculator is null, but require angle of sideslip" );
         }
         currentIndependentVariable = getCurrentAltitude( );
         break;
+    }
     case control_surface_deflection_dependent:
     {
         try
@@ -196,6 +204,7 @@ double AtmosphericFlightConditions::getAerodynamicCoefficientIndependentVariable
         break;
     }
     default:
+    {
         if( customCoefficientDependencies_.count( independentVariableType ) == 0 )
         {
             throw std::runtime_error( "Error, did not recognize aerodynamic coefficient dependency "
@@ -206,6 +215,7 @@ double AtmosphericFlightConditions::getAerodynamicCoefficientIndependentVariable
             currentIndependentVariable = customCoefficientDependencies_.at( independentVariableType )( );
         }
     }
+    }
 
     return currentIndependentVariable;
 }
@@ -214,6 +224,7 @@ double AtmosphericFlightConditions::getAerodynamicCoefficientIndependentVariable
 void AtmosphericFlightConditions::updateAerodynamicCoefficientInput( )
 {
     aerodynamicCoefficientIndependentVariables_.clear( );
+
     // Calculate independent variables for aerodynamic coefficients.
     for( unsigned int i = 0; i < aerodynamicCoefficientInterface_->getNumberOfIndependentVariables( ); i++ )
     {
