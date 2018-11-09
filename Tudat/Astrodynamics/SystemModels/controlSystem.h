@@ -76,6 +76,7 @@ public:
         // Set values to their initial conditions
         currentControlVector_.setZero( );
         scheduledApsisManeuver_.setZero( );
+        isSignToBeFlipped_ = false;
     }
 
     //! Destructor.
@@ -97,16 +98,6 @@ public:
     void updateAttitudeController( const Eigen::Vector4d& currentEstimatedQuaternion,
                                    const Eigen::Vector3d& currentMeasuredRotationalVelocityVector,
                                    const double navigationRefreshStepSize );
-
-    //! Function to update the attitude controller.
-    /*!
-     *  Function to update the attitude controller. The controller is based on the LQR (linear quadratic regulator).
-     *  \param currentEstimatedTranslationalState Current estimated translational Cartesian state.
-     *  \param currentEstimatedAerodynamicAngles Current estimated aerodynamic angles.
-     *  \param currentMeasuredRotationalVelocityVector Current measured rotational velocity vector.
-     */
-    void updateAttitudeControllerLQR( const Eigen::Vector3d& currentEstimatedAerodynamicAngles,
-                                      const Eigen::Vector3d& currentMeasuredRotationalVelocityVector );
 
     //! Function to update the orbit controller with the scheduled apoapsis maneuver, computed by the guidance system.
     void updateOrbitController( const Eigen::Vector3d& scheduledApsisManeuver )
@@ -180,9 +171,11 @@ private:
         Eigen::Matrix3d transformationFromInertialToTrajectoryFrame;
 
         // Find the trajectory x-axis unit vector
+        Eigen::Vector3d planetRotationalVelocity;
+        planetRotationalVelocity << 3.35189e-13, -3.55648e-13, 7.08822e-05;
         Eigen::Vector3d currentRadialVector = estimatedTranslationalStateAtPeriapsis.segment( 0, 3 );
         Eigen::Vector3d xUnitVector = ( estimatedTranslationalStateAtPeriapsis.segment( 3, 3 ) -
-                                        9.5428235339854e-06 * Eigen::Vector3d::UnitZ( ).cross( currentRadialVector ) ).normalized( );
+                                        planetRotationalVelocity.cross( currentRadialVector ) ).normalized( );
         transformationFromInertialToTrajectoryFrame.col( 0 ) = xUnitVector;
 
         // Find trajectory z-axis unit vector
@@ -231,6 +224,9 @@ private:
 
     //! History of commanded quaternion states.
     std::map< unsigned int, Eigen::Vector4d > historyOfCommandedQuaternionStates_;
+
+    //! History of navigation refresh step sizes.
+    std::vector< double > historyOfNavigationRefreshStepSizes_;
 
     //! History of errors in the estimated quaternion state.
     std::vector< Eigen::Vector3d > historyOfQuaternionErrors_;

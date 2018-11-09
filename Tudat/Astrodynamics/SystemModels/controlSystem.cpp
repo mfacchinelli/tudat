@@ -76,7 +76,15 @@ void ControlSystem::updateAttitudeController( const Eigen::Vector4d& currentEsti
     // Compute difference between current and commanded state
     Eigen::Vector4d currentErrorInEstimatedQuaternion =
             computeErrorInEstimatedQuaternion( currentEstimatedQuaternion, currentCommandedQuaternion );
+
+    // Add values to history
+    historyOfNavigationRefreshStepSizes_.push_back( navigationRefreshStepSize );
     historyOfQuaternionErrors_.push_back( currentErrorInEstimatedQuaternion.segment( 1, 3 ) );
+    if ( historyOfNavigationRefreshStepSizes_.size( ) > 600 ) // only keep 600 estimates
+    {
+        historyOfNavigationRefreshStepSizes_.erase( historyOfNavigationRefreshStepSizes_.begin( ) );
+        historyOfQuaternionErrors_.erase( historyOfQuaternionErrors_.begin( ) );
+    }
 
     // Compute difference between current and commanded derivative
     Eigen::Vector4d currentErrorInEstimatedQuaternionDerivative =
@@ -84,51 +92,23 @@ void ControlSystem::updateAttitudeController( const Eigen::Vector4d& currentEsti
                                                                               currentMeasuredRotationalVelocityVector ),
                                                currentCommandedQuaternion );
 
-    //        std::cout << "Current estimated quaternion: " <<
-    //                     currentEstimatedQuaternion.transpose( ) << std::endl
-    //                  << "Current estimated derivative: "  <<
-    //                     calculateQuaternionDerivative( currentEstimatedQuaternion,
-    //                                                    currentMeasuredRotationalVelocityVector ).transpose( ) << std::endl
-    //                  << "Commanded state: " << currentCommandedQuaternion.transpose( ) << std::endl
-    //                  << "Proportional: " <<
-    //                     proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternion.segment( 1, 3 ) ).transpose( ) << std::endl
-    //                  << "Integral: " <<
-    //                     integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
-    //                                                     navigationRefreshStepSize, historyOfQuaternionErrors_ ) ).transpose( ) << std::endl
-    //                  << "Derivative: " <<
-    //                     derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ).transpose( ) << std::endl;
+//    std::cout << "q: " << currentEstimatedQuaternion.transpose( ) << std::endl
+//              << "q_c: " << currentCommandedQuaternion.transpose( ) << std::endl
+//              << "q_e: " << currentErrorInEstimatedQuaternion.transpose( ) << std::endl
+//              << "P: " << ( proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternion.segment( 1, 3 ) ) ).transpose( ) << std::endl
+//              << "I: " << ( integralGain_.cwiseProduct(
+//                                numerical_quadrature::performTrapezoidalQuadrature(
+//                                    historyOfNavigationRefreshStepSizes_, historyOfQuaternionErrors_ ) ) ).transpose( ) << std::endl
+//              << "D: " << ( derivativeGain_.cwiseProduct(
+//                                currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ) ).transpose( ) << std::endl << std::endl;
 
     // Compute control vector based on control gains and error
     currentControlVector_ = - ( proportionalGain_.cwiseProduct( currentErrorInEstimatedQuaternion.segment( 1, 3 ) ) +
-                                integralGain_.cwiseProduct( numerical_quadrature::performExtendedSimpsonsQuadrature(
-                                                                navigationRefreshStepSize, historyOfQuaternionErrors_ ) ) +
+                                integralGain_.cwiseProduct( numerical_quadrature::performTrapezoidalQuadrature(
+                                                                historyOfNavigationRefreshStepSizes_, historyOfQuaternionErrors_ ) ) +
                                 derivativeGain_.cwiseProduct( currentErrorInEstimatedQuaternionDerivative.segment( 1, 3 ) ) );
     // only the imaginary part of the quaternion is used, since only three terms are needed to fully control the spacecraft
-//    std::cout << "Current control vector: " << currentControlVector_.transpose( ) << std::endl << std::endl;
     currentOrbitHistoryOfControlVectors_.push_back( currentControlVector_ );
-}
-
-//! Function to update the attitude controller.
-/*!
- *  Function to update the attitude controller. The controller is based on the LQR (linear quadratic regulator).
- *  \param currentEstimatedAerodynamicAngles Current estimated aerodynamic angles.
- *  \param currentMeasuredRotationalVelocityVector Current measured rotational velocity vector.
- */
-void ControlSystem::updateAttitudeControllerLQR( const Eigen::Vector3d& currentEstimatedAerodynamicAngles,
-                                                 const Eigen::Vector3d& currentMeasuredRotationalVelocityVector )
-{
-    // Declare gain matrix
-    Eigen::Matrix< double, 3, 6 > gainMatrix;
-    gainMatrix << 2286.736461, 0.000000, 0.000000, 0.000000, 1860.175245, -0.000000,
-            0.000000, -0.000000, 2639.026680, 0.000000, 1260.507149, 0.000000,
-            0.000000, -0.000000, 630.253575, 420.169050, -0.000000, -0.000000;
-
-    // Compute control vector
-    Eigen::Vector6d inputVector;
-    inputVector.segment( 0, 3 ) = currentMeasuredRotationalVelocityVector;
-    inputVector.segment( 3, 3 ) = currentEstimatedAerodynamicAngles;
-    currentControlVector_ = gainMatrix * inputVector / 1.0e5;
-    std::cout << currentControlVector_.transpose( ) << std::endl;
 }
 
 } // namespace system_models

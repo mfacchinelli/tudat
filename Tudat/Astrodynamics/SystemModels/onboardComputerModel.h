@@ -65,6 +65,7 @@ public:
                     navigationSystem_->getStandardGravitationalParameter( ), navigationSystem_->getRadius( ) );
 
         // Set control system initial commanded attitude
+        controlSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
         boost::shared_ptr< propagators::PropagationTerminationSettings > terminationSettings =
                 boost::make_shared< propagators::PropagationDependentVariableTerminationSettings >(
                     boost::make_shared< propagators::SingleDependentVariableSaveSettings >(
@@ -73,7 +74,7 @@ public:
                     boost::make_shared< root_finders::RootFinderSettings >( root_finders::bisection_root_finder, 0.001, 10 ) );
         Eigen::Vector6d estimatedPeriapsisTranslationalState =
                 navigationSystem->propagateTranslationalStateWithCustomTerminationSettings( terminationSettings ).second.first.rbegin( )->second;
-        controlSystem->setCommandedQuaternionBasedOnPeriapsisConditions( estimatedPeriapsisTranslationalState );
+        controlSystem_->setCommandedQuaternionBasedOnPeriapsisConditions( estimatedPeriapsisTranslationalState );
     }
 
     //! Destructor.
@@ -146,11 +147,6 @@ public:
                             instrumentsModel_->getCurrentGyroscopeMeasurement( ),
                             navigationSystem_->getCurrentNavigationFilterState( ).segment( NavigationSystem::gyroscope_bias_index, 3 ) ),
                         navigationSystem_->getNavigationRefreshStepSize( ) );
-//            controlSystem_->updateAttitudeControllerLQR(
-//                        navigationSystem_->getCurrentEstimatedAerodynamicAngles( ),
-//                        removeErrorsFromInertialMeasurementUnitMeasurement(
-//                            instrumentsModel_->getCurrentGyroscopeMeasurement( ),
-//                            navigationSystem_->getCurrentNavigationFilterState( ).segment( NavigationSystem::gyroscope_bias_index, 3 ) ) );
 
             // Check which orbit phase the spacecraft is in (if any)
             // Check true anomaly to see if apoapsis maneuvering phase
@@ -206,6 +202,7 @@ public:
                 // Step up orbit counter
                 navigationSystem_->currentOrbitCounter_++;
                 guidanceSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
+                controlSystem_->setCurrentOrbitCounter( navigationSystem_->currentOrbitCounter_ );
 
                 // Renew random coefficients for perturbed atmosphere
                 instrumentsModel_->randomizeAtmospherePerturbations( );

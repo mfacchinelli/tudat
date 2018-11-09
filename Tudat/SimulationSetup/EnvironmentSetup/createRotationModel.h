@@ -91,7 +91,6 @@ public:
      */
     std::string getTargetFrame( ){ return targetFrame_; }
 
-
     //! Function to rese the orientation of the base frame.
     /*!
      * Function to reset the orientation of the base frame.

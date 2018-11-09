@@ -55,8 +55,6 @@ void InstrumentsModel::addInertialMeasurementUnit( const Eigen::Vector3d& accele
 
         // Generate random noise distribution
         generateInertialMeasurementUnitRandomNoiseDistribution( accelerometerAccuracy, gyroscopeAccuracy );
-//        std::cout << "Acc. Bias: " << accelerometerBias.transpose( ) << ". Scale: " << accelerometerScaleFactor.transpose( ) << std::endl;
-//        std::cout << "Gyr. Bias: " << gyroscopeBias.transpose( ) << ". Scale: " << gyroscopeScaleFactor.transpose( ) << std::endl;
 
         // Create function for computing corrupted translational accelerations
         inertialMeasurementUnitTranslationalAccelerationFunction_ = boost::bind(
