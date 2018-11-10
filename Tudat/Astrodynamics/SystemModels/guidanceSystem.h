@@ -351,6 +351,8 @@ public:
             periapsisAltitudeScaling_ = 1.2 - 0.2 * ( static_cast< double >( pairOfAtmosphereInitiationIndicators.first ) /
                                                       static_cast< double >( pairOfAtmosphereInitiationIndicators.second ) );
         }
+//        std::cerr << "Periapsis scaling is OFF." << std::endl;
+//        periapsisAltitudeScaling_ = 1.0;
 
         // Check whether apoapsis is approaching target value
         if ( currentEstimatedKeplerianState[ 1 ] < 0.3 )
