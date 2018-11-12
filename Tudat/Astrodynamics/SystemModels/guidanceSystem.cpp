@@ -97,6 +97,10 @@ double CorridorEstimator::lowerAltitudeBisectionFunctionBasedOnHeatingConditions
     double heatLoad = numerical_quadrature::performTrapezoidalQuadrature(
                 historyOfTimes, utilities::convertEigenVectorToStlVector( historyOfHeatRates ) );
 
+    // Store aerothermodynamic values
+    corridorAerothermodynamicParameters_[ 0 ] = heatRate;
+    corridorAerothermodynamicParameters_[ 1 ] = heatLoad;
+
     // Compute offsets w.r.t. maximum allowed heat rate and heat load
     double offsetInHeatRate = heatRate - maximumHeatRate_;
     double offsetInHeatLoad = heatLoad - maximumHeatLoad_;
@@ -164,6 +168,9 @@ double CorridorEstimator::upperAltitudeBisectionFunction(
         historyOfAltitudes[ i ] = predictedTrajectory[ mapIterator->first ].segment( 0, 3 ).norm( ) - planetaryRadius_;
     }
     double dynamicPressure = historyOfDynamicPressures.maxCoeff( );
+
+    // Store aerothermodynamic values
+    corridorAerothermodynamicParameters_[ 2 ] = dynamicPressure;
 
     // Extract and store actual periapsis
     historyOfPeriapsisInformation_.push_back( std::make_pair( currentAltitudeGuess, historyOfAltitudes.minCoeff( ) ) );

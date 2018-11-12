@@ -339,13 +339,14 @@ void NavigationSystem::runPeriapseTimeEstimator(
         estimatedActualPeriapseTime =
                 timesBelowAtmosphericInterface[ static_cast< unsigned int >( 0.5 * timesBelowAtmosphericInterface.rows( ) ) ];
     }
+    std::cout << "Estimated periapsis time: " << estimatedActualPeriapseTime - initialTime_ << " s" << std::endl;
 
     // Interpolate to find estimated error in true anomaly
     double estimatedErrorInTrueAnomaly = interpolators::CubicSplineInterpolator< double, double >(
                 vectorOfTimesBelowAtmosphericInterface,
                 utilities::convertEigenVectorToStlVector( estimatedTrueAnomalyBelowAtmosphericInterface ) ).interpolate(
                 estimatedActualPeriapseTime );
-    std::cout << "Estimated Error in True Anomaly: " <<
+    std::cout << "Estimated error in true anomaly: " <<
                  unit_conversions::convertRadiansToDegrees( estimatedErrorInTrueAnomaly ) << " deg" << std::endl;
     // note that this represents directly the error in estimated true anomaly, since the true anomaly at
     // periapsis is zero by definition
@@ -353,7 +354,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // Compute estimated change in velocity (i.e., Delta V) due to aerodynamic acceleration
     double estimatedChangeInVelocity = - periapseEstimatorConstant_ * numerical_quadrature::performExtendedSimpsonsQuadrature(
                 atmosphericNavigationRefreshStepSize_, vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface );
-    std::cout << "Estimated Change in Velocity: " << estimatedChangeInVelocity << " m/s" << std::endl;
+    std::cout << "Estimated change in velocity: " << estimatedChangeInVelocity << " m/s" << std::endl;
 
     // Compute estimated mean motion by using the semi-major axis at beginning of atmospheric phase
     double initialEstimatedMeanMotion = std::sqrt( planetaryGravitationalParameter_ /
@@ -365,7 +366,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     double estimatedChangeInSemiMajorAxisDueToChangeInVelocity = 2.0 / initialEstimatedMeanMotion * std::sqrt(
                 ( 1.0 + estimatedKeplerianStateAtPreviousApoapsis_[ 1 ] ) /
             ( 1.0 - estimatedKeplerianStateAtPreviousApoapsis_[ 1 ] ) ) * estimatedChangeInVelocity;
-    std::cout << "Estimated Change in Semi-major Axis: " <<
+    std::cout << "Estimated change in semi-major axis: " <<
                  estimatedChangeInSemiMajorAxisDueToChangeInVelocity << " m" << std::endl;
 
     // Compute estimated change in eccentricity due to change in velocity
@@ -373,7 +374,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     double estimatedChangeInEccentricityDueToChangeInVelocity = 2.0 * std::sqrt( estimatedKeplerianStateAtPreviousApoapsis_[ 0 ] *
             ( 1.0 - std::pow( estimatedKeplerianStateAtPreviousApoapsis_[ 1 ], 2 ) ) / planetaryGravitationalParameter_ ) *
             estimatedChangeInVelocity;
-    std::cout << "Estimated Change in Eccentricity: " <<
+    std::cout << "Estimated change in eccentricity: " <<
                  estimatedChangeInEccentricityDueToChangeInVelocity << std::endl;
 
     // Store estimated change in Keplerian elements
@@ -392,7 +393,7 @@ void NavigationSystem::runPeriapseTimeEstimator(
     // latest estimate; then the change in semi-major axis, eccentricity and true anomaly is added
 
     // Update navigation system state estimates
-    std::cerr << "Periapse Time Estimation state correction is OFF." << std::endl;
+    std::cerr << "Periapse Time Estimator state correction is OFF." << std::endl;
 //    setCurrentEstimatedKeplerianState( updatedCurrentKeplerianState );
 
 //    // Correct history of Keplerian elements by removing error in true anomaly

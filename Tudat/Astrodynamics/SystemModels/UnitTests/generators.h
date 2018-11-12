@@ -364,7 +364,7 @@ private:
 
 //! Function to propagate state for one orbit in an aerobraking scenario.
 std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > propagateStateForAerobrakingScenario(
-        const unsigned int initialConditions )
+        const unsigned int initialConditions, const bool useSunGravity = true )
 {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////            USING STATEMENTS              //////////////////////////////////////////////////////
@@ -443,6 +443,13 @@ std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorX
     bodySettings[ "Mars" ]->gravityFieldSettings = boost::make_shared< FromFileSphericalHarmonicsGravityFieldSettings >( jgmro120d );
     bodySettings[ "Mars" ]->atmosphereSettings = boost::make_shared< TabulatedAtmosphereSettings >(
                 tabulatedAtmosphereFiles, atmosphereIndependentVariables, atmosphereDependentVariables, boundaryConditions );
+
+    // Give Earth zero gravity field such that ephemeris is created, but no acceleration
+    bodySettings[ "Earth" ]->gravityFieldSettings = boost::make_shared< CentralGravityFieldSettings >( 0.0 );
+    if ( !useSunGravity )
+    {
+        bodySettings[ "Sun" ]->gravityFieldSettings = boost::make_shared< CentralGravityFieldSettings >( 0.0 );
+    }
 
     // Create body objects
     NamedBodyMap bodyMap = createBodies( bodySettings );

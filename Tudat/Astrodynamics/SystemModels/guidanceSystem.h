@@ -55,14 +55,22 @@ public:
                        const std::pair< double, double >& boundariesForLowerAltitudeBasedOnHeating,
                        const std::pair< double, double >& boundariesForLowerAltitudeBasedOnLifetime,
                        const std::pair< double, double >& boundariesForUpperAltitude,
-                       const double planetaryGravitationalParameter, const double planetaryRadius ) :
+                       const double planetaryGravitationalParameter, const double planetaryRadius,
+                       const bool corridorTesting = false ) :
         maximumHeatRate_( maximumHeatRate ), maximumHeatLoad_( maximumHeatLoad ),
         minimumDynamicPressure_( minimumDynamicPressure ), minimumLifetime_( minimumLifetime ),
         boundariesForLowerAltitudeBasedOnHeating_( boundariesForLowerAltitudeBasedOnHeating ),
         boundariesForLowerAltitudeBasedOnLifetime_( boundariesForLowerAltitudeBasedOnLifetime ),
         boundariesForUpperAltitude_( boundariesForUpperAltitude ),
-        planetaryGravitationalParameter_( planetaryGravitationalParameter ), planetaryRadius_( planetaryRadius )
+        planetaryGravitationalParameter_( planetaryGravitationalParameter ), planetaryRadius_( planetaryRadius ),
+        corridorTesting_( corridorTesting )
     {
+        // Inform user
+        if ( corridorTesting_ )
+        {
+            std::cerr << "Warning in corridor estimator. Corridor estimator testing is active." << std::endl;
+        }
+
         // Create root-finder object for bisection of periapsis altitude
         // The values inserted are the tolerance in independent value (i.e., the percentage corresponding to 100 m difference at
         // 100 km altitude) and the maximum number of iterations (i.e., 10 iterations)
@@ -109,6 +117,20 @@ public:
 
         // Give output
         return boost::bind( &correctionFactorForCorridorBoundaries, _1, estimatedLinearCoefficients );
+    }
+
+    //! Function to retrieve the values of the estimated aerothermodynamic parameters.
+    Eigen::Vector3d testGetAerothermodynamicCorridorParameters( )
+    {
+        // Only run if testing
+        if ( corridorTesting_ )
+        {
+            return corridorAerothermodynamicParameters_;
+        }
+        else
+        {
+            throw std::runtime_error( "Error in corridor estimated. This function can only be run while testing." );
+        }
     }
 
 private:
@@ -227,11 +249,17 @@ private:
     //! Radius of body being orbited.
     const double planetaryRadius_;
 
+    //! Boolean denoting whether the corridor estimator is being tested.
+    const bool corridorTesting_;
+
     //! Pointer to root-finder used to esimate the periapsis corridor altitudes.
     boost::shared_ptr< root_finders::BisectionCore< double > > altitudeBisectionRootFinder_;
 
     //! Vector of pairs denoting the root-finder altitude guess and the actual (propagated) periapsis altitude.
     std::vector< std::pair< double, double > > historyOfPeriapsisInformation_;
+
+    //! Vector denoting the aerothermodynamic parameters of the corridor.
+    Eigen::Vector3d corridorAerothermodynamicParameters_;
 
 };
 
@@ -320,7 +348,8 @@ public:
                                                                       std::make_pair( 90.0e3, 130.0e3 ),
                                                                       std::make_pair( 100.0e3, 140.0e3 ),
                                                                       std::make_pair( 100.0e3, 130.0e3 ),
-                                                                      planetaryGravitationalParameter_, planetaryRadius_ );
+                                                                      planetaryGravitationalParameter_, planetaryRadius_,
+                                                                      guidanceTesting_ );
     }
 
     //! Function to determine in which aerobraking phase the spacecraft is currently in.
@@ -484,7 +513,7 @@ public:
         }
     }
 
-    //! Function to test the Atmosphere Estimator.
+    //! Function to set the periapsis altitude targeting information.
     void testSetPeriapsisAltitudeTargetingInformation( std::pair< double, double >& pairOfPeriapsisAltitudeTargetingInformation )
     {
         // Only run if testing
@@ -493,6 +522,20 @@ public:
             // Set values of periapsis altitude targeting information
             std::get< 1 >( periapsisTargetingInformation_ ) = pairOfPeriapsisAltitudeTargetingInformation.first;
             std::get< 2 >( periapsisTargetingInformation_ ) = pairOfPeriapsisAltitudeTargetingInformation.second;
+        }
+        else
+        {
+            throw std::runtime_error( "Error in guidance system. This function can only be run while testing." );
+        }
+    }
+
+    //! Function to set the periapsis altitude targeting information.
+    Eigen::Vector3d testGetAerothermodynamicCorridorParameters( )
+    {
+        // Only run if testing
+        if ( guidanceTesting_ )
+        {
+            return corridorEstimator_->testGetAerothermodynamicCorridorParameters( );
         }
         else
         {

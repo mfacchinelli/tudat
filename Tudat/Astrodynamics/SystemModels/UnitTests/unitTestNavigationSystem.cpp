@@ -51,10 +51,169 @@ BOOST_AUTO_TEST_SUITE( test_navigation_system )
 
 //}
 
-//BOOST_AUTO_TEST_CASE( testStateEstimator )
-//{
+BOOST_AUTO_TEST_CASE( testStateEstimator )
+{
+    // Declare navigation system generator
+    boost::shared_ptr< NavigationSystemGenerator > systemGenerator =
+            boost::make_shared< NavigationSystemGenerator >( aerodynamics::exponential_atmosphere_model );
 
-//}
+    // Define constants
+    const double onboardTimeStep = 0.1;
+
+    // Create multi-array of results
+    boost::multi_array< Eigen::Vector4d, 3 > propagationResults(
+                boost::extents[ 2 ][ testConditions.second ][ testModes.second ] );
+
+    // Loop over Sun gravity usage
+    for ( unsigned int sunGravityIndex = 0; sunGravityIndex < 2; sunGravityIndex++ )
+    {
+        // Loop over various initial conditions
+        for ( unsigned int initialConditions = testConditions.first; initialConditions < testConditions.second; initialConditions++ )
+        {
+            // Propagate spacecraft state and retireve solution
+            const std::pair< std::map< double, Eigen::VectorXd >, std::map< double, Eigen::VectorXd > > fullNumericalResults =
+                    propagateStateForAerobrakingScenario( initialConditions, static_cast< bool >( sunGravityIndex ) );
+            const std::map< double, Eigen::VectorXd > numericalIntegrationResult = fullNumericalResults.first;
+            const std::map< double, Eigen::VectorXd > dependentVariablesResult = fullNumericalResults.second;
+
+            // Extract times
+            const double initialTime = numericalIntegrationResult.begin( )->first;
+            const double finalTime = numericalIntegrationResult.rbegin( )->first;
+
+            // Extract states
+            const Eigen::Vector6d initialState = numericalIntegrationResult.begin( )->second;
+            const Eigen::Vector6d finalState = numericalIntegrationResult.rbegin( )->second;
+
+            // Create navigation system
+            Eigen::Vector9d initialEstimatedStateVector = Eigen::Vector9d::Zero( );
+            initialEstimatedStateVector.segment( NavigationSystem::cartesian_position_index, 6 ) = initialState;
+            boost::shared_ptr< NavigationSystem > navigationSystem =
+                    systemGenerator->createNavigationSystem( initialEstimatedStateVector, onboardTimeStep );
+            const double standardGravitationalParameter = navigationSystem->getStandardGravitationalParameter( );
+            const double planetaryRadius = navigationSystem->getRadius( );
+
+            // Extract actual periapsis state
+            unsigned int i = 0;
+            Eigen::VectorXd historyOfActualAltitudes;
+            Eigen::VectorXd historyOfActualVelocities;
+            historyOfActualAltitudes.resize( numericalIntegrationResult.size( ) );
+            historyOfActualVelocities.resizeLike( historyOfActualAltitudes );
+            for ( std::map< double, Eigen::VectorXd >::const_iterator stateIterator = numericalIntegrationResult.begin( );
+                  stateIterator != numericalIntegrationResult.end( ); stateIterator++, i++ )
+            {
+                historyOfActualAltitudes[ i ] = stateIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
+                historyOfActualVelocities[ i ] = stateIterator->second.segment( 3, 3 ).norm( );
+            }
+            Eigen::VectorXd::Index actualPeriapsisIndex;
+            double actualPeriapsisAltitude = historyOfActualAltitudes.minCoeff( &actualPeriapsisIndex );
+            double actualPeriapsisVelocity = historyOfActualVelocities[ actualPeriapsisIndex ];
+
+            // Loop over various test cases
+            for ( unsigned int navigationMode = testModes.first; navigationMode < testModes.second; navigationMode++ )
+            {
+                // Inform user
+                std::cout << std::endl << "=========================================================================" << std::endl
+                          << "Sun gravity: " << sunGravityIndex << ". Initial conditions: " << initialConditions
+                          << ". Navigation mode: " << navigationMode << "." << std::endl
+                          << "=========================================================================" << std::endl;
+
+                // Determine initial state
+                Eigen::Vector6d estimatedInitialState = initialState;
+                switch ( navigationMode )
+                {
+                case 1:
+                {
+                    // Generate noise distributions
+                    boost::shared_ptr< statistics::RandomVariableGenerator< double > > positionNoiseGenerator =
+                            statistics::createBoostContinuousRandomVariableGenerator(
+                                statistics::normal_boost_distribution, { 0.0, 50.0 }, 1 );
+                    boost::shared_ptr< statistics::RandomVariableGenerator< double > > velocityNoiseGenerator =
+                            statistics::createBoostContinuousRandomVariableGenerator(
+                                statistics::normal_boost_distribution, { 0.0, 0.1 }, 2 );
+
+                    // Add random noise
+                    for ( unsigned int i = 0; i < 6; i++ )
+                    {
+                        if ( i < 3 )
+                        {
+                            estimatedInitialState[ i ] += positionNoiseGenerator->getRandomVariableValue( );
+                        }
+                        else
+                        {
+                            estimatedInitialState[ i ] += velocityNoiseGenerator->getRandomVariableValue( );
+                        }
+                    }
+                    break;
+                }
+                }
+
+                // Set navigation conditions
+                navigationSystem->setCurrentTime( initialTime );
+                navigationSystem->setCurrentEstimatedCartesianState( estimatedInitialState );
+
+                // Propagate state with onboard software
+                boost::shared_ptr< propagators::PropagationTimeTerminationSettings > terminationSettings =
+                        boost::make_shared< propagators::PropagationTimeTerminationSettings >( finalTime );
+                const std::map< double, Eigen::VectorXd > estimatedResult =
+                        navigationSystem->propagateTranslationalStateWithCustomTerminationSettings( terminationSettings ).second.first;
+
+                // Extract estimated periapsis state
+                unsigned int i = 0;
+                Eigen::VectorXd historyOfEstimatedAltitudes;
+                Eigen::VectorXd historyOfEstimatedVelocities;
+                historyOfEstimatedAltitudes.resize( estimatedResult.size( ) );
+                historyOfEstimatedVelocities.resizeLike( historyOfEstimatedAltitudes );
+                for ( std::map< double, Eigen::VectorXd >::const_iterator stateIterator = estimatedResult.begin( );
+                      stateIterator != estimatedResult.end( ); stateIterator++, i++ )
+                {
+                    historyOfEstimatedAltitudes[ i ] = stateIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
+                    historyOfEstimatedVelocities[ i ] = stateIterator->second.segment( 3, 3 ).norm( );
+                }
+                Eigen::VectorXd::Index estimatedPeriapsisIndex;
+                double estimatedPeriapsisAltitude = historyOfEstimatedAltitudes.minCoeff( &estimatedPeriapsisIndex );
+                double estimatedPeriapsisVelocity = historyOfEstimatedVelocities[ estimatedPeriapsisIndex ];
+
+                // Store results
+                propagationResults[ sunGravityIndex ][ initialConditions ][ navigationMode ] =
+                        ( Eigen::VectorXd( 4 ) << actualPeriapsisAltitude, estimatedPeriapsisAltitude,
+                          actualPeriapsisVelocity, estimatedPeriapsisVelocity ).finished( );
+
+                // Compare results
+                std::cout << "Actual: " << actualPeriapsisAltitude / 1.0e3 << " km. "
+                          << "Estimated: " << estimatedPeriapsisAltitude / 1.0e3 << " km." << std::endl;
+
+                // Show final state
+                if ( ( sunGravityIndex == 0 ) && ( navigationMode == 0 ) )
+                {
+                    Eigen::VectorXd finalStateInKeplerianElements =
+                            orbital_element_conversions::convertCartesianToKeplerianElements< double >( estimatedResult.rbegin( )->second,
+                                                                                                        standardGravitationalParameter );
+                    std::cout << std::setprecision( 16 ) << "Final state: "
+                              << finalStateInKeplerianElements.transpose( ) << std::setprecision( 6 ) << std::endl;
+                }
+            }
+        }
+    }
+
+    // Save results to file
+    std::map< int, std::string > outFileNamesMap;
+    outFileNamesMap[ 0 ] = "TestingResults/nsSeActualAltitude.dat";
+    outFileNamesMap[ 1 ] = "TestingResults/nsSeEstimatedAltitude.dat";
+    outFileNamesMap[ 2 ] = "TestingResults/nsSeActualVelocity.dat";
+    outFileNamesMap[ 3 ] = "TestingResults/nsSeEstimatedVelocity.dat";
+    std::vector< double > vectorOfSuns = { 0.0, 1.0 };
+    Eigen::VectorXd vectorOfConditions = Eigen::ArrayXd::LinSpaced( ( testConditions.second - testConditions.first ),
+                                                                    testConditions.first, testConditions.second - 1 );
+    Eigen::VectorXd vectorOfModes = Eigen::ArrayXd::LinSpaced( ( testModes.second - testModes.first ),
+                                                               testModes.first, testModes.second - 1 );
+    std::vector< std::vector< double > > independentVariables;
+    independentVariables.push_back( vectorOfSuns );
+    independentVariables.push_back( utilities::convertEigenVectorToStlVector( vectorOfConditions ) );
+    independentVariables.push_back( utilities::convertEigenVectorToStlVector( vectorOfModes ) );
+    input_output::MultiArrayFileWriter< 3, 4 >::writeMultiArrayAndIndependentVariablesToFiles( outFileNamesMap,
+                                                                                               independentVariables,
+                                                                                               propagationResults );
+}
 
 //BOOST_AUTO_TEST_CASE( testAccelerometerPostProcessing )
 //{
@@ -92,7 +251,24 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
         initialEstimatedStateVector.segment( NavigationSystem::cartesian_position_index, 6 ) = initialState;
         boost::shared_ptr< NavigationSystem > navigationSystem =
                 systemGenerator->createNavigationSystem( initialEstimatedStateVector, onboardTimeStep );
-        const double standardGravitationalParameters = navigationSystem->getStandardGravitationalParameter( );
+        const double standardGravitationalParameter = navigationSystem->getStandardGravitationalParameter( );
+        const double planetaryRadius = navigationSystem->getRadius( );
+
+        // Extract actual periapsis state
+        unsigned int i = 0;
+        Eigen::VectorXd historyOfActualAltitudes;
+        Eigen::VectorXd historyOfTimes;
+        historyOfActualAltitudes.resize( numericalIntegrationResult.size( ) );
+        historyOfTimes.resizeLike( historyOfActualAltitudes );
+        for ( std::map< double, Eigen::VectorXd >::const_iterator stateIterator = numericalIntegrationResult.begin( );
+              stateIterator != numericalIntegrationResult.end( ); stateIterator++, i++ )
+        {
+            historyOfActualAltitudes[ i ] = stateIterator->second.segment( 0, 3 ).norm( ) - planetaryRadius;
+            historyOfTimes[ i ] = stateIterator->first;
+        }
+        Eigen::VectorXd::Index actualPeriapsisIndex;
+        double actualPeriapsisAltitude = historyOfActualAltitudes.minCoeff( &actualPeriapsisIndex );
+        double actualPeriapsisTime = historyOfTimes[ actualPeriapsisIndex ];
 
         // Interpolate to get result at constant time step
         boost::shared_ptr< interpolators::OneDimensionalInterpolator< double, Eigen::VectorXd > > numericalIntegrationInterpolator =
@@ -129,7 +305,7 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
                             statistics::normal_boost_distribution, { 0.0, 50.0 }, 1 );
                 boost::shared_ptr< statistics::RandomVariableGenerator< double > > velocityNoiseGenerator =
                         statistics::createBoostContinuousRandomVariableGenerator(
-                            statistics::normal_boost_distribution, { 0.0, 1.0 }, 2 );
+                            statistics::normal_boost_distribution, { 0.0, 0.1 }, 2 );
 
                 // Loop over each numerical result
                 double currentTime = initialTime;
@@ -153,6 +329,7 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
 //                    }
 
                     // Set state in navigation system
+                    navigationSystem->setCurrentTime( currentTime );
                     navigationSystem->setCurrentEstimatedCartesianState( estimatedResults[ currentTime ] );
 
                     // Compute aerodynamic acceleration norm
@@ -221,6 +398,7 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
                     }
 
                     // Set state in navigation system
+                    navigationSystem->setCurrentTime( currentTime );
                     navigationSystem->setCurrentEstimatedCartesianState( estimatedResults[ currentTime ] );
 
                     // Check whether it is time to stop propagation and run post-atmosphere processes
@@ -243,6 +421,7 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
 
             // Extract data below atmospheric interface
             unsigned int i = 0;
+            Eigen::VectorXd historyOfAltitudes;
             std::map< double, Eigen::Vector6d > mapOfEstimatedKeplerianStatesBelowAtmosphericInterface;
             std::vector< double > vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface;
             for ( std::map< double, Eigen::VectorXd >::const_iterator mapIterator = estimatedResults.begin( );
@@ -252,7 +431,7 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
                 {
                     mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ mapIterator->first ] =
                             orbital_element_conversions::convertCartesianToKeplerianElements< double >(
-                                mapIterator->second, standardGravitationalParameters );
+                                mapIterator->second, standardGravitationalParameter );
                     vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back( aerodynamicAcceleration.at( i ) );
                 }
             }
@@ -264,8 +443,8 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
 
             // Compute actual change in elements
             Eigen::Vector6d actualChangeInKeplerianElements =
-                    orbital_element_conversions::convertCartesianToKeplerianElements( finalState, standardGravitationalParameters ) -
-                    orbital_element_conversions::convertCartesianToKeplerianElements( initialState, standardGravitationalParameters );
+                    orbital_element_conversions::convertCartesianToKeplerianElements( finalState, standardGravitationalParameter ) -
+                    orbital_element_conversions::convertCartesianToKeplerianElements( initialState, standardGravitationalParameter );
 
             // Check how close the estimates are
             std::cout << "Actual: ";
@@ -275,13 +454,13 @@ BOOST_AUTO_TEST_CASE( testPeriapseTimeEstimator )
                 std::cout << actualChangeInKeplerianElements[ i ] << " ";
                 BOOST_CHECK_CLOSE_FRACTION( estimatedChangeInKeplerianElements[ i ], actualChangeInKeplerianElements[ i ], 1.0e-1 );
             }
-            std::cout << std::endl;
+            std::cout << std::endl << "Actual periapsis time: " << actualPeriapsisTime - initialTime << " s" << std::endl;
 
             // Check true anomaly estimate by looking at shift in orbit
             Eigen::Vector6d propagatedKeplerianStateAtDAIA = orbital_element_conversions::convertCartesianToKeplerianElements< double >(
-                        numericalIntegrationInterpolator->interpolate( timeAtDAIA ), standardGravitationalParameters );
+                        numericalIntegrationInterpolator->interpolate( timeAtDAIA ), standardGravitationalParameter );
             Eigen::Vector6d estimatedKeplerianStateAtDAIA = orbital_element_conversions::convertCartesianToKeplerianElements< double >(
-                        estimatedResults.rbegin( )->second, standardGravitationalParameters );
+                        estimatedResults.rbegin( )->second, standardGravitationalParameter );
             BOOST_CHECK_CLOSE_FRACTION( estimatedKeplerianStateAtDAIA[ 5 ] - propagatedKeplerianStateAtDAIA[ 5 ],
                     estimatedChangeInKeplerianElements[ 5 ], 1.0e-1 );
         }
@@ -325,13 +504,15 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                 initialEstimatedStateVector.segment( NavigationSystem::cartesian_position_index, 6 ) = initialState;
                 boost::shared_ptr< NavigationSystem > navigationSystem =
                         systemGenerator->createNavigationSystem( initialEstimatedStateVector, onboardTimeStep );
-                const double standardGravitationalParameters = navigationSystem->getStandardGravitationalParameter( );
+                const double standardGravitationalParameter = navigationSystem->getStandardGravitationalParameter( );
 
                 // Interpolate to get result at constant time step
                 boost::shared_ptr< interpolators::OneDimensionalInterpolator< double, Eigen::VectorXd > > numericalIntegrationInterpolator =
-                        boost::make_shared< interpolators::LagrangeInterpolator< double, Eigen::VectorXd, double > >( numericalIntegrationResult, 8 );
+                        boost::make_shared< interpolators::LagrangeInterpolator< double, Eigen::VectorXd, double > >(
+                            numericalIntegrationResult, 8 );
                 boost::shared_ptr< interpolators::OneDimensionalInterpolator< double, Eigen::VectorXd > > dependentVariableInterpolator =
-                        boost::make_shared< interpolators::LagrangeInterpolator< double, Eigen::VectorXd, double > >( dependentVariablesResult, 8 );
+                        boost::make_shared< interpolators::LagrangeInterpolator< double, Eigen::VectorXd, double > >(
+                            dependentVariablesResult, 8 );
 
                 // Loop over various test cases
                 for ( unsigned int navigationMode = testModes.first; navigationMode < testModes.second; navigationMode++ )
@@ -493,10 +674,10 @@ BOOST_AUTO_TEST_CASE( testAtmosphereEstimator )
                         {
                             mapOfActualKeplerianStatesBelowAtmosphericInterface[ mapIterator->first ] =
                                     orbital_element_conversions::convertCartesianToKeplerianElements< double >(
-                                        numericalResults[ mapIterator->first ], standardGravitationalParameters );
+                                        numericalResults[ mapIterator->first ], standardGravitationalParameter );
                             mapOfEstimatedKeplerianStatesBelowAtmosphericInterface[ mapIterator->first ] =
                                     orbital_element_conversions::convertCartesianToKeplerianElements< double >(
-                                        mapIterator->second, standardGravitationalParameters );
+                                        mapIterator->second, standardGravitationalParameter );
                             vectorOfMeasuredAerodynamicAccelerationMagnitudeBelowAtmosphericInterface.push_back( aerodynamicAcceleration.at( i ) );
                         }
                     }

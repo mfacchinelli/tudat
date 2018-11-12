@@ -65,6 +65,9 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
                 targetPeriapsisAltitude, targetApoapsisAltitude, maximumAllowedHeatRate, maximumAllowedHeatLoad,
                 minimumAllowedDynamicPressure, minimumAllowedLifetime );
 
+    // Create multi-array of results
+    boost::multi_array< Eigen::Matrix< double, 8, 1 >, 2 > corridorResults( boost::extents[ testConditions.second ][ testModes.second ] );
+
     // Loop over various initial conditions
     for ( unsigned int initialConditions = testConditions.first; initialConditions < testConditions.second; initialConditions++ )
     {
@@ -227,6 +230,13 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
                       << "Peak dynamic pressure: " << peakDynamicPressure << " N/m^2" << std::endl
                       << "Peak heat rate: " << peakHeatRate << " W/m^2" << std::endl
                       << "Heat load: " << heatLoad / 1.0e3 << "kJ/m^2" << std::endl;
+            Eigen::Vector3d estimatedHeating = guidanceSystem->testGetAerothermodynamicCorridorParameters( );
+
+            // Store results
+            corridorResults[ initialConditions ][ navigationMode ] =
+                    ( Eigen::VectorXd( 8 ) << guidanceSystem->getPeriapsisAltitudeTargetingInformation( ).second,
+                      postManeuverPredictedPeriapsisAltitude, peakDynamicPressure, estimatedHeating[ 2 ], peakHeatRate,
+                    estimatedHeating[ 0 ], heatLoad, estimatedHeating[ 1 ] ).finished( );
 
             // Check that target altitude was indeed targeted
             BOOST_CHECK_CLOSE_FRACTION( postManeuverPredictedPeriapsisAltitude,
@@ -241,11 +251,31 @@ BOOST_AUTO_TEST_CASE( testCorridorEstimator )
             BOOST_CHECK_GE( maximumAllowedHeatLoad, heatLoad );
         }
     }
+
+    // Save results to file
+    std::map< int, std::string > outFileNamesMap;
+    outFileNamesMap[ 0 ] = "TestingResults/gsCeTargetPeriapsis.dat";
+    outFileNamesMap[ 1 ] = "TestingResults/gsCeActualPeriapsis.dat";
+    outFileNamesMap[ 2 ] = "TestingResults/gsCePeakDynPress.dat";
+    outFileNamesMap[ 3 ] = "TestingResults/gsCePeakDynPressEst.dat";
+    outFileNamesMap[ 4 ] = "TestingResults/gsCePeakHeatRate.dat";
+    outFileNamesMap[ 5 ] = "TestingResults/gsCePeakHeatRateEst.dat";
+    outFileNamesMap[ 6 ] = "TestingResults/gsCeHeatLoad.dat";
+    outFileNamesMap[ 7 ] = "TestingResults/gsCeHeatLoadEst.dat";
+    Eigen::VectorXd vectorOfConditions = Eigen::ArrayXd::LinSpaced( ( testConditions.second - testConditions.first ),
+                                                                    testConditions.first, testConditions.second - 1 );
+    Eigen::VectorXd vectorOfModes = Eigen::ArrayXd::LinSpaced( ( testModes.second - testModes.first ),
+                                                               testModes.first, testModes.second - 1 );
+    std::vector< std::vector< double > > independentVariables;
+    independentVariables.push_back( utilities::convertEigenVectorToStlVector( vectorOfConditions ) );
+    independentVariables.push_back( utilities::convertEigenVectorToStlVector( vectorOfModes ) );
+    input_output::MultiArrayFileWriter< 2, 8 >::writeMultiArrayAndIndependentVariablesToFiles( outFileNamesMap,
+                                                                                               independentVariables,
+                                                                                               corridorResults );
 }
 
 BOOST_AUTO_TEST_CASE( testManeuverEstimator )
 {
-
     // Declare guidance system generator
     boost::shared_ptr< GuidanceSystemGenerator > systemGenerator = boost::make_shared< GuidanceSystemGenerator >( );
     double initialTime = systemGenerator->getCurrentTime( );
